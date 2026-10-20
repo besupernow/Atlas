@@ -202,12 +202,35 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       if (!mounted || generation != _generation) return;
 
       if (_useTexturePlayer) {
-        final vc = vp.VideoPlayerController.networkUrl(
-          Uri.parse(url),
-          videoPlayerOptions: vp.VideoPlayerOptions(mixWithOthers: false),
-        );
+        // AVPlayer (iOS/macOS) rejects a live HLS playlist that has no
+        // segments yet (CoreMedia -12884), and a fresh transcode needs a few
+        // seconds to produce them. Retry before giving up.
+        appLogger.i('Live preview stream: ${Uri.parse(url).path}');
+        vp.VideoPlayerController? ready;
+        Object? lastError;
+        for (var attempt = 0; attempt < 4 && ready == null; attempt++) {
+          if (attempt > 0) {
+            await Future<void>.delayed(Duration(milliseconds: 1500 * attempt));
+            if (!mounted || generation != _generation) return;
+          }
+          final vc = vp.VideoPlayerController.networkUrl(
+            Uri.parse(url),
+            videoPlayerOptions: vp.VideoPlayerOptions(mixWithOthers: false),
+          );
+          try {
+            await vc.initialize();
+            ready = vc;
+          } catch (e) {
+            lastError = e;
+            appLogger.d('Live preview attempt ${attempt + 1} failed', error: e);
+            try {
+              await vc.dispose();
+            } catch (_) {}
+          }
+        }
+        if (ready == null) throw lastError ?? StateError('Preview could not start');
+        final vc = ready;
         _vc = vc;
-        await vc.initialize();
         if (!mounted || generation != _generation) {
           if (identical(_vc, vc)) _vc = null;
           await vc.dispose();
@@ -424,80 +447,80 @@ class _LiveFullscreenState extends State<_LiveFullscreen> {
       body: PopScope(
         canPop: true,
         child: Focus(
-          autofocus: true,
-          onKeyEvent: (_, event) {
-            if (event is KeyDownEvent) _bump();
-            return KeyEventResult.ignored;
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _bump,
-            child: ValueListenableBuilder<Object?>(
-              valueListenable: st.playerNotifier,
-              builder: (context, player, _) {
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (player == null)
-                      const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
-                    else if (player is vp.VideoPlayerController)
-                      _TextureVideo(controller: player, cover: false)
-                    else if (player is Player)
-                        Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
-                    AnimatedOpacity(
-                      opacity: _showControls ? 1 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: IgnorePointer(
-                        ignoring: !_showControls,
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xB3000000), Colors.transparent],
+        autofocus: true,
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent) _bump();
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _bump,
+          child: ValueListenableBuilder<Object?>(
+            valueListenable: st.playerNotifier,
+            builder: (context, player, _) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (player == null)
+                    const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
+                  else if (player is vp.VideoPlayerController)
+                    _TextureVideo(controller: player, cover: false)
+                  else if (player is Player)
+                    Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
+                  AnimatedOpacity(
+                    opacity: _showControls ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: IgnorePointer(
+                      ignoring: !_showControls,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xB3000000), Colors.transparent],
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                autofocus: true,
+                                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                                onPressed: () => Navigator.of(context).maybePop(),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  autofocus: true,
-                                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                                  onPressed: () => Navigator.of(context).maybePop(),
+                              Expanded(
+                                child: Text(
+                                  [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
                                 ),
-                                Expanded(
-                                  child: Text(
-                                    [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
-                                  ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                                  color: Colors.white,
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () {
-                                    st.toggleMute();
-                                    setState(() {});
-                                    _bump();
-                                  },
-                                ),
-                              ],
-                            ),
+                                onPressed: () {
+                                  st.toggleMute();
+                                  setState(() {});
+                                  _bump();
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
+      ),
       ),
     );
   }
