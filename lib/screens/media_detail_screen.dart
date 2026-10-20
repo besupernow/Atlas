@@ -16,6 +16,8 @@ import 'package:provider/provider.dart';
 import '../widgets/collapsible_text.dart';
 import '../widgets/rating_bottom_sheet.dart';
 
+import '../models/catalog/catalog_item.dart';
+import '../models/catalog/catalog_metadata.dart';
 import '../focus/dpad_navigator.dart';
 import '../focus/dpad_select_long_press_controller.dart';
 import '../focus/focusable_action_bar.dart';
@@ -2330,8 +2332,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   /// Load related hubs (collections, similar, "more from" director/actor).
   /// Backend-neutral — both Plex and Jellyfin implement
   /// [MediaServerClient.fetchRelatedHubs].
-  Future<void> _loadRelatedHubs() {
-    return _loadSupplementalSection<List<MediaHub>>(
+  Future<void> _loadRelatedHubs() async {
+    await _loadSupplementalSection<List<MediaHub>>(
       resolveClient: () {
         final serverId = _metadata.serverId;
         return serverId == null ? null : context.tryGetMediaClientForServer(ServerId(serverId));
@@ -2343,8 +2345,56 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       },
       markLoaded: () => _hasLoadedRelatedHubs = true,
     );
+    unawaited(_appendSeerrRecommendations());
   }
+  Future<void> _appendSeerrRecommendations() async {
+    if (!_canUseDetail || widget.isOffline || (!_metadata.isMovie && !_metadata.isShow)) return;
+    try {
+      final source = Provider.of<CatalogSourcesProvider?>(context, listen: false)?.seerrSource;
+      if (source == null) return;
+      final serverId = _metadata.serverId;
+      final client = serverId == null ? null : context.tryGetMediaClientForServer(ServerId(serverId));
+      if (client == null) return;
 
+      final tmdb = (await client.fetchExternalIds(_metadata.id)).tmdb;
+      if (tmdb == null || !_canUseDetail) return;
+
+      final detail = await source.fetchDetail(
+        CatalogItem(
+          source: CatalogSourceId.seerr,
+          kind: _metadata.isMovie ? MediaKind.movie : MediaKind.show,
+          title: _metadata.title ?? '',
+          ids: CatalogItemIds(tmdb: tmdb),
+        ),
+        castLimit: 0,
+        relatedLimit: 30,
+      );
+      if (!_canUseDetail) return;
+
+      final items = [
+        for (final item in detail.related)
+          if (item.serverState?.availability != CatalogAvailability.available) item.toMediaItem(),
+      ];
+      if (items.isEmpty) return;
+
+      setStateIfMounted(() {
+        _relatedHubs = [
+          ..._relatedHubs,
+          MediaHub(
+            id: 'atlas.seerr.recommendations',
+            identifier: 'atlas.seerr.recommendations',
+            title: 'Not on Atlas yet · Request',
+            type: 'mixed',
+            items: items,
+            size: items.length,
+          ),
+        ];
+        _relatedHubKeys = [..._relatedHubKeys, GlobalKey<HubSectionState>()];
+      });
+    } catch (e) {
+      appLogger.d('Seerr recommendations skipped', error: e);
+    }
+  }
   /// Focus the first visible section above cast: season tabs → overview → play button.
   /// Shared by cast UP, extras UP, and related hub UP handlers.
   void _focusSectionAboveCast() {
