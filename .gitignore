@@ -18,6 +18,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
+*.jks
+
 # Keep .vscode/ available for contributors' local configuration.
 #.vscode/
 
