@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../utils/media_server_http_client.dart';
 
 /// Relay endpoint that returns a short, quotable Log ID.
-const String logUploadEndpoint = 'https://ice.plezy.app/logs';
+const String logUploadEndpoint = 'https://example.com';
 
 /// Relay `/logs` accepts 1 MiB. The in-memory buffer intentionally remains
 /// larger for local viewing and copying; uploads retain the device header and

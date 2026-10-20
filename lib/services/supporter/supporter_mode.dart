@@ -19,7 +19,7 @@ enum SupporterMode {
   msstore,
 }
 
-const String _supporterModeDefine = String.fromEnvironment('SUPPORTER_MODE');
+const String _supporterModeDefine = String.fromEnvironment('SUPPORTER_MODE', defaultValue: 'unlocked');
 
 /// This build's [SupporterMode]. Const, so `off` builds tree-shake perk UI that
 /// is guarded by a comparison against it.

@@ -44,6 +44,12 @@ class GuideTab extends StatefulWidget {
   final VoidCallback? onNavigateUp;
   final VoidCallback? onBack;
 
+  /// Overrides what selecting a channel does (default: open full screen).
+  final void Function(LiveTvChannel channel)? onChannelTap;
+
+  /// Called whenever the guide data (re)loads, keyed by liveTvChannelScopeKey.
+  final void Function(Map<String, List<LiveTvProgram>> programs)? onProgramsLoaded;
+
   const GuideTab({
     super.key,
     required this.channels,
@@ -51,6 +57,8 @@ class GuideTab extends StatefulWidget {
     this.onToggleFavorite,
     this.onNavigateUp,
     this.onBack,
+    this.onChannelTap,
+    this.onProgramsLoaded,
   });
 
   @override
@@ -59,9 +67,9 @@ class GuideTab extends StatefulWidget {
 
 @visibleForTesting
 ({String channelScopeKey, ({String kind, String value})? programId, int? beginsAt, int? endsAt}) guideAiringIdentity(
-  LiveTvChannel channel,
-  LiveTvProgram program,
-) {
+    LiveTvChannel channel,
+    LiveTvProgram program,
+    ) {
   ({String kind, String value})? programId;
   if (program.ratingKey case final ratingKey? when ratingKey.isNotEmpty) {
     programId = (kind: 'ratingKey', value: ratingKey);
@@ -74,22 +82,22 @@ class GuideTab extends StatefulWidget {
   // Keep the slot even with an ID so repeated airings cannot inherit each
   // other's hold; with no ID, channel scope plus timing is the fallback.
   return (
-    channelScopeKey: liveTvChannelScopeKey(channel),
-    programId: programId,
-    beginsAt: program.beginsAt,
-    endsAt: program.endsAt,
+  channelScopeKey: liveTvChannelScopeKey(channel),
+  programId: programId,
+  beginsAt: program.beginsAt,
+  endsAt: program.endsAt,
   );
 }
 
 enum _GuideZone { timeNav, grid }
 
 typedef _GuideFocusSnapshot = ({
-  bool hasFocus,
-  _GuideZone zone,
-  int timeNavIndex,
-  int channelIndex,
-  int gridColumn,
-  LiveTvProgram? program,
+bool hasFocus,
+_GuideZone zone,
+int timeNavIndex,
+int channelIndex,
+int gridColumn,
+LiveTvProgram? program,
 });
 
 sealed class _GuideRow {
@@ -111,6 +119,16 @@ final class _GuideChannelRow extends _GuideRow {
 
 class GuideTabState extends State<GuideTab>
     with LiveTvActionsMixin<GuideTab>, MountedSetStateMixin, WidgetsBindingObserver, LiveTvRefreshMixin<GuideTab> {
+  @override
+  Future<void> tuneChannel(LiveTvChannel channel) {
+    final onTap = widget.onChannelTap;
+    if (onTap != null) {
+      onTap(channel);
+      return Future<void>.value();
+    }
+    return super.tuneChannel(channel);
+  }
+
   static const _slotWidth = 180.0;
   static const _channelColumnWidth = 132.0;
   static const _rowHeight = 64.0;
@@ -169,12 +187,12 @@ class GuideTabState extends State<GuideTab>
   int _gridColumn = 0; // 0=channel, 1=program
   bool _hasFocus = false;
   final ValueNotifier<_GuideFocusSnapshot> _focusSnapshot = ValueNotifier((
-    hasFocus: false,
-    zone: _GuideZone.timeNav,
-    timeNavIndex: 1,
-    channelIndex: 0,
-    gridColumn: 0,
-    program: null,
+  hasFocus: false,
+  zone: _GuideZone.timeNav,
+  timeNavIndex: 1,
+  channelIndex: 0,
+  gridColumn: 0,
+  program: null,
   ));
   LiveTvProgram? _focusedProgram;
   bool _pendingFocus = false;
@@ -374,12 +392,12 @@ class GuideTabState extends State<GuideTab>
 
   void _publishFocusSnapshot() {
     _focusSnapshot.value = (
-      hasFocus: _hasFocus,
-      zone: _focusZone,
-      timeNavIndex: _timeNavIndex,
-      channelIndex: _gridChannelIndex,
-      gridColumn: _gridColumn,
-      program: _focusedProgram,
+    hasFocus: _hasFocus,
+    zone: _focusZone,
+    timeNavIndex: _timeNavIndex,
+    channelIndex: _gridChannelIndex,
+    gridColumn: _gridColumn,
+    program: _focusedProgram,
     );
   }
 
@@ -501,6 +519,7 @@ class GuideTabState extends State<GuideTab>
       setState(() {
         _programs = allPrograms;
         _programsByChannelScope = programsByChannelScope;
+        widget.onProgramsLoaded?.call(programsByChannelScope);
         _scheduledRecordingKeys = scheduledRecordingKeys;
         _recordingOverrides = const {};
         _isLoading = false;
@@ -921,8 +940,8 @@ class GuideTabState extends State<GuideTab>
         case 0:
           _shiftTimeRange(-2);
         case 1:
-          // The menu takes focus; suppress the in-flight SELECT key-up so the
-          // press that opened it cannot also activate the first menu item.
+        // The menu takes focus; suppress the in-flight SELECT key-up so the
+        // press that opened it cannot also activate the first menu item.
           SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
           _showDayPicker();
         case 2:
@@ -1575,7 +1594,7 @@ class GuideTabState extends State<GuideTab>
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
       isSelected: (focus) =>
-          focus.hasFocus && focus.zone == _GuideZone.grid && focus.gridColumn == 0 && focus.channelIndex == index,
+      focus.hasFocus && focus.zone == _GuideZone.grid && focus.gridColumn == 0 && focus.channelIndex == index,
       builder: (context, isFocused) {
         return _ChannelCell(
           rowHeight: _rowHeight,
@@ -1616,11 +1635,11 @@ class GuideTabState extends State<GuideTab>
   }
 
   Widget _buildProgramRow(
-    LiveTvChannel channel,
-    List<LiveTvProgram> programs,
-    ThemeData theme, {
-    required int channelIndex,
-  }) {
+      LiveTvChannel channel,
+      List<LiveTvProgram> programs,
+      ThemeData theme, {
+        required int channelIndex,
+      }) {
     if (programs.isEmpty) {
       final tk = tokens(context);
       return SizedBox(
@@ -1691,18 +1710,18 @@ class GuideTabState extends State<GuideTab>
   }
 
   Widget _buildProgramBlock(
-    LiveTvChannel channel,
-    LiveTvProgram program,
-    ThemeData theme, {
-    required int channelIndex,
-    required double tileLeft,
-    required double tileWidth,
-    required double scrollOffset,
-  }) {
+      LiveTvChannel channel,
+      LiveTvProgram program,
+      ThemeData theme, {
+        required int channelIndex,
+        required double tileLeft,
+        required double tileWidth,
+        required double scrollOffset,
+      }) {
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
       isSelected: (focus) =>
-          focus.hasFocus &&
+      focus.hasFocus &&
           focus.zone == _GuideZone.grid &&
           focus.gridColumn == 1 &&
           focus.channelIndex == channelIndex &&
@@ -1951,18 +1970,18 @@ class _ChannelCellState extends State<_ChannelCell> {
                         duration: FocusTheme.getAnimationDuration(context),
                         child: widget.channelThumb != null && widget.client != null
                             ? OptimizedMediaImage.thumb(
-                                client: widget.client!,
-                                imagePath: widget.channelThumb,
-                                width: widget.channelColumnWidth - 16,
-                                height: widget.rowHeight - 16,
-                                fit: BoxFit.contain,
-                                logoToneTarget: logoToneTargetFor(
-                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                                  foreground: widget.isFocused
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              )
+                          client: widget.client!,
+                          imagePath: widget.channelThumb,
+                          width: widget.channelColumnWidth - 16,
+                          height: widget.rowHeight - 16,
+                          fit: BoxFit.contain,
+                          logoToneTarget: logoToneTargetFor(
+                            surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
+                            foreground: widget.isFocused
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurface,
+                          ),
+                        )
                             : widget.fallbackBuilder(),
                       ),
                       if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),

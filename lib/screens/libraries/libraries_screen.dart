@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../media/media_kind.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:plezy/widgets/app_icon.dart';
@@ -166,7 +167,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     final hiddenLibrariesProvider = context.read<HiddenLibrariesProvider>();
     await hiddenLibrariesProvider.ensureInitialized();
     if (!mounted || _selectedLibraryGlobalKey != null) return;
-    final allLibraries = librariesProvider.libraries;
+    final allLibraries = librariesProvider.libraries
+        .where((lib) => lib.kind == MediaKind.movie || lib.kind == MediaKind.show)
+        .toList();
 
     if (allLibraries.isEmpty) {
       // No libraries available yet
@@ -174,7 +177,11 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     }
 
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
-    final visibleLibraries = allLibraries.where((lib) => !hiddenKeys.contains(lib.globalKey)).toList();
+    final visibleLibraries = allLibraries
+        .where((lib) =>
+    !hiddenKeys.contains(lib.globalKey) &&
+        (lib.kind == MediaKind.movie || lib.kind == MediaKind.show))
+        .toList();
 
     final storage = await StorageService.getInstance();
     if (!mounted || _selectedLibraryGlobalKey != null) return;
@@ -469,7 +476,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
 
   Future<void> _loadLibraryContent(String libraryGlobalKey) async {
     final librariesProvider = context.read<LibrariesProvider>();
-    final allLibraries = librariesProvider.libraries;
+    final allLibraries = librariesProvider.libraries
+        .where((lib) => lib.kind == MediaKind.movie || lib.kind == MediaKind.show)
+        .toList();
 
     // Resolve from allLibraries — hidden libraries are still navigable from the
     // sidebar's "Hidden libraries" section.
@@ -607,7 +616,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       // If we just hid the selected library, select the first visible one
       if (isCurrentlySelected) {
         // Compute visible libraries after hiding
-        final allLibraries = librariesProvider.libraries;
+        final allLibraries = librariesProvider.libraries
+            .where((lib) => lib.kind == MediaKind.movie || lib.kind == MediaKind.show)
+            .toList();
         final visibleLibraries = allLibraries
             .where((lib) => !hiddenLibrariesProvider.hiddenLibraryKeys.contains(lib.globalKey))
             .toList();
@@ -763,7 +774,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
 
   Widget _buildContent(BuildContext context, bool groupByServerSetting) {
     final librariesProvider = context.watch<LibrariesProvider>();
-    final allLibraries = librariesProvider.libraries;
+    final allLibraries = librariesProvider.libraries
+        .where((lib) => lib.kind == MediaKind.movie || lib.kind == MediaKind.show)
+        .toList();
     final isLoadingLibraries = librariesProvider.isLoading;
     final librariesErrorMessage = librariesProvider.errorMessage;
 

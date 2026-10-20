@@ -30,6 +30,7 @@ import '../mixins/mounted_set_state_mixin.dart';
 import '../mixins/refreshable.dart';
 import '../widgets/overlay_sheet.dart';
 import '../mixins/tab_visibility_aware.dart';
+import '../media/media_kind.dart';
 import '../navigation/navigation_tabs.dart';
 import '../navigation/profile_navigation_scope.dart';
 import '../navigation/settings_shortcut.dart';
@@ -45,6 +46,7 @@ import '../providers/multi_server_provider.dart';
 import '../providers/hidden_libraries_provider.dart';
 import '../providers/libraries_provider.dart';
 import '../providers/playback_state_provider.dart';
+import '../services/jellyfin_client.dart';
 import '../providers/seerr_account_provider.dart';
 import '../widgets/settings_builder.dart';
 import '../widgets/tv_virtual_keyboard.dart';
@@ -53,10 +55,7 @@ import '../services/multi_server_manager.dart';
 import '../services/offline_watch_sync_service.dart';
 import '../services/settings_service.dart';
 import '../providers/offline_mode_provider.dart';
-import '../services/companion_remote/companion_remote_host_controller.dart';
-import '../services/companion_remote/companion_remote_receiver.dart';
 import '../services/fullscreen_state_manager.dart';
-import '../providers/companion_remote_provider.dart';
 import '../utils/desktop_window_padding.dart';
 import '../utils/live_tv_deep_link.dart';
 import '../widgets/music/mini_player.dart';
@@ -66,7 +65,7 @@ import '../widgets/side_navigation_rail.dart';
 import '../focus/dpad_navigator.dart';
 import '../focus/key_event_utils.dart';
 import 'discover_screen.dart';
-import 'explore_screen.dart';
+import 'categories_screen.dart';
 import 'libraries/library_quick_picker_sheet.dart';
 import 'libraries/libraries_screen.dart';
 import 'livetv/live_tv_screen.dart';
@@ -77,7 +76,6 @@ import 'profile/profile_switch_screen.dart';
 import 'video_player_screen.dart';
 import 'profile/profile_teardown.dart';
 import '../services/system_shelf_service.dart';
-import '../watch_together/watch_together.dart';
 
 /// Provides access to the main screen's focus control.
 // MainScreenFocusScope and SideNavigationBleedBuilder live in
@@ -125,14 +123,12 @@ bool shouldShowProfileSelectionOnResume({
   required bool alreadyShowingProfileSelection,
   required bool isMobilePlatform,
   required bool hasActiveVideoPlayback,
-  required bool hasActiveCompanionRemoteSession,
 }) {
   return resumedFromBackground &&
       !isOffline &&
       !alreadyShowingProfileSelection &&
       isMobilePlatform &&
-      !hasActiveVideoPlayback &&
-      !hasActiveCompanionRemoteSession;
+      !hasActiveVideoPlayback;
 }
 
 /// Latches whether the app has genuinely left the foreground since the last
@@ -522,6 +518,7 @@ class _MainScreenState extends State<MainScreen>
 
     WidgetsBinding.instance.addObserver(this);
     _contentFocusScope.addListener(_syncSidebarFocusWithContent);
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_autoConnectSeerr()));
 
     if (PlatformDetector.isDesktopOS()) {
       windowManager.addListener(this);
@@ -536,7 +533,7 @@ class _MainScreenState extends State<MainScreen>
       _lastHasLiveTv = false;
     }
     try {
-      _lastHasExplore = context.read<CatalogSourcesProvider>().hasAnySource && _showExploreTabSetting;
+      _lastHasExplore = true;
     } catch (_) {
       _lastHasExplore = false;
     }
@@ -568,10 +565,6 @@ class _MainScreenState extends State<MainScreen>
     }
 
     // Set up Watch Together callbacks immediately (must be synchronous to catch early messages)
-    if (!_isOffline) {
-      _setupWatchTogetherCallback();
-      _setupSystemShelfDeepLink();
-    }
 
     // Wire profile binder + tracker bootstrap (skip in offline mode)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -613,9 +606,6 @@ class _MainScreenState extends State<MainScreen>
         if (!mounted) return;
 
         // Auto-start companion remote server once the active profile is known.
-        if (_companionRemoteSetup) {
-          unawaited(_autoStartCompanionRemoteServer());
-        }
       }
 
       // Focus content initially (replaces autofocus which caused focus stealing issues)
@@ -867,35 +857,7 @@ class _MainScreenState extends State<MainScreen>
     showSkipVersion: true,
   );
 
-  /// Set up the Watch Together navigation callback for guests
-  void _setupWatchTogetherCallback() {
-    try {
-      final watchTogether = context.read<WatchTogetherProvider>();
-      watchTogether.onMediaSwitched = (ratingKey, serverId, mediaTitle) {
-        appLogger.d('WatchTogether: Media switch received - navigating to $mediaTitle');
-        return _navigateToWatchTogetherMedia(ratingKey, serverId);
-      };
-      watchTogether.onHostExitedPlayer = () {
-        appLogger.d('WatchTogether: Host exited player - exiting player for guest');
-        // Watch Together playback lives in the profile navigator; root-level
-        // dialogs/profile picker must not be affected.
-        if (!mounted) return;
-        final navigator = Navigator.of(context);
-        bool isVideoPlayerOnTop = false;
-        navigator.popUntil((route) {
-          if (route.isCurrent) {
-            isVideoPlayerOnTop = route.settings.name == kVideoPlayerRouteName;
-          }
-          return true;
-        });
-        if (isVideoPlayerOnTop && navigator.canPop()) {
-          navigator.pop();
-        }
-      };
-    } catch (e) {
-      appLogger.w('Could not set up Watch Together callback', error: e);
-    }
-  }
+
 
   /// Set up launcher shelf deep link handling for Android TV and tvOS taps.
   void _setupSystemShelfDeepLink() {
@@ -965,18 +927,6 @@ class _MainScreenState extends State<MainScreen>
   /// Navigate to media when host switches content in Watch Together session.
   /// Returns whether navigation was initiated; failures are re-dispatched on
   /// the host's next state heartbeat.
-  Future<bool> _navigateToWatchTogetherMedia(String ratingKey, ServerId serverId) async {
-    if (!mounted) return false; // Check before any context usage
-
-    try {
-      return await navigateToWatchTogetherPlayback(context, ratingKey: ratingKey, serverId: serverId);
-    } catch (e) {
-      appLogger.e('WatchTogether: Failed to navigate to media', error: e);
-      return false;
-    }
-  }
-
-  bool _companionRemoteSetup = false;
   ValueChanged<String>? _systemShelfTapCallback;
 
   @override
@@ -1015,12 +965,6 @@ class _MainScreenState extends State<MainScreen>
       _catalogSourcesProvider!.addListener(_handleCatalogSourcesChanged);
     }
 
-    // Wire up Companion Remote command routing (host devices only, once)
-    if (!_companionRemoteSetup && PlatformDetector.shouldActAsRemoteHost(context)) {
-      _companionRemoteSetup = true;
-      _setupCompanionRemote();
-    }
-
     _miniPlayerInsets = context.read<MiniPlayerInsetController?>();
 
     final scopedRouteObserver = ProfileNavigationScope.of(context).routeObserver;
@@ -1034,63 +978,6 @@ class _MainScreenState extends State<MainScreen>
     }
   }
 
-  void _setupCompanionRemote() {
-    final companionRemote = context.read<CompanionRemoteProvider>();
-    companionRemote.onCommandReceived = (command) {
-      if (mounted) {
-        CompanionRemoteReceiver.instance.handleCommand(command, context);
-      }
-    };
-
-    final receiver = CompanionRemoteReceiver.instance;
-    receiver.navigationOwner = this;
-    receiver.onTabNext = () {
-      final tabs = _getVisibleTabs(_isOffline);
-      final idx = tabs.indexWhere((t) => t.id == _currentTab);
-      if (idx >= 0) _selectTab(tabs[(idx + 1) % tabs.length].id);
-    };
-    receiver.onTabPrevious = () {
-      final tabs = _getVisibleTabs(_isOffline);
-      final idx = tabs.indexWhere((t) => t.id == _currentTab);
-      if (idx >= 0) _selectTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
-    };
-    receiver.onTabDiscover = () => _selectTab(NavigationTabId.discover);
-    receiver.onTabLibraries = () => _selectTab(NavigationTabId.libraries);
-    receiver.onTabSearch = () => _selectTab(NavigationTabId.search);
-    receiver.onTabDownloads = () => _selectTab(NavigationTabId.downloads);
-    receiver.onTabSettings = () => _selectTab(NavigationTabId.settings);
-    receiver.onHome = () {
-      final tabs = _getVisibleTabs(_isOffline);
-      if (tabs.isEmpty) return;
-      _selectTab(tabs.first.id);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _sideNavKey.currentState?.focusHomeItem();
-      });
-    };
-    receiver.onSearchAction = (query) {
-      final trimmed = query?.trim() ?? '';
-      final hasQuery = trimmed.isNotEmpty;
-      // With a query, don't focus the input (which would auto-open the TV
-      // keyboard); submitSearchQuery runs the search and focuses results.
-      _selectTab(NavigationTabId.search, focusSearchInput: !hasQuery);
-      if (hasQuery) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _onScreen<SearchInputFocusable>(NavigationTabId.search, (screen) => screen.submitSearchQuery(trimmed));
-        });
-      }
-    };
-  }
-
-  Future<void> _autoStartCompanionRemoteServer() async {
-    try {
-      final settings = await SettingsService.getInstance();
-      if (!settings.read(SettingsService.enableCompanionRemoteServer)) return;
-      if (!mounted) return;
-      await startCompanionRemoteHost(context);
-    } catch (e) {
-      appLogger.e('CompanionRemote: Failed to auto-start server', error: e);
-    }
-  }
 
   @override
   void dispose() {
@@ -1118,21 +1005,6 @@ class _MainScreenState extends State<MainScreen>
 
     // Clean up only callbacks still owned by this screen. A replacement
     // MainScreen may already have installed its callbacks this frame.
-    if (_companionRemoteSetup) {
-      final receiver = CompanionRemoteReceiver.instance;
-      if (identical(receiver.navigationOwner, this)) {
-        receiver.onTabNext = null;
-        receiver.onTabPrevious = null;
-        receiver.onTabDiscover = null;
-        receiver.onTabLibraries = null;
-        receiver.onTabSearch = null;
-        receiver.onTabDownloads = null;
-        receiver.onTabSettings = null;
-        receiver.onHome = null;
-        receiver.onSearchAction = null;
-        receiver.navigationOwner = null;
-      }
-    }
     final shelfCallback = _systemShelfTapCallback;
     final systemShelf = SystemShelfService();
     if (shelfCallback != null && identical(systemShelf.onShelfItemTap, shelfCallback)) {
@@ -1171,6 +1043,22 @@ class _MainScreenState extends State<MainScreen>
       }
     }
   }
+  Future<void> _autoConnectSeerr() async {
+    if (!mounted || widget.isOfflineMode) return;
+    final seerr = context.read<SeerrAccountProvider?>();
+    final multi = context.read<MultiServerProvider>();
+    if (seerr == null) return;
+    for (var i = 0; i < 10 && mounted; i++) {
+      for (final id in multi.onlineServerIds) {
+        final client = multi.getClientForServer(ServerId(id));
+        if (client is JellyfinClient) {
+          await seerr.autoConnectWithJellyfin(client.connection);
+          return;
+        }
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -1188,12 +1076,7 @@ class _MainScreenState extends State<MainScreen>
       alreadyShowingProfileSelection: _isShowingProfileSelection,
       isMobilePlatform: Platform.isAndroid || Platform.isIOS,
       hasActiveVideoPlayback: VideoPlayerScreenState.activeGlobalKey != null,
-      // Short-circuit on resumedFromBackground: the provider is lazy and
-      // otherwise unused on phones, so an unconditional read would create it
-      // on the first lifecycle event for users who never open the remote.
-      // isInSession, not isConnected: on resume the held reconnect cycle
-      // means the session is typically still `reconnecting` (#2035).
-      hasActiveCompanionRemoteSession: resumedFromBackground && context.read<CompanionRemoteProvider>().isInSession,
+
     )) {
       _showProfileSelectionOnResume();
     }
@@ -1259,7 +1142,7 @@ class _MainScreenState extends State<MainScreen>
 
     return switch (tab) {
       NavigationTabId.discover => DiscoverScreen(key: _screenKeys[tab]),
-      NavigationTabId.explore => ExploreScreen(key: _screenKeys[tab]),
+      NavigationTabId.explore => CategoriesScreen(key: _screenKeys[tab]),
       NavigationTabId.libraries => LibrariesScreen(
         key: _screenKeys[tab],
         onLibraryOrderChanged: _onLibraryOrderChanged,
@@ -1362,7 +1245,7 @@ class _MainScreenState extends State<MainScreen>
   bool get _showExploreTabSetting => SettingsService.instanceOrNull?.read(SettingsService.showExploreTab) ?? true;
 
   void _handleCatalogSourcesChanged() {
-    final hasExplore = (_catalogSourcesProvider?.hasAnySource ?? false) && _showExploreTabSetting;
+    final hasExplore = true;
     if (hasExplore == _lastHasExplore) return;
     _lastHasExplore = hasExplore;
 
@@ -1924,7 +1807,9 @@ class _MainScreenState extends State<MainScreen>
                 final allLibraries = librariesProvider.libraries;
                 final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
                 final visibleLibraries = allLibraries
-                    .where((library) => !hiddenKeys.contains(library.globalKey))
+                    .where((library) =>
+                !hiddenKeys.contains(library.globalKey) &&
+                    (library.kind == MediaKind.movie || library.kind == MediaKind.show))
                     .toList();
                 final emptyMessage = allLibraries.isEmpty
                     ? t.libraries.noLibrariesFound
@@ -2025,7 +1910,7 @@ class _MainScreenState extends State<MainScreen>
                 style: navigationBarLabelStyle(context),
                 child: navigationBar,
               );
-        if (librariesIndex < 0) return bar;
+        return bar;
 
         final isRtl = Directionality.of(context) == TextDirection.rtl;
         final left = isRtl ? constraints.maxWidth - (itemWidth * (librariesIndex + 1)) : itemWidth * librariesIndex;

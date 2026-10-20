@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
-
+import '../settings/add_jellyfin_screen.dart';
 import '../../connection/connection.dart';
 import '../../connection/connection_registry.dart';
 import '../../i18n/strings.g.dart';
@@ -145,7 +145,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> with Controll
   }
 
   Future<void> _addConnection() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddConnectionScreen(targetProfile: _profile)));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AddJellyfinScreen(targetProfile: _profile)));
   }
 
   Future<void> _removeConnection(ProfileConnection pc, Connection conn) async {
@@ -326,20 +326,23 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> with Controll
               else
                 PinStatusRow(onChange: _setPin, onRemove: _clearPin, changeFocusNode: _changePinFocusNode),
               const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(child: Text(t.profiles.connectionsLabel, style: theme.textTheme.labelLarge)),
-                  FocusableButton(
+              StreamBuilder<List<ProfileConnection>>(
+                stream: context.read<ProfileConnectionRegistry>().watchForProfile(_profile.id),
+                builder: (context, snap) {
+                  if (!snap.hasData || visibleProfileConnections(_profile, snap.data!).isNotEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return FocusableButton(
                     focusNode: _addConnectionFocusNode,
                     useBackgroundFocus: true,
                     onPressed: _addConnection,
-                    child: TextButton.icon(
+                    child: FilledButton.icon(
                       onPressed: _addConnection,
-                      icon: const AppIcon(Symbols.add_rounded, fill: 1),
-                      label: Text(t.profiles.add),
+                      icon: const AppIcon(Symbols.link_rounded, fill: 1),
+                      label: const Text('Connect account'),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
               const SizedBox(height: 8),
               _ConnectionsList(
@@ -467,31 +470,31 @@ class _ConnectionsListState extends State<_ConnectionsList> {
                           itemBuilder: (_) => [AppMenuItem(value: 'sign_out', label: t.profiles.signOut)],
                         ),
                       ),
-                    for (final pc in visiblePcs)
-                      if (byId[pc.connectionId] case final conn?)
-                        ListTile(
-                          leading: BackendBadge(backend: conn.backend, size: 24),
-                          title: Text(conn.displayLabel),
-                          subtitle: _ConnectionSubtitle.build(conn: conn, pc: pc, homeCache: homeCache, theme: theme),
-                          trailing: FocusablePopupMenuButton<String>(
-                            icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
-                            tooltip: t.profiles.manage,
-                            onSelected: (value) {
-                              if (value == 'default') {
-                                unawaited(pcRegistry.setDefault(profile.id, pc.connectionId));
-                              } else if (value == 'edit') {
-                                unawaited(widget.onEdit(conn));
-                              } else if (value == 'remove') {
-                                unawaited(widget.onRemove(pc, conn));
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              if (!pc.isDefault) AppMenuItem(value: 'default', label: t.profiles.makeDefault),
-                              if (conn is JellyfinConnection) AppMenuItem(value: 'edit', label: t.common.edit),
-                              AppMenuItem(value: 'remove', label: t.profiles.removeConnection),
-                            ],
-                          ),
-                        ),
+                    // for (final pc in visiblePcs)
+                    //   if (byId[pc.connectionId] case final conn?)
+                    //     ListTile(
+                    //       leading: BackendBadge(backend: conn.backend, size: 24),
+                    //       title: Text(conn.displayLabel),
+                    //       subtitle: _ConnectionSubtitle.build(conn: conn, pc: pc, homeCache: homeCache, theme: theme),
+                    //       // trailing: FocusablePopupMenuButton<String>(
+                    //       //   icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
+                    //       //   tooltip: t.profiles.manage,
+                    //       //   onSelected: (value) {
+                    //       //     if (value == 'default') {
+                    //       //       unawaited(pcRegistry.setDefault(profile.id, pc.connectionId));
+                    //       //     } else if (value == 'edit') {
+                    //       //       unawaited(widget.onEdit(conn));
+                    //       //     } else if (value == 'remove') {
+                    //       //       unawaited(widget.onRemove(pc, conn));
+                    //       //     }
+                    //       //   },
+                    //       //   itemBuilder: (_) => [
+                    //       //     if (!pc.isDefault) AppMenuItem(value: 'default', label: t.profiles.makeDefault),
+                    //       //     if (conn is JellyfinConnection) AppMenuItem(value: 'edit', label: t.common.edit),
+                    //       //     AppMenuItem(value: 'remove', label: t.profiles.removeConnection),
+                    //       //   ],
+                    //       // ),
+                    //     ),
                   ],
                 );
               },
@@ -522,7 +525,7 @@ class _ConnectionSubtitle {
         if (user != null) parts.add(t.profiles.connectionAs(displayName: user.displayName));
       }
     }
-    if (pc.isDefault) parts.add(t.profiles.connectionDefault);
+    // if (pc.isDefault) parts.add(t.profiles.connectionDefault);
     if (parts.isEmpty) return null;
     return Text(parts.join(' · '));
   }

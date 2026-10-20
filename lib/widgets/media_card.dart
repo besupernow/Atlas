@@ -964,46 +964,46 @@ class _MediaCardList extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (_showsSource) ...[
-                      const SizedBox(height: 4),
-                      ExcludeSemantics(
-                        child: Row(
-                          children: [
-                            // The row centers the badge on the text's line
-                            // box (~0.38em above baseline), but server and
-                            // library names are lowercase-heavy, so their
-                            // optical mass is the x-height band centered
-                            // ~0.26em above baseline — the badge reads as
-                            // floating high. Paint it that ~0.11em lower;
-                            // Transform leaves layout (and the episode
-                            // summary-line trade) untouched.
-                            Transform.translate(
-                              offset: Offset(0, _metadataFontSize * 0.115),
-                              child: BackendBadge(
-                                backend: (item as MediaItem).backend,
-                                size: _metadataFontSize + 2,
-                                color: tokens(context).textMuted.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                [?(item as MediaItem).serverName, ?libraryName].join(' • '),
-                                maxLines: 1,
-                                overflow: .ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: tokens(context).textMuted.withValues(alpha: 0.6),
-                                  fontSize: _metadataFontSize,
-                                  // Matches the summary line it replaces on
-                                  // wide rows, keeping the trade height-neutral.
-                                  height: 1.3,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    // if (_showsSource) ...[
+                    //   const SizedBox(height: 4),
+                    //   ExcludeSemantics(
+                    //     child: Row(
+                    //       children: [
+                    //         // The row centers the badge on the text's line
+                    //         // box (~0.38em above baseline), but server and
+                    //         // library names are lowercase-heavy, so their
+                    //         // optical mass is the x-height band centered
+                    //         // ~0.26em above baseline — the badge reads as
+                    //         // floating high. Paint it that ~0.11em lower;
+                    //         // Transform leaves layout (and the episode
+                    //         // summary-line trade) untouched.
+                    //         Transform.translate(
+                    //           offset: Offset(0, _metadataFontSize * 0.115),
+                    //           child: BackendBadge(
+                    //             backend: (item as MediaItem).backend,
+                    //             size: _metadataFontSize + 2,
+                    //             color: tokens(context).textMuted.withValues(alpha: 0.6),
+                    //           ),
+                    //         ),
+                    //         const SizedBox(width: 4),
+                    //         Flexible(
+                    //           child: Text(
+                    //             [?(item as MediaItem).serverName, ?libraryName].join(' • '),
+                    //             maxLines: 1,
+                    //             overflow: .ellipsis,
+                    //             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    //               color: tokens(context).textMuted.withValues(alpha: 0.6),
+                    //               fontSize: _metadataFontSize,
+                    //               // Matches the summary line it replaces on
+                    //               // wide rows, keeping the trade height-neutral.
+                    //               height: 1.3,
+                    //             ),
+                    //           ),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
+                    // ],
                   ],
                 ),
               ),

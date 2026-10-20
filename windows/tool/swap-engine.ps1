@@ -27,7 +27,7 @@ $sdkRoot = Split-Path -Parent (Split-Path -Parent $flutterCmd.Source)
 
 $stamp = (Get-Content (Join-Path $sdkRoot 'bin\cache\engine.stamp') -Raw).Trim()
 if ($stamp -ne $ExpectedEngine) {
-    Write-Error "SDK engine.stamp is $stamp but artifacts target $ExpectedEngine - rebuild flutter-plezy for this SDK first"
+    Write-Error "SDK engine.stamp is $stamp but artifacts target $ExpectedEngine - rebuild flutter-atlas for this SDK first"
 }
 
 $cacheDir = if ($Mode -eq 'debug') { 'windows-x64' } else { 'windows-x64-release' }
@@ -42,7 +42,7 @@ if ($Restore) {
     return
 }
 
-if (-not $Zip -or -not (Test-Path $Zip)) { Write-Error "pass -Zip <windows-x64-flutter.zip> (from flutter-plezy out\<v>\host_*\zip_archives\ or a Release)" }
+if (-not $Zip -or -not (Test-Path $Zip)) { Write-Error "pass -Zip <windows-x64-flutter.zip> (from flutter-atlas out\<v>\host_*\zip_archives\ or a Release)" }
 
 # One-time backup of the stock files we are about to overwrite.
 if (-not (Test-Path $backup)) {

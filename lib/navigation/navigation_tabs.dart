@@ -50,6 +50,7 @@ class NavigationTab {
       if (isOffline && tab.onlineOnly) return false;
       if (tab.id == NavigationTabId.liveTv && !hasLiveTv) return false;
       if (tab.id == NavigationTabId.explore && !hasExplore) return false;
+      if (tab.id == NavigationTabId.downloads && !isOffline) return false;
       if (tab.id == NavigationTabId.downloads && PlatformDetector.isAppleTV()) return false;
       return true;
     }).toList();
@@ -99,7 +100,7 @@ const allNavigationTabs = [
   NavigationTab(
     id: NavigationTabId.explore,
     onlineOnly: true,
-    icon: Symbols.explore_rounded,
+    icon: Symbols.category_rounded,
     getLabel: _getExploreLabel,
   ),
   NavigationTab(id: NavigationTabId.search, onlineOnly: true, icon: Symbols.search_rounded, getLabel: _getSearchLabel),

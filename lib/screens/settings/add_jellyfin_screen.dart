@@ -56,6 +56,8 @@ Future<String> resolveJellyfinClientVersion({Future<PackageInfo> Function()? pac
   return fallbackVersion;
 }
 
+const String _atlasServerUrl = 'https://atlas.besupernow.com';
+
 @visibleForTesting
 bool shouldCreateLocalJellyfinProfile({
   required Profile? targetProfile,
@@ -133,7 +135,11 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   @override
   void initState() {
     super.initState();
-    unawaited(_discoverLocalServers());
+    _isDiscoveringLocalServers = false;
+    _urlController.text = _atlasServerUrl;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_probe());
+    });
   }
 
   @override
@@ -458,102 +464,73 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return FocusedScrollScaffold(
-      title: Text(t.addServer.addMediaBrowserTitle(product: widget.dialect.productName)),
-      slivers: [
-        if (widget.dialect.supportsQuickConnect && quickConnectCode != null)
-          SliverFillRemaining(
-            hasScrollBody: false,
+    return PopScope(
+      canPop: widget.targetProfile != null, // no back out of the login screen
+      child: Scaffold(
+        body: SafeArea(
+          child: widget.dialect.supportsQuickConnect && quickConnectCode != null
+              ? Center(
             child: Padding(
-              padding: .fromLTRB(24, 24, 24, 24 + MediaQuery.paddingOf(context).bottom),
-              child: Center(
-                child: QuickConnectCodePanel(
-                  code: quickConnectCode!,
-                  cancelFocusNode: _cancelQuickConnectFocus,
-                  onCancel: cancelQuickConnect,
-                  errorText: errorText,
-                ),
+              padding: const EdgeInsets.all(24),
+              child: QuickConnectCodePanel(
+                code: quickConnectCode!,
+                cancelFocusNode: _cancelQuickConnectFocus,
+                onCancel: cancelQuickConnect,
+                errorText: errorText,
               ),
             ),
           )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Form(
-                key: _formKey,
-                child: Column(crossAxisAlignment: .stretch, children: _buildBodyChildren(theme)),
+              : Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _buildBodyChildren(theme),
+                  ),
+                ),
               ),
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 
   List<Widget> _buildBodyChildren(ThemeData theme) {
     return [
-      FocusableTextFormField(
-        controller: _urlController,
-        focusNode: _urlFocus,
-        // Native on every TV: on Apple TV `automatic` would route this
-        // wrap-to-4-lines field to the Flutter overlay, but it is logically
-        // single-line URL input the system keyboard handles (#1051, #1079).
-        tvTextInputPresentation: TvTextInputPresentation.platform,
-        autofocus: true,
-        tvTextInputAutoOpenBehavior: deferredUrlFieldAutoOpen,
-        keyboardType: TextInputType.url,
-        minLines: 1,
-        maxLines: 4,
-        autocorrect: false,
-        enableSuggestions: false,
-        enabled: !busy,
-        onChanged: (_) {
-          if (_serverInfo == null && _serverEndpoint == null && !_quickConnectEnabled) return;
-          setState(() {
-            _clearResolvedServer();
-          });
-        },
-        onNavigateDown: _serverInfo == null
-            ? _focusFirstDiscoveredServerOrFind
-            : () => _changeServerFocus.requestFocus(),
-        textInputAction: TextInputAction.go,
-        onFieldSubmitted: busy ? null : (_) => _probe(),
-        decoration: InputDecoration(
-          labelText: t.addServer.serverUrls,
-          // URL example — intentionally not localized.
-          hintText: widget.dialect.exampleBaseUrl,
-          helperText: _serverInfo == null ? t.addServer.serverUrlsHelper : null,
-          prefixIcon: const AppIcon(Symbols.link_rounded, fill: 1),
-        ),
-        validator: (_) => _enteredUrls().isEmpty ? t.addServer.required : null,
+      Text(
+        'Welcome to Atlas',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
+      const SizedBox(height: 32),
       if (_serverInfo == null) ...[
-        ..._buildLocalDiscoverySection(theme),
-        const SizedBox(height: 16),
-        FocusableButton(
-          focusNode: _findServerFocus,
-          useBackgroundFocus: true,
-          onNavigateUp: _focusLastDiscoveredServerOrUrl,
-          onPressed: busy ? null : _probe,
-          child: FilledButton.icon(
-            onPressed: busy ? null : _probe,
-            icon: busy ? const LoadingIndicatorBox() : const AppIcon(Symbols.travel_explore_rounded, fill: 1),
-            label: Text(t.addServer.findServer),
+        // Still reaching the server, or it failed (error shows below).
+        if (busy)
+          const Center(child: LoadingIndicatorBox())
+        else
+          FocusableButton(
+            focusNode: _findServerFocus,
+            useBackgroundFocus: true,
+            autofocus: true,
+            onPressed: _probe,
+            child: FilledButton(onPressed: _probe, child: const Text('Retry')),
           ),
-        ),
       ] else ...[
-        const SizedBox(height: 16),
-        _buildServerCard(theme),
-        const SizedBox(height: 16),
         FocusableTextFormField(
           controller: _usernameController,
           focusNode: _usernameFocus,
           autocorrect: false,
           enableSuggestions: false,
           enabled: !busy,
-          onNavigateUp: () => _changeServerFocus.requestFocus(),
           textInputAction: TextInputAction.next,
           onFieldSubmitted: busy ? null : (_) => _passwordFocus.requestFocus(),
           decoration: InputDecoration(
@@ -574,8 +551,6 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
             labelText: t.addServer.password,
             prefixIcon: const AppIcon(Symbols.lock_rounded, fill: 1),
           ),
-          // Empty passwords are valid on some MediaBrowser servers, so don't
-          // require a value.
         ),
         const SizedBox(height: 16),
         FocusableButton(
@@ -628,26 +603,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
                 ),
               ],
             ),
-          ),
-          FocusableButton(
-            focusNode: _changeServerFocus,
-            useBackgroundFocus: true,
-            onNavigateUp: () => _urlFocus.requestFocus(),
-            onNavigateDown: () => _usernameFocus.requestFocus(),
-            onPressed: busy
-                ? null
-                : () => setState(() {
-                    _clearResolvedServer();
-                  }),
-            child: TextButton(
-              onPressed: busy
-                  ? null
-                  : () => setState(() {
-                      _clearResolvedServer();
-                    }),
-              child: Text(t.addServer.change),
-            ),
-          ),
+          )
         ],
       ),
     );

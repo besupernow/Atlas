@@ -9,6 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../media/media_kind.dart';
 import '../focus/dpad_navigator.dart';
 import '../focus/focus_memory_tracker.dart';
 import '../focus/input_mode_tracker.dart';
@@ -432,6 +433,8 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   /// it survives relaunch, remount and layout switches (#1896). The rail's
   /// [ListenableBuilder] below listens to the pref, so the toggle just writes.
   bool get _librariesExpanded => SettingsService.instance.read(SettingsService.librariesSectionExpanded);
+  List<MediaLibrary> _flatLibs = const [];
+  String _flatKey(MediaLibrary lib) => '$_kLibraryItemPrefix:flat:${lib.globalKey}';
 
   bool _isHovered = false;
   bool _isTouchExpanded = false;
@@ -498,7 +501,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   /// focus-expanded — displaces content instead and stays transparent on TV.
   bool get _isFloatingPanel => _interactionExpanded && !widget.alwaysExpanded;
 
-  bool get _showDownloads => !PlatformDetector.isAppleTV();
+  bool get _showDownloads => !PlatformDetector.isAppleTV() && widget.isOfflineMode;
 
   /// macOS has the system green button; mobile/TV have no OS fullscreen toggle.
   bool get _showFullscreenToggle => Platform.isWindows || Platform.isLinux;
@@ -628,15 +631,10 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         return _kExplore;
       case NavigationTabId.libraries:
         final libKey = widget.selectedLibraryKey;
-        if (libKey != null && _librariesExpanded) {
-          final visibleKey = '$_kLibraryItemPrefix:${_LibraryNavSection.visible.name}:$libKey';
-          if (_mountedFocusNodeFor(visibleKey) != null) return visibleKey;
-          if (_hiddenLibrariesExpanded) {
-            final hiddenKey = '$_kLibraryItemPrefix:${_LibraryNavSection.hidden.name}:$libKey';
-            if (_mountedFocusNodeFor(hiddenKey) != null) return hiddenKey;
-          }
+        for (final lib in _flatLibs) {
+          if (lib.globalKey == libKey) return _flatKey(lib);
         }
-        return _kLibraries;
+        return _flatLibs.isNotEmpty ? _flatKey(_flatLibs.first) : _kHome;
       case NavigationTabId.search:
         return _kSearch;
       case NavigationTabId.downloads:
@@ -681,7 +679,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     return {
       _kHome,
       if (hasNowPlaying) _kNowPlaying,
-      _kLibraries,
+      ..._flatLibs.map(_flatKey),
       if (hasExplore) _kExplore,
       _kSearch,
       if (_showDownloads) _kDownloads,
@@ -690,8 +688,6 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
       if (hasHiddenLibraries) _kHiddenLibraries,
       if (_showFullscreenToggle) _kFullscreen,
       if (hasLiveTv) 'liveTv',
-      ..._focusKeysForLibraryRows(visibleRows),
-      if (_hiddenLibrariesExpanded) ..._focusKeysForLibraryRows(hiddenRows),
     };
   }
 
@@ -765,17 +761,11 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
       if (!widget.isOfflineMode) ...[
         _kHome,
         if (hasNowPlaying) _kNowPlaying,
-        _kLibraries,
+        ..._flatLibs.map(_flatKey),
         // Library rows render inside ExcludeFocus(excluding: !_librariesExpanded
         // || isCollapsed); keep the D-pad order in lockstep with that render
         // condition so a collapsed rail never targets a focus-excluded row.
-        if (_librariesExpanded && !isCollapsed) ...[
-          ..._focusKeysForLibraryRows(visibleRows),
-          if (hasHiddenLibraries) ...[
-            _kHiddenLibraries,
-            if (_hiddenLibrariesExpanded) ..._focusKeysForLibraryRows(hiddenRows),
-          ],
-        ],
+
         if (hasLiveTv) 'liveTv',
         if (hasExplore) _kExplore,
         _kSearch,
@@ -876,6 +866,10 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         visibleLibraries.add(lib);
       }
     }
+    _flatLibs = [
+      for (final lib in visibleLibraries)
+        if (lib.kind == MediaKind.movie || lib.kind == MediaKind.show) lib,
+    ];
 
     final isCollapsed = !_shouldExpand;
     final effectiveCollapsedWidth = collapsedWidthForContext(context);
@@ -902,7 +896,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         SettingsService.instance.listenable(SettingsService.librariesSectionExpanded),
       ]),
       builder: (context, _) {
-        final hasExplore = hasExploreSource && SettingsService.instance.read(SettingsService.showExploreTab);
+        final hasExplore = true;
         // Server grouping: only when multi-server AND the user-facing toggle is on.
         final groupByServerSetting = SettingsService.instance.read(SettingsService.groupLibrariesByServer);
         final showServerHeaders = serverIds.length > 1 && groupByServerSetting;
@@ -1033,14 +1027,19 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                         _buildNowPlayingItem(nowPlayingTrack, musicService, isCollapsed: isCollapsed),
                                         const SizedBox(height: _itemGap),
                                       ],
-                                      _buildLibrariesSection(
-                                        visibleRows,
-                                        hiddenRows,
-                                        hiddenLibraries.length,
-                                        t,
-                                        isCollapsed: isCollapsed,
-                                      ),
-                                      const SizedBox(height: _itemGap),
+                                      for (final lib in _flatLibs) ...[
+                                        _buildNavItem(
+                                          icon: ContentTypeHelper.getLibraryIcon(lib.kind.id),
+                                          selectedIcon: ContentTypeHelper.getLibraryIcon(lib.kind.id),
+                                          label: lib.title,
+                                          isSelected: widget.selectedTab == NavigationTabId.libraries &&
+                                              widget.selectedLibraryKey == lib.globalKey,
+                                          onTap: () => widget.onLibrarySelected(lib.globalKey),
+                                          focusNode: _focusTracker.get(_flatKey(lib)),
+                                          isCollapsed: isCollapsed,
+                                        ),
+                                        const SizedBox(height: _itemGap),
+                                      ],
                                       if (context.watch<MultiServerProvider>().hasLiveTv) ...[
                                         _buildNavItem(
                                           icon: Symbols.live_tv_rounded,
@@ -1055,8 +1054,8 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                       ],
                                       if (hasExplore) ...[
                                         _buildNavItem(
-                                          icon: Symbols.explore_rounded,
-                                          selectedIcon: Symbols.explore_rounded,
+                                          icon: Symbols.category_rounded,
+                                          selectedIcon: Symbols.category_rounded,
                                           label: Translations.of(context).navigation.explore,
                                           isSelected: widget.selectedTab == NavigationTabId.explore,
                                           onTap: () => widget.onDestinationSelected(NavigationTabId.explore),

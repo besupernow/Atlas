@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../settings/add_jellyfin_screen.dart';
 import '../../focus/focusable_button.dart';
 import '../../i18n/strings.g.dart';
 import '../../mixins/controller_disposer_mixin.dart';
@@ -80,7 +81,7 @@ class _AddLocalProfileScreenState extends State<AddLocalProfileScreen> with Cont
       // one connection. The picker offers both new sign-ins and borrowing from
       // existing profiles — empty borrow lists no longer trap the user.
       final navigator = Navigator.of(context);
-      await navigator.push(MaterialPageRoute(builder: (_) => AddConnectionScreen(targetProfile: profile)));
+      await navigator.push(MaterialPageRoute(builder: (_) => AddJellyfinScreen(targetProfile: profile)));
       if (!mounted) return;
       navigator.pop(true);
     } finally {

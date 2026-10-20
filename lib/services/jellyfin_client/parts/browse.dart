@@ -1,7 +1,7 @@
 part of '../../jellyfin_client.dart';
 
 String _segment(String value) => Uri.encodeComponent(value);
-
+final int _homeShuffleSeed = DateTime.now().millisecondsSinceEpoch;
 /// Transport policy for a hub surface: one whole-request deadline, retries
 /// only on immediate connection errors, no endpoint failover. See
 /// `_getItemsResponse` and [retryTransientMediaServerCall].
@@ -1834,16 +1834,28 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     );
   }
 
+  Future<List<MediaItem>> fetchTaggedCollections(String tag) async {
+    final rows = await _fetchItemsArray('/Items', {
+      'userId': connection.userId,
+      'IncludeItemTypes': 'BoxSet',
+      'Recursive': 'true',
+      'Tags': tag,
+      'SortBy': 'SortName',
+      'SortOrder': 'Ascending',
+      'Fields': _hubRowFields,
+      ...jellyfinImageQueryParameters,
+    });
+    return _mapItems(rows);
+  }
+
   @override
   Future<List<MediaHub>> fetchGlobalHubs({
     int limit = defaultHubPreviewLimit,
     bool includePlaybackHubs = true,
     HubFetchDiagnostics? diagnostics,
   }) async {
-    // Jellyfin doesn't expose a single "hubs" endpoint, so we synthesise the
-    // home rows from Latest plus optional playback rows. The richer Plex Discover surface
-    // is intentionally left untranslated — see ServerCapabilities.richHubs.
-    return _playbackHubSet(
+    // Built-in rows: Latest, plus the optional playback rows.
+    final base = await _playbackHubSet(
       idPrefix: 'home',
       limit: limit,
       includePlaybackHubs: includePlaybackHubs,
@@ -1855,6 +1867,66 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       recentTitle: t.discover.recentlyAdded,
       diagnostics: diagnostics,
     );
+
+    // Rows from the server's Home Screen Sections plugin, in server order.
+    final sections = await fetchHomeScreenSectionHubs(limit: limit);
+    if (sections.isEmpty) return base; // plugin missing or failed: keep built-in rows
+
+    // The plugin's own "Recently Added" rows replace the built-in one.
+    return [...base.where((h) => h.identifier != 'home.recent'), ...sections];
+  }
+
+  /// Rows from the Home Screen Sections plugin, in the order the server lists them.
+  Future<List<MediaHub>> fetchHomeScreenSectionHubs({required int limit}) async {
+    // Atlas already merges these into its Continue Watching row, or has its own source.
+    const skip = {'continuewatching', 'nextup', 'mymedia', 'livetv', 'myrequests', 'upcoming'};
+    try {
+      final res = await _http.get('/HomeScreen/Sections', queryParameters: {'userId': connection.userId});
+      final data = res.data;
+      final list = data is List ? data : (data is Map ? (data['Items'] ?? data['items']) : null);
+      if (list is! List) return const [];
+      final futures = <Future<MediaHub?>>[];
+      var i = 0;
+      for (final s in list.whereType<Map<String, dynamic>>()) {
+        final type = (s['Section'] ?? s['section'])?.toString();
+        i++;
+        if (type == null || skip.contains(type.toLowerCase())) continue;
+        final title = (s['DisplayText'] ?? s['displayText'])?.toString() ?? type;
+        final extra = (s['AdditionalData'] ?? s['additionalData'])?.toString();
+        futures.add(_fetchHomeScreenSection(i, type, title, extra, limit));
+      }
+      final hubs = (await Future.wait(futures)).whereType<MediaHub>().toList();
+      const pinned = 2; // rows that always stay on top
+      if (hubs.length <= pinned) return hubs;
+      final rest = hubs.sublist(pinned)..shuffle(Random(_homeShuffleSeed));
+      return [...hubs.take(pinned), ...rest];
+    } catch (e, st) {
+      appLogger.w('JellyfinClient: Home Screen Sections unavailable', error: e, stackTrace: st);
+      return const [];
+    }
+  }
+
+  Future<MediaHub?> _fetchHomeScreenSection(int index, String type, String title, String? extra, int limit) async {
+    try {
+      final res = await _http.get('/HomeScreen/Section/$type', queryParameters: {
+        'userId': connection.userId,
+        if (extra != null && extra.isNotEmpty) 'additionalData': extra,
+      });
+      final rows = _itemsArray(res.data).take(limit).toList();
+      if (rows.isEmpty) return null;
+      return JellyfinMappers.syntheticHub(
+        mapItem: _mapItem,
+        identifier: 'hss.$index.$type',
+        title: title,
+        type: 'mixed',
+        items: rows,
+        serverId: serverId,
+        serverName: serverName,
+      );
+    } catch (e) {
+      appLogger.w('JellyfinClient: home section $type failed', error: e);
+      return null;
+    }
   }
 
   @override

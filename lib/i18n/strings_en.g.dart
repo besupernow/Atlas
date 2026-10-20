@@ -104,8 +104,8 @@ class Translations$app$en {
 
 	// Translations
 
-	/// en: 'Plezy'
-	String get title => 'Plezy';
+	/// en: 'Atlas+'
+	String get title => 'Atlas+';
 }
 
 // Path: appIcon
@@ -134,11 +134,11 @@ class Translations$appIcon$en {
 	/// en: 'Couldn't change the app icon'
 	String get changeFailed => 'Couldn\'t change the app icon';
 
-	/// en: 'The new icon appears on your home screen once you leave Plezy.'
-	String get launcherHint => 'The new icon appears on your home screen once you leave Plezy.';
+	/// en: 'The new icon appears on your home screen once you leave Atlas+.'
+	String get launcherHint => 'The new icon appears on your home screen once you leave Atlas+.';
 
-	/// en: 'The new banner appears once you leave Plezy. Android TV can keep showing the old one until the TV restarts.'
-	String get tvLauncherHint => 'The new banner appears once you leave Plezy. Android TV can keep showing the old one until the TV restarts.';
+	/// en: 'The new banner appears once you leave Atlas+. Android TV can keep showing the old one until the TV restarts.'
+	String get tvLauncherHint => 'The new banner appears once you leave Atlas+. Android TV can keep showing the old one until the TV restarts.';
 
 	late final Translations$appIcon$names$en names = Translations$appIcon$names$en.internal(_root);
 }
@@ -151,8 +151,8 @@ class Translations$auth$en {
 
 	// Translations
 
-	/// en: 'Sign in with Plex'
-	String get signInWithPlex => 'Sign in with Plex';
+	/// en: 'Sign in with Atlas+'
+	String get signInWithPlex => 'Sign in with Atlas+';
 
 	/// en: 'Show QR Code'
 	String get showQRCode => 'Show QR Code';
@@ -184,8 +184,8 @@ class Translations$auth$en {
 	/// en: 'Use Quick Connect'
 	String get useQuickConnect => 'Use Quick Connect';
 
-	/// en: 'Open Quick Connect in Jellyfin and enter this code.'
-	String get quickConnectInstructions => 'Open Quick Connect in Jellyfin and enter this code.';
+	/// en: 'Open Quick Connect in Atlas+ and enter this code.'
+	String get quickConnectInstructions => 'Open Quick Connect in Atlas+ and enter this code.';
 
 	/// en: 'Waiting for approval…'
 	String get quickConnectWaiting => 'Waiting for approval…';
@@ -196,11 +196,11 @@ class Translations$auth$en {
 	/// en: 'Quick Connect expired. Try again.'
 	String get quickConnectExpired => 'Quick Connect expired. Try again.';
 
-	/// en: 'Plezy could not safely recover local sign-in and pending playback data. Please sign in again.'
-	String get localDataRecoveryRequired => 'Plezy could not safely recover local sign-in and pending playback data. Please sign in again.';
+	/// en: 'Atlas+ could not safely recover local sign-in and pending playback data. Please sign in again.'
+	String get localDataRecoveryRequired => 'Atlas+ could not safely recover local sign-in and pending playback data. Please sign in again.';
 
-	/// en: 'The Plex PIN check was rejected'
-	String get pinCheckRejected => 'The Plex PIN check was rejected';
+	/// en: 'The Atlas+ PIN check was rejected'
+	String get pinCheckRejected => 'The Atlas+ PIN check was rejected';
 }
 
 // Path: common
@@ -931,8 +931,8 @@ class Translations$settings$en {
 	/// en: 'Settings imported'
 	String get importSettingsSuccess => 'Settings imported';
 
-	/// en: 'This file isn't a valid Plezy settings export'
-	String get importSettingsInvalidFile => 'This file isn\'t a valid Plezy settings export';
+	/// en: 'This file isn't a valid Atlas+ settings export'
+	String get importSettingsInvalidFile => 'This file isn\'t a valid Atlas+ settings export';
 
 	/// en: 'Sign in before importing settings'
 	String get importSettingsNoUser => 'Sign in before importing settings';
@@ -1339,8 +1339,8 @@ class Translations$settings$en {
 	/// en: 'Start in fullscreen'
 	String get startInFullscreen => 'Start in fullscreen';
 
-	/// en: 'Open Plezy in fullscreen mode at launch'
-	String get startInFullscreenDescription => 'Open Plezy in fullscreen mode at launch';
+	/// en: 'Open Atlas+ in fullscreen mode at launch'
+	String get startInFullscreenDescription => 'Open Atlas+ in fullscreen mode at launch';
 
 	/// en: 'Exit fullscreen on player close'
 	String get exitFullscreenOnPlayerClose => 'Exit fullscreen on player close';
@@ -1486,8 +1486,8 @@ class Translations$settings$en {
 	/// en: 'Per show or movie'
 	String get playerScopeTitle => 'Per show or movie';
 
-	/// en: 'Export Plezy settings'
-	String get exportDialogTitle => 'Export Plezy settings';
+	/// en: 'Export Atlas+ settings'
+	String get exportDialogTitle => 'Export Atlas+ settings';
 }
 
 // Path: themeEditor
@@ -2080,11 +2080,11 @@ class Translations$mediaMenu$en {
 		other: '${n} other episodes are stored in the same file and will be deleted too:',
 	);
 
-	/// en: 'Plezy could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.'
-	String get deleteScopeUnverifiedProbeFailed => 'Plezy could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.';
+	/// en: 'Atlas+ could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.'
+	String get deleteScopeUnverifiedProbeFailed => 'Atlas+ could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.';
 
-	/// en: 'Your server did not provide file details for this item, so Plezy cannot check which files this will remove. It may delete more than the item named above.'
-	String get deleteScopeUnverifiedNoFileInfo => 'Your server did not provide file details for this item, so Plezy cannot check which files this will remove. It may delete more than the item named above.';
+	/// en: 'Your server did not provide file details for this item, so Atlas+ cannot check which files this will remove. It may delete more than the item named above.'
+	String get deleteScopeUnverifiedNoFileInfo => 'Your server did not provide file details for this item, so Atlas+ cannot check which files this will remove. It may delete more than the item named above.';
 
 	/// en: 'Media item deleted successfully'
 	String get mediaDeletedSuccessfully => 'Media item deleted successfully';
@@ -2895,8 +2895,8 @@ class Translations$profiles$en {
 
 	// Translations
 
-	/// en: 'Add Plezy profile'
-	String get addPlezyProfile => 'Add Plezy profile';
+	/// en: 'Add Atlas+ profile'
+	String get addPlezyProfile => 'Add Atlas+ profile';
 
 	/// en: 'Switching profile…'
 	String get switchingProfile => 'Switching profile…';
@@ -3129,8 +3129,8 @@ class Translations$connections$en {
 	/// en: 'Edit ${product} connection'
 	String editMediaBrowserTitle({required Object product}) => 'Edit ${product} connection';
 
-	/// en: 'Add or remove URLs for ${serverName}. Plezy will use the reachable URL with the lowest latency.'
-	String editMediaBrowserIntro({required Object serverName}) => 'Add or remove URLs for ${serverName}. Plezy will use the reachable URL with the lowest latency.';
+	/// en: 'Add or remove URLs for ${serverName}. Atlas+ will use the reachable URL with the lowest latency.'
+	String editMediaBrowserIntro({required Object serverName}) => 'Add or remove URLs for ${serverName}. Atlas+ will use the reachable URL with the lowest latency.';
 }
 
 // Path: accountPreferences
@@ -3153,8 +3153,8 @@ class Translations$accountPreferences$en {
 	/// en: 'Every account stores its own preferences. Pick the one to edit.'
 	String get pickAccount => 'Every account stores its own preferences. Pick the one to edit.';
 
-	/// en: 'These options are saved on the account itself, so every app signed in to it uses them — including Plezy on your other devices.'
-	String get storedOnAccount => 'These options are saved on the account itself, so every app signed in to it uses them — including Plezy on your other devices.';
+	/// en: 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.'
+	String get storedOnAccount => 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.';
 
 	/// en: 'No accounts to configure'
 	String get noAccounts => 'No accounts to configure';
@@ -3623,14 +3623,14 @@ class Translations$startup$en {
 
 	// Translations
 
-	/// en: 'Plezy could not start'
-	String get failedTitle => 'Plezy could not start';
+	/// en: 'Atlas+ could not start'
+	String get failedTitle => 'Atlas+ could not start';
 
 	/// en: 'Something went wrong during startup. The details below identify what failed.'
 	String get failedBody => 'Something went wrong during startup. The details below identify what failed.';
 
-	/// en: 'Plezy's saved settings file is damaged and has to be rebuilt before Plezy can start. Retrying will not help — choose Repair storage.'
-	String get failedBodyRepairable => 'Plezy\'s saved settings file is damaged and has to be rebuilt before Plezy can start. Retrying will not help — choose Repair storage.';
+	/// en: 'Atlas+'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.'
+	String get failedBodyRepairable => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.';
 
 	/// en: 'Step'
 	String get phaseLabel => 'Step';
@@ -3656,8 +3656,8 @@ class Translations$startup$en {
 	/// en: 'Repair stored data?'
 	String get repairTitle => 'Repair stored data?';
 
-	/// en: 'Plezy's settings file is damaged and cannot be read. Repairing resets every setting to its default.'
-	String get repairBodyCommon => 'Plezy\'s settings file is damaged and cannot be read. Repairing resets every setting to its default.';
+	/// en: 'Atlas+'s settings file is damaged and cannot be read. Repairing resets every setting to its default.'
+	String get repairBodyCommon => 'Atlas+\'s settings file is damaged and cannot be read. Repairing resets every setting to its default.';
 
 	/// en: 'One saved sign-in is damaged and cannot be read. Repairing removes just that one; your other settings are left alone.'
 	String get repairBodyOneCredential => 'One saved sign-in is damaged and cannot be read. Repairing removes just that one; your other settings are left alone.';
@@ -3668,8 +3668,8 @@ class Translations$startup$en {
 	/// en: 'The key protecting your saved sign-ins cannot be recovered from this file, so you will have to sign in to every server and profile again. Nothing on your media server is affected.'
 	String get repairBodySignInsLost => 'The key protecting your saved sign-ins cannot be recovered from this file, so you will have to sign in to every server and profile again. Nothing on your media server is affected.';
 
-	/// en: 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Plezy will tell you exactly what it kept.'
-	String get repairBodySessionsUncertain => 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Plezy will tell you exactly what it kept.';
+	/// en: 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Atlas+ will tell you exactly what it kept.'
+	String get repairBodySessionsUncertain => 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Atlas+ will tell you exactly what it kept.';
 
 	/// en: 'Repair'
 	String get repairConfirm => 'Repair';
@@ -3680,11 +3680,11 @@ class Translations$startup$en {
 	/// en: 'Storage repaired — restart required'
 	String get repairNeedsRestart => 'Storage repaired — restart required';
 
-	/// en: 'Your data was repaired, but Plezy has to start fresh before it can use it. Close Plezy and open it again.'
-	String get restartRequiredBody => 'Your data was repaired, but Plezy has to start fresh before it can use it. Close Plezy and open it again.';
+	/// en: 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.'
+	String get restartRequiredBody => 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.';
 
-	/// en: 'Quit Plezy'
-	String get quitPlezy => 'Quit Plezy';
+	/// en: 'Quit Atlas+'
+	String get quitPlezy => 'Quit Atlas+';
 
 	/// en: 'Repair failed'
 	String get repairFailed => 'Repair failed';
@@ -3710,8 +3710,8 @@ class Translations$startup$en {
 	/// en: 'Copy deleted.'
 	String get backupDeleted => 'Copy deleted.';
 
-	/// en: 'Plezy failed to start last time'
-	String get previousFailureTitle => 'Plezy failed to start last time';
+	/// en: 'Atlas+ failed to start last time'
+	String get previousFailureTitle => 'Atlas+ failed to start last time';
 }
 
 // Path: licenses
@@ -3753,7 +3753,7 @@ class Translations$navigation$en {
 	String get liveTv => 'Live TV';
 
 	/// en: 'Explore'
-	String get explore => 'Explore';
+	String get explore => 'Categories';
 }
 
 // Path: explore
@@ -5616,8 +5616,8 @@ class Translations$trakt$en {
 	/// en: 'Disconnect Trakt account?'
 	String get disconnectConfirm => 'Disconnect Trakt account?';
 
-	/// en: 'Plezy will stop sending events to Trakt. You can reconnect any time.'
-	String get disconnectConfirmBody => 'Plezy will stop sending events to Trakt. You can reconnect any time.';
+	/// en: 'Atlas+ will stop sending events to Trakt. You can reconnect any time.'
+	String get disconnectConfirmBody => 'Atlas+ will stop sending events to Trakt. You can reconnect any time.';
 
 	/// en: 'Real-time scrobbling'
 	String get scrobble => 'Real-time scrobbling';
@@ -5628,8 +5628,8 @@ class Translations$trakt$en {
 	/// en: 'Sync watched status'
 	String get watchedSync => 'Sync watched status';
 
-	/// en: 'When you mark items as watched in Plezy, they are also marked as watched on Trakt.'
-	String get watchedSyncDescription => 'When you mark items as watched in Plezy, they are also marked as watched on Trakt.';
+	/// en: 'When you mark items as watched in Atlas+, they are also marked as watched on Trakt.'
+	String get watchedSyncDescription => 'When you mark items as watched in Atlas+, they are also marked as watched on Trakt.';
 }
 
 // Path: seerr
@@ -5667,8 +5667,8 @@ class Translations$seerr$en {
 	/// en: 'Email'
 	String get email => 'Email';
 
-	/// en: 'This Seerr instance offers no sign-in method Plezy supports.'
-	String get noSignInMethods => 'This Seerr instance offers no sign-in method Plezy supports.';
+	/// en: 'This Seerr instance offers no sign-in method Atlas+ supports.'
+	String get noSignInMethods => 'This Seerr instance offers no sign-in method Atlas+ supports.';
 
 	/// en: 'Instance'
 	String get instance => 'Instance';
@@ -5676,8 +5676,8 @@ class Translations$seerr$en {
 	/// en: 'Disconnect Seerr?'
 	String get disconnectConfirm => 'Disconnect Seerr?';
 
-	/// en: 'Plezy will forget this Seerr instance. Reconnect any time.'
-	String get disconnectConfirmBody => 'Plezy will forget this Seerr instance. Reconnect any time.';
+	/// en: 'Atlas+ will forget this Seerr instance. Reconnect any time.'
+	String get disconnectConfirmBody => 'Atlas+ will forget this Seerr instance. Reconnect any time.';
 
 	/// en: 'Request'
 	String get request => 'Request';
@@ -5751,8 +5751,8 @@ class Translations$seerr$en {
 	/// en: 'No Seerr instance at ${url} (HTTP ${status})'
 	String noInstanceAtUrl({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})';
 
-	/// en: 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr's /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.'
-	String get behindAuthProxy => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.';
+	/// en: 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Atlas+ cannot sign in through it: let Seerr's /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.'
+	String get behindAuthProxy => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Atlas+ cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.';
 
 	/// en: 'Enter a server address like https://seerr.example.com'
 	String get invalidUrl => 'Enter a server address like https://seerr.example.com';
@@ -5823,8 +5823,8 @@ class Translations$services$en {
 	/// en: 'Disconnect ${service}?'
 	String disconnectConfirm({required Object service}) => 'Disconnect ${service}?';
 
-	/// en: 'Plezy will stop updating ${service}. Reconnect any time.'
-	String disconnectConfirmBody({required Object service}) => 'Plezy will stop updating ${service}. Reconnect any time.';
+	/// en: 'Atlas+ will stop updating ${service}. Reconnect any time.'
+	String disconnectConfirmBody({required Object service}) => 'Atlas+ will stop updating ${service}. Reconnect any time.';
 
 	/// en: 'Couldn't connect to ${service}. Try again.'
 	String connectFailed({required Object service}) => 'Couldn\'t connect to ${service}. Try again.';
@@ -7336,17 +7336,17 @@ class Translations$downloads$backgroundWarning$en {
 	/// en: 'Background downloads may be limited'
 	String get sheetTitleDegraded => 'Background downloads may be limited';
 
-	/// en: 'Android is preventing Plezy from downloading reliably in the background.'
-	String get sheetIntro => 'Android is preventing Plezy from downloading reliably in the background.';
+	/// en: 'Android is preventing Atlas+ from downloading reliably in the background.'
+	String get sheetIntro => 'Android is preventing Atlas+ from downloading reliably in the background.';
 
-	/// en: 'Your device is limiting when Plezy can download in the background.'
-	String get sheetIntroDegraded => 'Your device is limiting when Plezy can download in the background.';
+	/// en: 'Your device is limiting when Atlas+ can download in the background.'
+	String get sheetIntroDegraded => 'Your device is limiting when Atlas+ can download in the background.';
 
-	/// en: 'Plezy's background usage is restricted. Set its battery or background usage to "Unrestricted".'
-	String get reasonBackgroundRestricted => 'Plezy\'s background usage is restricted. Set its battery or background usage to "Unrestricted".';
+	/// en: 'Atlas+'s background usage is restricted. Set its battery or background usage to "Unrestricted".'
+	String get reasonBackgroundRestricted => 'Atlas+\'s background usage is restricted. Set its battery or background usage to "Unrestricted".';
 
-	/// en: 'Android has put Plezy in a restricted standby state. Set its battery usage to "Unrestricted".'
-	String get reasonStandbyRestricted => 'Android has put Plezy in a restricted standby state. Set its battery usage to "Unrestricted".';
+	/// en: 'Android has put Atlas+ in a restricted standby state. Set its battery usage to "Unrestricted".'
+	String get reasonStandbyRestricted => 'Android has put Atlas+ in a restricted standby state. Set its battery usage to "Unrestricted".';
 
 	/// en: 'Download notifications are turned off, so progress and controls may be unavailable.'
 	String get reasonDownloadChannelBlocked => 'Download notifications are turned off, so progress and controls may be unavailable.';
@@ -7357,8 +7357,8 @@ class Translations$downloads$backgroundWarning$en {
 	/// en: 'Data Saver is on, which blocks background downloads on mobile data. Downloads should still run on Wi-Fi.'
 	String get reasonDataSaver => 'Data Saver is on, which blocks background downloads on mobile data. Downloads should still run on Wi-Fi.';
 
-	/// en: 'Downloads repeatedly stopped while Plezy was in the background. Check Plezy's battery or background usage settings.'
-	String get reasonOemUnknown => 'Downloads repeatedly stopped while Plezy was in the background. Check Plezy\'s battery or background usage settings.';
+	/// en: 'Downloads repeatedly stopped while Atlas+ was in the background. Check Atlas+'s battery or background usage settings.'
+	String get reasonOemUnknown => 'Downloads repeatedly stopped while Atlas+ was in the background. Check Atlas+\'s battery or background usage settings.';
 
 	/// en: 'Open settings'
 	String get openSettings => 'Open settings';
@@ -7468,8 +7468,8 @@ class Translations$companionRemote$pairing$en {
 
 	// Translations
 
-	/// en: 'Plezy devices with the same Plex account appear here'
-	String get discoveryDescription => 'Plezy devices with the same Plex account appear here';
+	/// en: 'Atlas+ devices with the same Plex account appear here'
+	String get discoveryDescription => 'Atlas+ devices with the same Plex account appear here';
 
 	/// en: '192.168.1.100:48632'
 	String get hostAddressHint => '192.168.1.100:48632';
@@ -7483,8 +7483,8 @@ class Translations$companionRemote$pairing$en {
 	/// en: 'No devices found on your network'
 	String get noDevicesFound => 'No devices found on your network';
 
-	/// en: 'Open Plezy on desktop and use the same Wi-Fi'
-	String get noDevicesHint => 'Open Plezy on desktop and use the same Wi-Fi';
+	/// en: 'Open Atlas+ on desktop and use the same Wi-Fi'
+	String get noDevicesHint => 'Open Atlas+ on desktop and use the same Wi-Fi';
 
 	/// en: 'Available Devices'
 	String get availableDevices => 'Available Devices';
@@ -7504,8 +7504,8 @@ class Translations$companionRemote$pairing$en {
 	/// en: 'Connection timed out. Use the same network on both devices.'
 	String get connectionTimedOut => 'Connection timed out. Use the same network on both devices.';
 
-	/// en: 'Device not found. Make sure Plezy is running on the host.'
-	String get sessionNotFound => 'Device not found. Make sure Plezy is running on the host.';
+	/// en: 'Device not found. Make sure Atlas+ is running on the host.'
+	String get sessionNotFound => 'Device not found. Make sure Atlas+ is running on the host.';
 
 	/// en: 'Authentication failed. Both devices need the same Plex account.'
 	String get authFailed => 'Authentication failed. Both devices need the same Plex account.';
@@ -7672,8 +7672,8 @@ class Translations$services$simklReconnect$en {
 	/// en: 'Reconnect Simkl'
 	String get title => 'Reconnect Simkl';
 
-	/// en: 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Plezy — Plezy never sees your password. Your watch history stays on Simkl.'
-	String get subtitle => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Plezy — Plezy never sees your password. Your watch history stays on Simkl.';
+	/// en: 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.'
+	String get subtitle => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.';
 }
 
 // Path: services.deviceCode
@@ -7684,8 +7684,8 @@ class Translations$services$deviceCode$en {
 
 	// Translations
 
-	/// en: 'Activate Plezy on ${service}'
-	String title({required Object service}) => 'Activate Plezy on ${service}';
+	/// en: 'Activate Atlas+ on ${service}'
+	String title({required Object service}) => 'Activate Atlas+ on ${service}';
 
 	/// en: 'Scan the QR code, or visit the address below and enter this code:'
 	String get instructions => 'Scan the QR code, or visit the address below and enter this code:';
@@ -7789,15 +7789,15 @@ class Translations$services$libraryFilter$en {
 extension on Translations {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
-			'app.title' => 'Plezy',
+			'app.title' => 'Atlas+',
 			'appIcon.title' => 'App icon',
 			'appIcon.defaultIcon' => 'Default',
 			'appIcon.current' => 'Current icon',
 			'appIcon.locked' => 'Supporter perk',
 			'appIcon.lockedHint' => 'Alternate icons are a Supporter perk.',
 			'appIcon.changeFailed' => 'Couldn\'t change the app icon',
-			'appIcon.launcherHint' => 'The new icon appears on your home screen once you leave Plezy.',
-			'appIcon.tvLauncherHint' => 'The new banner appears once you leave Plezy. Android TV can keep showing the old one until the TV restarts.',
+			'appIcon.launcherHint' => 'The new icon appears on your home screen once you leave Atlas+.',
+			'appIcon.tvLauncherHint' => 'The new banner appears once you leave Atlas+. Android TV can keep showing the old one until the TV restarts.',
 			'appIcon.names.midnight' => 'Midnight',
 			'appIcon.names.ember' => 'Ember',
 			'appIcon.names.paper' => 'Paper',
@@ -7821,7 +7821,7 @@ extension on Translations {
 			'appIcon.names.strata' => 'Strata',
 			'appIcon.names.facet' => 'Facet',
 			'appIcon.names.tilde' => 'Tilde',
-			'auth.signInWithPlex' => 'Sign in with Plex',
+			'auth.signInWithPlex' => 'Sign in with Atlas+',
 			'auth.showQRCode' => 'Show QR Code',
 			'auth.authenticate' => 'Authenticate',
 			'auth.authenticationTimeout' => 'Authentication timed out. Please try again.',
@@ -7832,12 +7832,12 @@ extension on Translations {
 			'auth.connectToMediaBrowser' => ({required Object product}) => 'Connect to ${product}',
 			'auth.quickConnect' => 'Quick Connect',
 			'auth.useQuickConnect' => 'Use Quick Connect',
-			'auth.quickConnectInstructions' => 'Open Quick Connect in Jellyfin and enter this code.',
+			'auth.quickConnectInstructions' => 'Open Quick Connect in Atlas+ and enter this code.',
 			'auth.quickConnectWaiting' => 'Waiting for approval…',
 			'auth.quickConnectCancel' => 'Cancel',
 			'auth.quickConnectExpired' => 'Quick Connect expired. Try again.',
-			'auth.localDataRecoveryRequired' => 'Plezy could not safely recover local sign-in and pending playback data. Please sign in again.',
-			'auth.pinCheckRejected' => 'The Plex PIN check was rejected',
+			'auth.localDataRecoveryRequired' => 'Atlas+ could not safely recover local sign-in and pending playback data. Please sign in again.',
+			'auth.pinCheckRejected' => 'The Atlas+ PIN check was rejected',
 			'common.cancel' => 'Cancel',
 			'common.save' => 'Save',
 			'common.close' => 'Close',
@@ -8095,7 +8095,7 @@ extension on Translations {
 			'settings.importSettingsDescription' => 'Restore preferences from a file',
 			'settings.importSettingsConfirm' => 'This will replace your current settings. Continue?',
 			'settings.importSettingsSuccess' => 'Settings imported',
-			'settings.importSettingsInvalidFile' => 'This file isn\'t a valid Plezy settings export',
+			'settings.importSettingsInvalidFile' => 'This file isn\'t a valid Atlas+ settings export',
 			'settings.importSettingsNoUser' => 'Sign in before importing settings',
 			'settings.shortcutsReset' => 'Shortcuts reset to defaults',
 			'settings.resetShortcutsConfirm' => 'This will replace your custom shortcuts with the defaults. Continue?',
@@ -8231,7 +8231,7 @@ extension on Translations {
 			'settings.forceTvMode' => 'Force TV mode',
 			'settings.forceTvModeDescription' => 'Force TV layout. For devices that don\'t auto-detect. Requires restart.',
 			'settings.startInFullscreen' => 'Start in fullscreen',
-			'settings.startInFullscreenDescription' => 'Open Plezy in fullscreen mode at launch',
+			'settings.startInFullscreenDescription' => 'Open Atlas+ in fullscreen mode at launch',
 			'settings.exitFullscreenOnPlayerClose' => 'Exit fullscreen on player close',
 			'settings.exitFullscreenOnPlayerCloseDescription' => 'Automatically exit fullscreen when closing the video player',
 			'settings.autoHidePerformanceOverlay' => 'Auto-Hide Performance Overlay',
@@ -8280,7 +8280,7 @@ extension on Translations {
 			'settings.playerScopeGlobal' => 'Everywhere',
 			'settings.playerScopeLibrary' => 'Per library',
 			'settings.playerScopeTitle' => 'Per show or movie',
-			'settings.exportDialogTitle' => 'Export Plezy settings',
+			'settings.exportDialogTitle' => 'Export Atlas+ settings',
 			'themeEditor.builtIn' => 'Built-in',
 			'themeEditor.presets' => 'Presets',
 			'themeEditor.custom' => 'Custom',
@@ -8495,11 +8495,11 @@ extension on Translations {
 			'mediaMenu.deleteAnyway' => 'Delete anyway',
 			'mediaMenu.confirmDeleteTarget' => ({required Object title}) => 'Permanently delete ${title} from your server?',
 			'mediaMenu.deleteMultipleWarning' => 'This includes all episodes and their files.',
-			'mediaMenu.deleteEpisodeCountWarning' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'This deletes all ${n} episode in it, and its file.', other: 'This deletes all ${n} episodes in it, and their files.', ), 
-			'mediaMenu.deleteMultiPartWarning' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'This item is stored as ${n} file, which will be deleted.', other: 'This item is stored across ${n} files, and all of them will be deleted.', ), 
-			'mediaMenu.deleteSharedFileHeading' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} other episode is stored in the same file and will be deleted too:', other: '${n} other episodes are stored in the same file and will be deleted too:', ), 
-			'mediaMenu.deleteScopeUnverifiedProbeFailed' => 'Plezy could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.',
-			'mediaMenu.deleteScopeUnverifiedNoFileInfo' => 'Your server did not provide file details for this item, so Plezy cannot check which files this will remove. It may delete more than the item named above.',
+			'mediaMenu.deleteEpisodeCountWarning' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'This deletes all ${n} episode in it, and its file.', other: 'This deletes all ${n} episodes in it, and their files.', ),
+			'mediaMenu.deleteMultiPartWarning' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'This item is stored as ${n} file, which will be deleted.', other: 'This item is stored across ${n} files, and all of them will be deleted.', ),
+			'mediaMenu.deleteSharedFileHeading' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} other episode is stored in the same file and will be deleted too:', other: '${n} other episodes are stored in the same file and will be deleted too:', ),
+			'mediaMenu.deleteScopeUnverifiedProbeFailed' => 'Atlas+ could not check which files this will remove, so it may delete more than the item named above. Cancel and try again, or delete anyway.',
+			'mediaMenu.deleteScopeUnverifiedNoFileInfo' => 'Your server did not provide file details for this item, so Atlas+ cannot check which files this will remove. It may delete more than the item named above.',
 			'mediaMenu.mediaDeletedSuccessfully' => 'Media item deleted successfully',
 			'mediaMenu.mediaFailedToDelete' => 'Failed to delete media item',
 			'mediaMenu.rate' => 'Rate',
@@ -8640,7 +8640,7 @@ extension on Translations {
 			'messages.markedAsWatchedOffline' => 'Marked as watched (will sync when online)',
 			'messages.markedAsUnwatchedOffline' => 'Marked as unwatched (will sync when online)',
 			'messages.autoRemovedWatchedDownload' => ({required Object title}) => 'Auto-removed: ${title}',
-			'messages.autoRemovedWatchedDownloads' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Auto-removed ${n} watched download', other: 'Auto-removed ${n} watched downloads', ), 
+			'messages.autoRemovedWatchedDownloads' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Auto-removed ${n} watched download', other: 'Auto-removed ${n} watched downloads', ),
 			'messages.removedFromContinueWatching' => 'Removed from Continue Watching',
 			'messages.errorLoading' => ({required Object error}) => 'Error: ${error}',
 			'messages.searchPartialResults' => 'Some media servers could not be searched. Showing available results.',
@@ -8746,7 +8746,7 @@ extension on Translations {
 			'mpvConfig.removeLine' => 'Remove line',
 			'mpvConfig.embeddedVoHint' => 'vo, gpu-context and gpu-api are ignored on Linux: embedded video always renders through vo=libmpv on the video plane, and gpu-next (which compute shaders like ArtCNN need) cannot run embedded.',
 			'dialog.confirmAction' => 'Confirm Action',
-			'profiles.addPlezyProfile' => 'Add Plezy profile',
+			'profiles.addPlezyProfile' => 'Add Atlas+ profile',
 			'profiles.switchingProfile' => 'Switching profile…',
 			'profiles.deleteThisProfileTitle' => 'Delete this profile?',
 			'profiles.deleteThisProfileMessage' => ({required Object displayName}) => 'Remove ${displayName}. Connections aren\'t affected.',
@@ -8823,12 +8823,12 @@ extension on Translations {
 			'connections.accessDeniedMany' => ({required Object count}) => '${count} servers refused access for this account',
 			'connections.signInAgain' => 'Sign in again',
 			'connections.editMediaBrowserTitle' => ({required Object product}) => 'Edit ${product} connection',
-			'connections.editMediaBrowserIntro' => ({required Object serverName}) => 'Add or remove URLs for ${serverName}. Plezy will use the reachable URL with the lowest latency.',
+			'connections.editMediaBrowserIntro' => ({required Object serverName}) => 'Add or remove URLs for ${serverName}. Atlas+ will use the reachable URL with the lowest latency.',
 			'accountPreferences.sectionTitle' => 'Account preferences',
 			'accountPreferences.hubSubtitleSingle' => ({required Object account}) => 'Audio, subtitle and library options saved on ${account}',
 			'accountPreferences.hubSubtitleMultiple' => ({required Object count}) => 'Audio, subtitle and library options saved on ${count} accounts',
 			'accountPreferences.pickAccount' => 'Every account stores its own preferences. Pick the one to edit.',
-			'accountPreferences.storedOnAccount' => 'These options are saved on the account itself, so every app signed in to it uses them — including Plezy on your other devices.',
+			'accountPreferences.storedOnAccount' => 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.',
 			'accountPreferences.noAccounts' => 'No accounts to configure',
 			'accountPreferences.noAccountsHint' => 'Sign in to Plex, or connect a Jellyfin or Emby server, and the preferences stored on that account show up here.',
 			'accountPreferences.unavailable' => 'Can\'t reach this account',
@@ -8905,7 +8905,7 @@ extension on Translations {
 			'discover.tvShow' => 'TV Show',
 			'discover.minutesLeft' => ({required Object minutes}) => '${minutes} min left',
 			'discover.moreLikeThis' => 'More Like This',
-			'discover.titleCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} title', other: '${n} titles', ), 
+			'discover.titleCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} title', other: '${n} titles', ),
 			'discover.person.born' => 'Born',
 			'discover.person.died' => 'Died',
 			'discover.person.birthplace' => 'Birthplace',
@@ -9058,9 +9058,9 @@ extension on Translations {
 			'logs.clearLogs' => 'Clear Logs',
 			'logs.copyLogs' => 'Copy Logs',
 			'logs.uploadLogs' => 'Upload Logs',
-			'startup.failedTitle' => 'Plezy could not start',
+			'startup.failedTitle' => 'Atlas+ could not start',
 			'startup.failedBody' => 'Something went wrong during startup. The details below identify what failed.',
-			'startup.failedBodyRepairable' => 'Plezy\'s saved settings file is damaged and has to be rebuilt before Plezy can start. Retrying will not help — choose Repair storage.',
+			'startup.failedBodyRepairable' => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.',
 			'startup.phaseLabel' => 'Step',
 			'startup.showDetails' => 'Show details',
 			'startup.hideDetails' => 'Hide details',
@@ -9069,16 +9069,16 @@ extension on Translations {
 			'startup.uploadDetails' => 'Upload details',
 			'startup.repairStorage' => 'Repair storage',
 			'startup.repairTitle' => 'Repair stored data?',
-			'startup.repairBodyCommon' => 'Plezy\'s settings file is damaged and cannot be read. Repairing resets every setting to its default.',
+			'startup.repairBodyCommon' => 'Atlas+\'s settings file is damaged and cannot be read. Repairing resets every setting to its default.',
 			'startup.repairBodyOneCredential' => 'One saved sign-in is damaged and cannot be read. Repairing removes just that one; your other settings are left alone.',
 			'startup.repairBodySignInsKept' => 'Your servers and profiles should stay signed in.',
 			'startup.repairBodySignInsLost' => 'The key protecting your saved sign-ins cannot be recovered from this file, so you will have to sign in to every server and profile again. Nothing on your media server is affected.',
-			'startup.repairBodySessionsUncertain' => 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Plezy will tell you exactly what it kept.',
+			'startup.repairBodySessionsUncertain' => 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Atlas+ will tell you exactly what it kept.',
 			'startup.repairConfirm' => 'Repair',
 			'startup.repairSucceeded' => 'Storage repaired',
 			'startup.repairNeedsRestart' => 'Storage repaired — restart required',
-			'startup.restartRequiredBody' => 'Your data was repaired, but Plezy has to start fresh before it can use it. Close Plezy and open it again.',
-			'startup.quitPlezy' => 'Quit Plezy',
+			'startup.restartRequiredBody' => 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.',
+			'startup.quitPlezy' => 'Quit Atlas+',
 			'startup.repairFailed' => 'Repair failed',
 			'startup.repairKeptSignIns' => 'Your servers and profiles are still signed in.',
 			'startup.repairLostSignIns' => 'The key protecting your saved sign-ins could not be recovered. You will have to sign in to every server and profile again.',
@@ -9087,7 +9087,7 @@ extension on Translations {
 			'startup.backupWarning' => 'It contains your sign-in credentials. Do not upload or share it.',
 			'startup.deleteBackup' => 'Delete copy',
 			'startup.backupDeleted' => 'Copy deleted.',
-			'startup.previousFailureTitle' => 'Plezy failed to start last time',
+			'startup.previousFailureTitle' => 'Atlas+ failed to start last time',
 			'licenses.relatedPackages' => 'Related Packages',
 			'licenses.license' => 'License',
 			'licenses.licenseNumber' => ({required Object number}) => 'License ${number}',
@@ -9116,7 +9116,7 @@ extension on Translations {
 			'explore.status.ended' => 'Ended',
 			'explore.status.canceled' => 'Canceled',
 			'explore.status.upcoming' => 'Upcoming',
-			'explore.episodeCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} episode', other: '${n} episodes', ), 
+			'explore.episodeCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} episode', other: '${n} episodes', ),
 			'explore.cast' => 'Cast',
 			'explore.characters' => 'Characters',
 			'explore.addToWatchlist' => 'Add to Watchlist',
@@ -9128,7 +9128,7 @@ extension on Translations {
 			'explore.notInLibrary' => 'Not in your library',
 			'explore.inTheseLibraries' => 'In these libraries',
 			'explore.checkingLibrary' => 'Checking your library...',
-			'explore.libraryCheckFailed' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Couldn\'t check ${n} server', other: 'Couldn\'t check ${n} servers', ), 
+			'explore.libraryCheckFailed' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Couldn\'t check ${n} server', other: 'Couldn\'t check ${n} servers', ),
 			'explore.emptyTitle' => 'Nothing here yet',
 			'explore.emptyMessage' => ({required Object source}) => 'Rows from ${source} will appear here once they have content.',
 			'explore.searchHint' => ({required Object source}) => 'Search ${source}',
@@ -9165,7 +9165,7 @@ extension on Translations {
 			'explore.stats.planning' => ({required Object n}) => '${n} planning to watch',
 			'explore.stats.favorited' => ({required Object n}) => '${n} favorites',
 			'explore.stats.dropRate' => ({required Object percent}) => '${percent} dropped it',
-			'explore.stats.comments' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} comment', other: '${n} comments', ), 
+			'explore.stats.comments' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} comment', other: '${n} comments', ),
 			'explore.stats.votes' => ({required Object n}) => '${n} votes',
 			'explore.stats.watching' => ({required Object n}) => '${n} watching it',
 			'explore.stats.completed' => ({required Object n}) => '${n} completed',
@@ -9232,14 +9232,14 @@ extension on Translations {
 			'explore.detail.crew' => 'Crew',
 			'explore.detail.ratings' => 'Ratings',
 			'explore.detail.schedule' => 'Schedule',
-			'explore.detail.recommendedByUsers' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Recommended by ${n} user', other: 'Recommended by ${n} users', ), 
+			'explore.detail.recommendedByUsers' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Recommended by ${n} user', other: 'Recommended by ${n} users', ),
 			'explore.detail.recommendedBy' => ({required Object who}) => 'Recommended by ${who}',
 			'explore.detail.favoritedBy' => ({required Object who}) => 'Favorited by ${who}',
 			'explore.detail.unairedEpisodes' => ({required Object n}) => '${n} not aired yet',
 			'explore.detail.recommendedByPercent' => ({required Object percent}) => 'Recommended by ${percent} of viewers',
 			'explore.detail.relatedTitles' => 'Related titles',
 			'explore.detail.background' => 'Background',
-			'explore.totalResults' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} result', other: '${n} results', ), 
+			'explore.totalResults' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} result', other: '${n} results', ),
 			'liveTv.title' => 'Live TV',
 			'liveTv.guide' => 'Guide',
 			'liveTv.noChannels' => 'No channels available',
@@ -9386,7 +9386,7 @@ extension on Translations {
 			'music.playNext' => 'Play next',
 			'music.addToQueue' => 'Add to queue',
 			'music.discNumber' => ({required Object n}) => 'Disc ${n}',
-			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
+			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ),
 			'music.nowPlaying' => 'Now Playing',
 			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
 			'music.queue' => 'Queue',
@@ -9574,14 +9574,14 @@ extension on Translations {
 			'downloads.backgroundWarning.bannerAction' => 'Details',
 			'downloads.backgroundWarning.sheetTitle' => 'Background downloads are blocked',
 			'downloads.backgroundWarning.sheetTitleDegraded' => 'Background downloads may be limited',
-			'downloads.backgroundWarning.sheetIntro' => 'Android is preventing Plezy from downloading reliably in the background.',
-			'downloads.backgroundWarning.sheetIntroDegraded' => 'Your device is limiting when Plezy can download in the background.',
-			'downloads.backgroundWarning.reasonBackgroundRestricted' => 'Plezy\'s background usage is restricted. Set its battery or background usage to "Unrestricted".',
-			'downloads.backgroundWarning.reasonStandbyRestricted' => 'Android has put Plezy in a restricted standby state. Set its battery usage to "Unrestricted".',
+			'downloads.backgroundWarning.sheetIntro' => 'Android is preventing Atlas+ from downloading reliably in the background.',
+			'downloads.backgroundWarning.sheetIntroDegraded' => 'Your device is limiting when Atlas+ can download in the background.',
+			'downloads.backgroundWarning.reasonBackgroundRestricted' => 'Atlas+\'s background usage is restricted. Set its battery or background usage to "Unrestricted".',
+			'downloads.backgroundWarning.reasonStandbyRestricted' => 'Android has put Atlas+ in a restricted standby state. Set its battery usage to "Unrestricted".',
 			'downloads.backgroundWarning.reasonDownloadChannelBlocked' => 'Download notifications are turned off, so progress and controls may be unavailable.',
 			'downloads.backgroundWarning.reasonNotificationsDisabled' => 'Notifications are turned off. On Android 13 or newer, they are required for long background downloads.',
 			'downloads.backgroundWarning.reasonDataSaver' => 'Data Saver is on, which blocks background downloads on mobile data. Downloads should still run on Wi-Fi.',
-			'downloads.backgroundWarning.reasonOemUnknown' => 'Downloads repeatedly stopped while Plezy was in the background. Check Plezy\'s battery or background usage settings.',
+			'downloads.backgroundWarning.reasonOemUnknown' => 'Downloads repeatedly stopped while Atlas+ was in the background. Check Atlas+\'s battery or background usage settings.',
 			'downloads.backgroundWarning.openSettings' => 'Open settings',
 			'downloads.backgroundWarning.stillNotWorking' => 'Device-specific help',
 			'downloads.backgroundWarning.stillNotWorkingDescription' => 'See steps for your device, or send a log from Settings › View Logs if the issue continues.',
@@ -9645,19 +9645,19 @@ extension on Translations {
 			'companionRemote.session.stopServer' => 'Stop Server',
 			'companionRemote.session.minimize' => 'Minimize',
 			'companionRemote.session.manualAddressHint' => 'Manual connection address:',
-			'companionRemote.pairing.discoveryDescription' => 'Plezy devices with the same Plex account appear here',
+			'companionRemote.pairing.discoveryDescription' => 'Atlas+ devices with the same Plex account appear here',
 			'companionRemote.pairing.hostAddressHint' => '192.168.1.100:48632',
 			'companionRemote.pairing.connecting' => 'Connecting...',
 			'companionRemote.pairing.searchingForDevices' => 'Looking for devices...',
 			'companionRemote.pairing.noDevicesFound' => 'No devices found on your network',
-			'companionRemote.pairing.noDevicesHint' => 'Open Plezy on desktop and use the same Wi-Fi',
+			'companionRemote.pairing.noDevicesHint' => 'Open Atlas+ on desktop and use the same Wi-Fi',
 			'companionRemote.pairing.availableDevices' => 'Available Devices',
 			'companionRemote.pairing.manualConnection' => 'Manual Connection',
 			'companionRemote.pairing.cryptoInitFailed' => 'Couldn\'t start secure connection. Sign in to Plex first.',
 			'companionRemote.pairing.validationHostRequired' => 'Please enter host address',
 			'companionRemote.pairing.validationHostFormat' => 'Format must be IP:port (e.g., 192.168.1.100:48632)',
 			'companionRemote.pairing.connectionTimedOut' => 'Connection timed out. Use the same network on both devices.',
-			'companionRemote.pairing.sessionNotFound' => 'Device not found. Make sure Plezy is running on the host.',
+			'companionRemote.pairing.sessionNotFound' => 'Device not found. Make sure Atlas+ is running on the host.',
 			'companionRemote.pairing.authFailed' => 'Authentication failed. Both devices need the same Plex account.',
 			'companionRemote.pairing.failedToConnect' => ({required Object error}) => 'Failed to connect: ${error}',
 			'companionRemote.remote.disconnectConfirm' => 'Do you want to disconnect from the remote session?',
@@ -9885,11 +9885,11 @@ extension on Translations {
 			'trakt.connected' => 'Connected',
 			'trakt.connectedAs' => ({required Object username}) => 'Connected as @${username}',
 			'trakt.disconnectConfirm' => 'Disconnect Trakt account?',
-			'trakt.disconnectConfirmBody' => 'Plezy will stop sending events to Trakt. You can reconnect any time.',
+			'trakt.disconnectConfirmBody' => 'Atlas+ will stop sending events to Trakt. You can reconnect any time.',
 			'trakt.scrobble' => 'Real-time scrobbling',
 			'trakt.scrobbleDescription' => 'Send play, pause, and stop events to Trakt during playback.',
 			'trakt.watchedSync' => 'Sync watched status',
-			'trakt.watchedSyncDescription' => 'When you mark items as watched in Plezy, they are also marked as watched on Trakt.',
+			'trakt.watchedSyncDescription' => 'When you mark items as watched in Atlas+, they are also marked as watched on Trakt.',
 			'seerr.title' => 'Seerr',
 			'seerr.connectTitle' => 'Connect Seerr',
 			'seerr.serverUrl' => 'Server URL',
@@ -9899,10 +9899,10 @@ extension on Translations {
 			'seerr.signInWithEmby' => 'Sign in with Emby',
 			'seerr.signInWithLocal' => 'Use a local account',
 			'seerr.email' => 'Email',
-			'seerr.noSignInMethods' => 'This Seerr instance offers no sign-in method Plezy supports.',
+			'seerr.noSignInMethods' => 'This Seerr instance offers no sign-in method Atlas+ supports.',
 			'seerr.instance' => 'Instance',
 			'seerr.disconnectConfirm' => 'Disconnect Seerr?',
-			'seerr.disconnectConfirmBody' => 'Plezy will forget this Seerr instance. Reconnect any time.',
+			'seerr.disconnectConfirmBody' => 'Atlas+ will forget this Seerr instance. Reconnect any time.',
 			'seerr.request' => 'Request',
 			'seerr.request4k' => 'Request in 4K',
 			'seerr.seasons' => 'Seasons',
@@ -9927,7 +9927,7 @@ extension on Translations {
 			'seerr.statusBlocklisted' => 'Blocklisted',
 			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
 			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',
-			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
+			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Atlas+ cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
 			'seerr.invalidUrl' => 'Enter a server address like https://seerr.example.com',
 			'seerr.quickConnectUnsupported' => 'This Seerr instance does not support Quick Connect. It needs Seerr 3.4 or newer.',
 			'seerr.notInitialized' => 'This Seerr instance has not completed first-run setup',
@@ -9948,7 +9948,7 @@ extension on Translations {
 			'services.scrobble' => 'Track progress automatically',
 			'services.scrobbleDescription' => 'Update your list when you finish an episode or movie.',
 			'services.disconnectConfirm' => ({required Object service}) => 'Disconnect ${service}?',
-			'services.disconnectConfirmBody' => ({required Object service}) => 'Plezy will stop updating ${service}. Reconnect any time.',
+			'services.disconnectConfirmBody' => ({required Object service}) => 'Atlas+ will stop updating ${service}. Reconnect any time.',
 			'services.connectFailed' => ({required Object service}) => 'Couldn\'t connect to ${service}. Try again.',
 			'services.names.mal' => 'MyAnimeList',
 			'services.names.anilist' => 'AniList',
@@ -9956,8 +9956,8 @@ extension on Translations {
 			'services.names.seerr' => 'Seerr',
 			'services.names.mdblist' => 'MDBList',
 			'services.simklReconnect.title' => 'Reconnect Simkl',
-			'services.simklReconnect.subtitle' => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Plezy — Plezy never sees your password. Your watch history stays on Simkl.',
-			'services.deviceCode.title' => ({required Object service}) => 'Activate Plezy on ${service}',
+			'services.simklReconnect.subtitle' => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.',
+			'services.deviceCode.title' => ({required Object service}) => 'Activate Atlas+ on ${service}',
 			'services.deviceCode.instructions' => 'Scan the QR code, or visit the address below and enter this code:',
 			'services.deviceCode.openToActivate' => ({required Object service}) => 'Open ${service} to activate',
 			'services.deviceCode.copyCode' => 'Copy activation code',

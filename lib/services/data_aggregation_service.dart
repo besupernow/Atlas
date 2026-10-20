@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../media/ids.dart';
 
+import 'jellyfin_client.dart';
 import '../media/media_hub.dart';
 import '../media/media_item.dart';
 import '../media/media_item_merge.dart';
@@ -634,19 +635,29 @@ class DataAggregationService {
           // A fallback backend cannot run a hub leg without the libraries its
           // prefetch failed to discover.
           if (useGlobalHubs && prefetchDegraded) return const <MediaHub>[];
-          final libraryHubs = await _fetchLibraryHubsForClient(
-            client,
-            limit: hubItemLimit,
-            hiddenLibraryKeys: hiddenLibraryKeys,
-            includePlaybackHubs: includePlaybackHubs,
-            libraries: useGlobalHubs ? serverLibraries : null,
-          );
-          if (libraryHubs.succeeded || (!libraryHubs.failed && !libraryHubs.cancelled)) {
-            legSucceededServerIds.add(serverId);
+          // Jellyfin servers running the Home Screen Sections plugin: use its rows.
+          var pluginHubs = const <MediaHub>[];
+          if (client is JellyfinClient && !includePlaybackHubs) {
+            pluginHubs = await client.fetchHomeScreenSectionHubs(limit: hubItemLimit);
           }
-          if (libraryHubs.failed) legFailedServerIds.add(serverId);
-          if (libraryHubs.cancelled) legCancelledServerIds.add(serverId);
-          hubs = libraryHubs.hubs;
+          if (pluginHubs.isNotEmpty) {
+            legSucceededServerIds.add(serverId);
+            hubs = pluginHubs;
+          } else {
+            final libraryHubs = await _fetchLibraryHubsForClient(
+              client,
+              limit: hubItemLimit,
+              hiddenLibraryKeys: hiddenLibraryKeys,
+              includePlaybackHubs: includePlaybackHubs,
+              libraries: useGlobalHubs ? serverLibraries : null,
+            );
+            if (libraryHubs.succeeded || (!libraryHubs.failed && !libraryHubs.cancelled)) {
+              legSucceededServerIds.add(serverId);
+            }
+            if (libraryHubs.failed) legFailedServerIds.add(serverId);
+            if (libraryHubs.cancelled) legCancelledServerIds.add(serverId);
+            hubs = libraryHubs.hubs;
+          }
         }
         final processed = _postProcessHubs(hubs, serverId: ServerId(serverId), hiddenLibraryKeys: hiddenLibraryKeys);
         final scope = client.cacheServerId;

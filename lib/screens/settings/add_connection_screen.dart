@@ -36,12 +36,6 @@ class AddConnectionScreen extends StatelessWidget {
     const embyDialect = MediaBrowserDialect.emby;
     final options = <_BackendOption>[
       _BackendOption(
-        backend: MediaBackend.plex,
-        title: t.addServer.signInWithPlexCard,
-        subtitle: scoped ? t.addServer.signInWithPlexCardSubtitleScoped : t.addServer.signInWithPlexCardSubtitle,
-        builder: (_) => AddPlexAccountScreen(targetProfile: targetProfile),
-      ),
-      _BackendOption(
         backend: MediaBackend.jellyfin,
         title: t.addServer.connectToMediaBrowserCard(product: jellyfinDialect.productName),
         subtitle: scoped
@@ -51,17 +45,6 @@ class AddConnectionScreen extends StatelessWidget {
               )
             : t.addServer.connectToMediaBrowserCardSubtitle,
         builder: (_) => AddJellyfinScreen(targetProfile: targetProfile, dialect: jellyfinDialect),
-      ),
-      _BackendOption(
-        backend: MediaBackend.emby,
-        title: t.addServer.connectToMediaBrowserCard(product: embyDialect.productName),
-        subtitle: scoped
-            ? t.addServer.connectToMediaBrowserCardSubtitleScoped(
-                product: embyDialect.productName,
-                name: targetProfile!.displayName,
-              )
-            : t.addServer.connectToMediaBrowserCardSubtitle,
-        builder: (_) => AddJellyfinScreen(targetProfile: targetProfile, dialect: embyDialect),
       ),
       if (scoped)
         _BackendOption(

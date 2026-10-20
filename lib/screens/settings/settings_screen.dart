@@ -9,6 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'authorize_device_screen.dart';
 import '../../focus/focus_memory_tracker.dart';
 import '../../focus/focusable_text_field.dart';
 import '../../focus/input_mode_tracker.dart';
@@ -215,8 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
                     _buildGeneralTile(),
                     _buildAppearanceTile(),
                     _buildPlaybackTile(),
-                    if (hasLibraries) _buildManageLibrariesTile(sheetContext),
-                    _buildServicesTile(),
+                    //if (hasLibraries) _buildManageLibrariesTile(sheetContext),
+                    //_buildServicesTile(),
                   ],
                 ),
 
@@ -351,19 +352,16 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
     return SettingsGroup(
       title: t.connections.sectionTitle,
       children: [
+        SettingNavigationTile(
+          icon: Symbols.tap_and_play_rounded,
+          title: 'Authorize a device',
+          subtitle: 'Approve a Quick Connect code from a TV or another device',
+          destinationBuilder: (context) => const AuthorizeDeviceScreen(),
+        ),
         // Connections are managed per-profile (via the Profiles section
         // and each profile's detail screen). The shortcut here just opens
         // the picker scoped to the active profile so users can add a Plex
         // account, Jellyfin server, or borrow from another profile.
-        SettingNavigationTile(
-          icon: Symbols.add_link_rounded,
-          title: t.connections.addConnection,
-          subtitle: subtitle,
-          onTap: () {
-            final active = context.read<ActiveProfileProvider>().active;
-            Navigator.push(context, MaterialPageRoute(builder: (_) => AddConnectionScreen(targetProfile: active)));
-          },
-        ),
         _buildProfilesTile(context),
         if (context.select<AccountPreferencesController, bool>((c) => c.accounts.isNotEmpty))
           _buildAccountPreferencesTile(context),
@@ -544,13 +542,6 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
     return SettingsGroup(
       title: t.settings.advanced,
       children: [
-        SettingNavigationTile(
-          focusNode: _focusTracker.get(_kWatchTogetherRelay),
-          icon: Symbols.dns_rounded,
-          title: t.settings.watchTogetherRelay,
-          subtitle: t.settings.watchTogetherRelayDescription,
-          onTap: () => _showRelayUrlDialog(),
-        ),
         SettingSwitchTile(
           focusNode: _focusTracker.get(_kCrashReporting),
           pref: settings.SettingsService.crashReporting,

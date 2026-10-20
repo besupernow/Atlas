@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../connection/connection.dart';
 import '../connection/connection_registry.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
 import '../models/seerr/seerr_session.dart';
@@ -13,6 +16,9 @@ import '../services/seerr/seerr_client.dart';
 import '../services/seerr/seerr_session_store.dart';
 import '../utils/app_logger.dart';
 import '../services/trackers/future_coalescer.dart';
+
+/// The family Seerr instance every profile is signed in to automatically.
+const String kAtlasSeerrUrl = 'https://requests.besupernow.com';
 
 /// Resolve the active profile's Plex token for Seerr sign-in/re-auth:
 /// the profile's per-user token when a bind exists (a Home user's Seerr
@@ -42,8 +48,8 @@ SeerrPlexTokenSupplier buildSeerrPlexTokenSupplier({
 /// session to [adoptSession].
 class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierMixin {
   SeerrAccountProvider({SeerrSessionStore? store, SeerrAuthService? authService})
-    : _store = store ?? const SeerrSessionStore(),
-      authService = authService ?? SeerrAuthService();
+      : _store = store ?? const SeerrSessionStore(),
+        authService = authService ?? SeerrAuthService();
 
   final SeerrSessionStore _store;
   final SeerrAuthService authService;
@@ -57,6 +63,8 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
   String _activeUserUuid = '';
   int _bindingGeneration = 0;
   SeerrClient? _catalogClient;
+  Future<void> _loading = Future<void>.value();
+  bool _autoAttempted = false;
 
   SeerrSession? get session => _session;
   bool get isConnected => _session != null;
@@ -93,11 +101,71 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
     final userUuid = newUserUuid ?? '';
     final generation = ++_bindingGeneration;
     _activeUserUuid = userUuid;
-    _setSessionAndRebind(userUuid, generation, null);
-    if (!_isCurrentBinding(userUuid, generation)) return;
-    final loaded = await _store.load(userUuid);
-    _setSessionAndRebind(userUuid, generation, loaded);
-    if (_isCurrentBinding(userUuid, generation)) unawaited(refreshUser());
+    _autoAttempted = false;
+    final done = Completer<void>();
+    _loading = done.future;
+    try {
+      _setSessionAndRebind(userUuid, generation, null);
+      if (!_isCurrentBinding(userUuid, generation)) return;
+      final loaded = await _store.load(userUuid);
+      _setSessionAndRebind(userUuid, generation, loaded);
+      if (_isCurrentBinding(userUuid, generation)) unawaited(refreshUser());
+    } finally {
+      done.complete();
+    }
+  }
+
+  String get _autoOffKey => 'atlas_seerr_auto_off_$_activeUserUuid';
+
+  /// Signs this profile in to [kAtlasSeerrUrl] without any typing: asks
+  /// Seerr for a Quick Connect code, approves it with the profile's own
+  /// Jellyfin session, then exchanges it for a Seerr session. Does nothing if
+  /// already connected, if the user disconnected on purpose, or if the
+  /// instance can't do it (they can still connect by hand in Settings).
+  Future<void> autoConnectWithJellyfin(JellyfinConnection jellyfin) async {
+    await _loading;
+    if (isDisposed || isConnected || _autoAttempted) return;
+    _autoAttempted = true;
+    final userUuid = _activeUserUuid;
+    final generation = _bindingGeneration;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_autoOffKey) ?? false) return;
+
+      await authService.probe(kAtlasSeerrUrl);
+      final initiation = await authService.initiateQuickConnect(kAtlasSeerrUrl);
+
+      final headers = {
+        'Authorization':
+        'MediaBrowser Token="${jellyfin.accessToken}", Client="Atlas", Device="Atlas", '
+            'DeviceId="${jellyfin.deviceId}", Version="1.0"',
+      };
+      final authorize = Uri.parse(
+        '${jellyfin.baseUrl}/QuickConnect/Authorize',
+      ).replace(queryParameters: {'code': initiation.code, 'userId': jellyfin.userId});
+      final client = http.Client();
+      try {
+        final res = await client.post(authorize, headers: headers).timeout(const Duration(seconds: 15));
+        if (res.statusCode >= 400) {
+          appLogger.w('Seerr auto sign-in: Jellyfin refused to authorize the code (HTTP ${res.statusCode})');
+          return;
+        }
+      } finally {
+        client.close();
+      }
+
+      final session = await authService.signInWithQuickConnect(
+        baseUrl: kAtlasSeerrUrl,
+        secret: initiation.secret,
+        timeout: const Duration(seconds: 45),
+        shouldCancel: () => isDisposed || !_isCurrentBinding(userUuid, generation),
+      );
+      if (session == null || !_isCurrentBinding(userUuid, generation)) return;
+      await adoptSession(session);
+      appLogger.i('Seerr auto sign-in succeeded for ${session.displayName}');
+    } catch (e, st) {
+      appLogger.w('Seerr auto sign-in failed', error: e, stackTrace: st);
+    }
   }
 
   /// A stored session's permissions and display name date from sign-in;
@@ -130,6 +198,9 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
     if (!_isCurrentBinding(userUuid, generation)) return;
     await _store.save(userUuid, session);
     _setSessionAndRebind(userUuid, generation, session);
+    try {
+      (await SharedPreferences.getInstance()).remove(_autoOffKey);
+    } catch (_) {}
   }
 
   /// Sign out server-side (best effort) and clear local state.
@@ -140,6 +211,10 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
     final generation = ++_bindingGeneration;
     _setSessionAndRebind(userUuid, generation, null);
     if (!_isCurrentBinding(userUuid, generation)) return;
+    // Manual sign-out: don't silently sign this profile back in next launch.
+    try {
+      (await SharedPreferences.getInstance()).setBool(_autoOffKey, true);
+    } catch (_) {}
     await _store.clear(userUuid);
     if (session != null) await authService.signOut(session);
   }
@@ -152,15 +227,15 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
     _catalogClient = session == null
         ? null
         : SeerrClient(
-            session,
-            onSessionInvalidated: () => _handleSessionInvalidated(userUuid, generation),
-            onSessionUpdated: (next) => _handleSessionUpdated(userUuid, generation, next),
-            plexTokenSupplier: () async => _plexTokenSupplier?.call(),
-            authService: authService,
-            // The auth service's client factory is a test seam (null in
-            // production); sharing it lets one MockClient serve both.
-            httpClient: authService.httpClientFactory?.call(),
-          );
+      session,
+      onSessionInvalidated: () => _handleSessionInvalidated(userUuid, generation),
+      onSessionUpdated: (next) => _handleSessionUpdated(userUuid, generation, next),
+      plexTokenSupplier: () async => _plexTokenSupplier?.call(),
+      authService: authService,
+      // The auth service's client factory is a test seam (null in
+      // production); sharing it lets one MockClient serve both.
+      httpClient: authService.httpClientFactory?.call(),
+    );
     safeNotifyListeners();
   }
 

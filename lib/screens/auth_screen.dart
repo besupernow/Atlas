@@ -65,6 +65,10 @@ class _AuthScreenState extends State<AuthScreen> {
     // Debug-token verification only — release builds must not hold an idle
     // auth service (and its HTTP client) for a dialog that can't open.
     if (kDebugMode && widget.initializeServices) unawaited(_initVerifyService());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_connectToMediaBrowser(MediaBrowserDialect.jellyfin));
+    });
   }
 
   Future<void> _initVerifyService() async {
@@ -345,11 +349,11 @@ class _AuthScreenState extends State<AuthScreen> {
         ],
       );
     }
-    return PlexPinAuthFlow(
-      onTokenReceived: _connectToAllServersAndNavigate,
-      autoStartQrOnTV: false,
-      initializeService: widget.initializeServices,
-      initialButtonsBuilder: _buildInitialButtons,
+    return Center(
+      child: FilledButton(
+        onPressed: () => _connectToMediaBrowser(MediaBrowserDialect.jellyfin),
+        child: const Text('Sign in to Atlas'),
+      ),
     );
   }
 

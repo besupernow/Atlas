@@ -16,6 +16,7 @@ import '../media/search_hit.dart';
 import '../mixins/debounced_media_search.dart';
 import '../mixins/mounted_set_state_mixin.dart';
 import '../mixins/refreshable.dart';
+import '../providers/catalog_sources_provider.dart';
 import '../providers/hidden_libraries_provider.dart';
 import '../providers/libraries_provider.dart';
 import '../providers/multi_server_provider.dart';
@@ -69,6 +70,24 @@ class _SearchScreenState extends State<SearchScreen>
   List<SearchHit>? _filteredResults;
   late final FocusNode _allChipFocusNode = FocusNode(debugLabel: 'SearchKindChipAll');
   late final FocusNode _peopleChipFocusNode = FocusNode(debugLabel: 'SearchPeopleChip');
+  late final FocusNode _requestsChipFocusNode = FocusNode(debugLabel: 'SearchRequestsChip');
+
+  /// Seerr (TMDB) matches for the current query: titles the family can ask
+  /// for. Shown under the "Requests" chip, never mixed into "All".
+  List<MediaItem> _seerrItems = const [];
+  ({String query, List<MediaItem> items})? _pendingSeerrOutcome;
+
+  Future<List<MediaItem>> _searchSeerr(String query) async {
+    try {
+      final source = context.read<CatalogSourcesProvider>().seerrSource;
+      if (source == null) return const [];
+      final items = await source.search(query);
+      return [for (final item in items) item.toMediaItem()];
+    } catch (e) {
+      appLogger.d('Seerr search skipped', error: e);
+      return const [];
+    }
+  }
   final Map<MediaKind, FocusNode> _kindChipFocusNodes = {};
 
   HiddenLibrariesProvider? _hiddenLibraries;
@@ -86,6 +105,7 @@ class _SearchScreenState extends State<SearchScreen>
     _hiddenLibraries?.removeListener(_onHiddenLibrariesChanged);
     _allChipFocusNode.dispose();
     _peopleChipFocusNode.dispose();
+    _requestsChipFocusNode.dispose();
     for (final node in _kindChipFocusNodes.values) {
       node.dispose();
     }
@@ -134,6 +154,7 @@ class _SearchScreenState extends State<SearchScreen>
     await hiddenLibraries.ensureInitialized();
     if (!mounted) return const [];
 
+    final seerrFuture = _searchSeerr(query);
     final abort = AbortController();
     _activeSearchAbort = abort;
     try {
@@ -153,6 +174,7 @@ class _SearchScreenState extends State<SearchScreen>
         );
       }
       _pendingSearchOutcome = (query: query, result: result);
+      _pendingSeerrOutcome = (query: query, items: await seerrFuture);
       return result.hits;
     } finally {
       if (identical(_activeSearchAbort, abort)) _activeSearchAbort = null;
@@ -164,12 +186,14 @@ class _SearchScreenState extends State<SearchScreen>
     _activeSearchAbort?.abort();
     _activeSearchAbort = null;
     _pendingSearchOutcome = null;
+    _pendingSeerrOutcome = null;
   }
 
   @override
   void onSearchError(Object error) {
     _focusResultsForQuery = null;
     _pendingSearchOutcome = null;
+    _pendingSeerrOutcome = null;
     _resetFilter();
     final message = error is _SearchUnavailableException
         ? t.errors.searchUnavailable
@@ -181,6 +205,7 @@ class _SearchScreenState extends State<SearchScreen>
   void onSearchCleared() {
     _focusResultsForQuery = null;
     _pendingSearchOutcome = null;
+    _pendingSeerrOutcome = null;
     _resetFilter();
   }
 
@@ -196,18 +221,23 @@ class _SearchScreenState extends State<SearchScreen>
     // otherwise it falls back to "All".
     _searchCandidates =
         matched?.candidates ??
-        [
-          for (final hit in results)
-            if (hit case MediaSearchHit(:final item)) item,
-        ];
+            [
+              for (final hit in results)
+                if (hit case MediaSearchHit(:final item)) item,
+            ];
     _searchPeople =
         matched?.people ??
-        [
-          for (final hit in results)
-            if (hit case PersonSearchHit(:final person)) person,
-        ];
+            [
+              for (final hit in results)
+                if (hit case PersonSearchHit(:final person)) person,
+            ];
     _candidateKinds = _kindsIn(_searchCandidates);
+    final seerrOutcome = _pendingSeerrOutcome;
+    _pendingSeerrOutcome = null;
+    _seerrItems = seerrOutcome != null && seerrOutcome.query == query ? seerrOutcome.items : const [];
     if (!_hasCandidatesFor(_selectedFilter)) _selectedFilter = const _AllResults();
+    // Nothing in the libraries but Seerr knows the title: land on Requests.
+    if (results.isEmpty && _seerrItems.isNotEmpty) _selectedFilter = const _RequestsResults();
     _filteredResults = _rankFilteredResults(_selectedFilter, query);
 
     if (matched != null && matched.failedServerIds.isNotEmpty) {
@@ -374,16 +404,18 @@ class _SearchScreenState extends State<SearchScreen>
     const _AllResults(),
     for (final kind in _candidateKinds) _KindResults(kind),
     if (_searchPeople.isNotEmpty) const _PeopleResults(),
+    if (_seerrItems.isNotEmpty) const _RequestsResults(),
   ];
 
   /// "All" plus a single other option (one kind, or only people) has nothing
   /// to filter.
-  bool get _showFilterChips => _candidateKinds.length + (_searchPeople.isEmpty ? 0 : 1) > 1;
+  bool get _showFilterChips => _candidateKinds.length + (_searchPeople.isEmpty ? 0 : 1) + (_seerrItems.isEmpty ? 0 : 1) > 1;
 
   bool _hasCandidatesFor(_SearchFilter filter) => switch (filter) {
     _AllResults() => true,
     _KindResults(:final kind) => _candidateKinds.contains(kind),
     _PeopleResults() => _searchPeople.isNotEmpty,
+    _RequestsResults() => _seerrItems.isNotEmpty,
   };
 
   /// The selected filter's pool re-ranked with the full display budget, or
@@ -406,6 +438,8 @@ class _SearchScreenState extends State<SearchScreen>
           for (final person in rankPeopleSearchResults(_searchPeople, query, limit: defaultMediaSearchLimit))
             PersonSearchHit(person),
         ];
+      case _RequestsResults():
+        return [for (final item in _seerrItems) MediaSearchHit(item)];
     }
   }
 
@@ -422,6 +456,7 @@ class _SearchScreenState extends State<SearchScreen>
     _searchCandidates = const [];
     _searchPeople = const [];
     _candidateKinds = const [];
+    _seerrItems = const [];
     _filteredResults = null;
   }
 
@@ -429,9 +464,10 @@ class _SearchScreenState extends State<SearchScreen>
     _AllResults() => _allChipFocusNode,
     _KindResults(:final kind) => _kindChipFocusNodes.putIfAbsent(
       kind,
-      () => FocusNode(debugLabel: 'SearchKindChip_${kind.id}'),
+          () => FocusNode(debugLabel: 'SearchKindChip_${kind.id}'),
     ),
     _PeopleResults() => _peopleChipFocusNode,
+    _RequestsResults() => _requestsChipFocusNode,
   };
 
   /// D-pad landing point for the chip row: the chip that is currently active.
@@ -445,6 +481,7 @@ class _SearchScreenState extends State<SearchScreen>
     _AllResults() => t.libraries.groupings.all,
     _KindResults(:final kind) => _kindFilterLabel(kind),
     _PeopleResults() => t.search.people,
+    _RequestsResults() => 'Requests',
   };
 
   String _kindFilterLabel(MediaKind kind) => switch (kind) {
@@ -457,7 +494,7 @@ class _SearchScreenState extends State<SearchScreen>
     MediaKind.track => t.libraries.groupings.tracks,
     MediaKind.collection => t.libraries.tabs.collections,
     MediaKind.playlist => t.libraries.tabs.playlists,
-    // Unreachable: excluded from _kindFilterOrder.
+  // Unreachable: excluded from _kindFilterOrder.
     MediaKind.clip || MediaKind.photo || MediaKind.folder || MediaKind.unknown => kind.id,
   };
 
@@ -509,7 +546,7 @@ class _SearchScreenState extends State<SearchScreen>
       // Half the default top padding when the chip strip sits directly above:
       // the strip already separates results from the search field.
       padding: showChips ? const EdgeInsets.fromLTRB(16, 8, 16, 16) : const EdgeInsets.all(16),
-      (context, index) {
+          (context, index) {
         final isFirst = index == 0;
         final onNavigateUp = isFirst ? (showChips ? _focusFilterChips : focusSearchInput) : null;
         return switch (visible[index]) {
@@ -555,7 +592,7 @@ class _SearchScreenState extends State<SearchScreen>
                 hintText: t.search.hint,
                 tvTextInputController: _tvTextInputController,
                 onNavigateLeft: _navigateToSidebar,
-                onNavigateDown: searchResults.isNotEmpty && !isSearching
+                onNavigateDown: (searchResults.isNotEmpty || _seerrItems.isNotEmpty) && !isSearching
                     ? (_showFilterChips ? _focusFilterChips : firstResultFocusNode.requestFocus)
                     : null,
                 onEditingComplete: PlatformDetector.isTV() ? handleSearchSubmit : null,
@@ -580,22 +617,22 @@ class _SearchScreenState extends State<SearchScreen>
                 ),
               )
             else if (lastSearchFailed)
-              SliverFillRemaining(
-                child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
-              )
-            else if (searchResults.isEmpty)
-              SliverFillRemaining(
-                child: StateMessageWidget(
-                  message: t.messages.noResultsFound,
-                  subtitle: t.search.tryDifferentTerm,
-                  icon: Symbols.search_off_rounded,
-                  iconSize: 80,
-                ),
-              )
-            else ...[
-              if (_showFilterChips) _buildFilterChips(),
-              _buildResultsList(context),
-            ],
+                SliverFillRemaining(
+                  child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
+                )
+              else if (searchResults.isEmpty && _seerrItems.isEmpty)
+                  SliverFillRemaining(
+                    child: StateMessageWidget(
+                      message: t.messages.noResultsFound,
+                      subtitle: t.search.tryDifferentTerm,
+                      icon: Symbols.search_off_rounded,
+                      iconSize: 80,
+                    ),
+                  )
+                else ...[
+                    if (_showFilterChips) _buildFilterChips(),
+                    _buildResultsList(context),
+                  ],
           ],
         ),
       ),
@@ -630,4 +667,9 @@ final class _KindResults extends _SearchFilter {
 
 final class _PeopleResults extends _SearchFilter {
   const _PeopleResults();
+}
+
+/// Titles from the family Seerr that can be requested.
+final class _RequestsResults extends _SearchFilter {
+  const _RequestsResults();
 }

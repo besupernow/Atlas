@@ -39,10 +39,10 @@ Source: "staging\arm64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
     }
 
     return @"
-#define Name "Plezy"
+#define Name "Atlas+"
 #define Version "$Version"
-#define Publisher "edde746"
-#define ExeName "plezy.exe"
+#define Publisher "besupernow"
+#define ExeName "atlasplus.exe"
 
 [Setup]
 AppId={{$AppGuid}
@@ -53,7 +53,7 @@ DefaultDirName={autopf}\{#Name}
 DefaultGroupName={#Name}
 AllowNoIcons=yes
 OutputDir=.
-OutputBaseFilename=plezy-windows-installer
+OutputBaseFilename=atlas-windows-installer
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -87,7 +87,7 @@ Filename: "{app}\{#ExeName}"; Description: "{cm:LaunchProgram,{#Name}}"; Flags: 
 [Code]
 const
   UninstallSubkey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{$AppGuid}_is1';
-  WriteProbeName = 'plezy-write-probe.tmp';
+  WriteProbeName = 'atlas-write-probe.tmp';
 
 function IsNoRun: Boolean;
 begin
@@ -286,7 +286,7 @@ if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
 
 if ($HasX64) {
     Write-Host "`nCreating x64 portable archive..." -ForegroundColor Cyan
-    $X64Portable = Join-Path $ResolvedOutput "plezy-windows-x64-portable.7z"
+    $X64Portable = Join-Path $ResolvedOutput "atlas-windows-x64-portable.7z"
     Push-Location $X64BuildDir
     try {
         if (Test-Path $X64Portable) { Remove-Item $X64Portable -Force }
@@ -299,7 +299,7 @@ if ($HasX64) {
 
 if ($HasArm64) {
     Write-Host "`nCreating arm64 portable archive..." -ForegroundColor Cyan
-    $Arm64Portable = Join-Path $ResolvedOutput "plezy-windows-arm64-portable.7z"
+    $Arm64Portable = Join-Path $ResolvedOutput "atlas-windows-arm64-portable.7z"
     Push-Location $Arm64BuildDir
     try {
         if (Test-Path $Arm64Portable) { Remove-Item $Arm64Portable -Force }
@@ -362,4 +362,4 @@ Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "`nBuild complete!" -ForegroundColor Green
 if ($HasX64)   { Write-Host "Portable (x64):   $X64Portable" -ForegroundColor White }
 if ($HasArm64) { Write-Host "Portable (arm64): $Arm64Portable" -ForegroundColor White }
-Write-Host "Installer:        $(Join-Path $ResolvedOutput 'plezy-windows-installer.exe')" -ForegroundColor White
+Write-Host "Installer:        $(Join-Path $ResolvedOutput 'atlas-windows-installer.exe')" -ForegroundColor White

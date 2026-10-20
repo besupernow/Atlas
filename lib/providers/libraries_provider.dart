@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../media/media_kind.dart';
+
 import '../i18n/strings.g.dart';
 import '../media/media_item.dart';
 import '../media/library_change_event.dart';
@@ -65,7 +67,10 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
   Set<String> _loadedServerIds = {};
 
   /// Unmodifiable list of all libraries (ordered)
-  List<MediaLibrary> get libraries => List.unmodifiable(_libraries);
+  /// Only Movies and TV Shows are exposed to the UI (no Live TV, music, etc).
+  List<MediaLibrary> get libraries => List.unmodifiable(
+    _libraries.where((l) => l.kind == MediaKind.movie || l.kind == MediaKind.show),
+  );
 
   bool get isLoading => _loadState == LibrariesLoadState.loading;
 

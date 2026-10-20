@@ -26,7 +26,7 @@ param(
     # Engine zip published at flutter-plezy release windows-v3.47.1+1 - x64 + arm64
     # (cache dirs windows-{x64,arm64}{,-release}). The asset name is the same across
     # tags, so a version bump only changes the tag segment of the URL.
-    [string]$Url = 'https://github.com/edde746/flutter-plezy/releases/download/windows-v3.47.1%2B1/flutter-plezy-windows-3.47.1.zip',
+    [string]$Url = 'https://github.com/edde746/flutter-plezy/releases/download/windows-v3.47.1%2B1/flutter-plezy-windows-3.47.1.zip', #TODO: update github
     [string]$Sha256 = '5f3148f48c4974f32d51c9a883ebfaf332b076451cad8849d21a7251d6ff3321',
     # Engine revision the artifacts were built from. Must match the SDK's
     # engine.stamp (gen_snapshot/dart in the SDK must come from the same
@@ -46,7 +46,7 @@ if (-not (Test-Path $stampPath)) {
 }
 $stamp = (Get-Content $stampPath -Raw).Trim()
 if ($stamp -ne $ExpectedEngine) {
-    Write-Error "SDK engine.stamp is $stamp but the patched engine targets $ExpectedEngine - this flutter-plezy build is for a different SDK"
+    Write-Error "SDK engine.stamp is $stamp but the patched engine targets $ExpectedEngine - this flutter-atlas build is for a different SDK"
 }
 
 $engineDir = Join-Path $sdkRoot 'bin\cache\artifacts\engine'
@@ -54,7 +54,7 @@ if (-not (Test-Path $engineDir)) {
     Write-Error "engine cache not found: $engineDir - run 'flutter precache --windows' first"
 }
 
-$zip = Join-Path ([System.IO.Path]::GetTempPath()) 'flutter-plezy-windows.zip'
+$zip = Join-Path ([System.IO.Path]::GetTempPath()) 'flutter-atlas-windows.zip'
 
 # Invoke-WebRequest renders a per-byte progress bar in Windows PowerShell that
 # makes large downloads crawl; silence it.
