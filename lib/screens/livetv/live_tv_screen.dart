@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../focus/dpad_navigator.dart';
+import '../../navigation/main_screen_scope.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -162,6 +164,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     super.initState();
     suppressAutoFocus = true;
     _showFavoritesOnly = context.settingsRead(SettingsService.liveTvDefaultFavorites);
+    unawaited(_restoreFavoritesFilter());
     final initialTabs = _tabStateFor(context.read<MultiServerProvider>());
     _visibleTabs = initialTabs.tabs;
     _canProcessRules = initialTabs.canProcessRules;
@@ -714,10 +717,31 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     });
   }
 
+  static const _kFavFilterPref = 'atlas_live_tv_favorites_filter';
+
+  /// The last Favorites on/off choice wins over the settings default.
+  Future<void> _restoreFavoritesFilter() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getBool(_kFavFilterPref);
+      if (saved != null && mounted && saved != _showFavoritesOnly) {
+        setState(() => _showFavoritesOnly = saved);
+      }
+    } catch (_) {}
+  }
+
   void _toggleFavoritesFilter() {
     setState(() {
       _showFavoritesOnly = !_showFavoritesOnly;
     });
+    final value = _showFavoritesOnly;
+    unawaited(
+      SharedPreferences.getInstance().then((p) => p.setBool(_kFavFilterPref, value)).catchError((Object _) => false),
+    );
+  }
+
+  void _goSidebar() {
+    if (mounted) MainScreenFocusScope.focusSidebarOf(context);
   }
 
   /// Clears the favorites filter from the guide's empty state. When the action
@@ -957,7 +981,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                 actionFocusNode: _guideEmptyStateActionFocusNode,
                 onAction: _showAllChannelsFromEmptyState,
                 onActionNavigateUp: _focusFilterRow,
-                onActionBack: onTabBarBack,
+                onActionBack: _goSidebar,
               ),
             ),
           ),
@@ -969,7 +993,8 @@ class _LiveTvScreenState extends State<LiveTvScreen>
         isFavoriteChannel: _isFavoriteChannel,
         onToggleFavorite: _toggleFavorite,
         onNavigateUp: _focusFilterRow,
-        onBack: _focusFilterRow,
+        onBack: _goSidebar,
+        onMenuKey: _toggleFavoritesFilter,
         onChannelTap: _onGuideChannelTap,
         onProgramsLoaded: (programs) {
           if (!mounted) return;
@@ -1116,12 +1141,23 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       required VoidCallback onTap,
       bool selected = false,
       bool expand = false,
+      bool leftToSidebar = false,
     }) {
       final scheme = Theme.of(context).colorScheme;
       return Focus(
         onKeyEvent: (_, event) {
-          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowDown) {
             _focusCurrentTab();
+            return KeyEventResult.handled;
+          }
+          if (leftToSidebar && key.isLeftKey) {
+            _goSidebar();
+            return KeyEventResult.handled;
+          }
+          if (key.isContextMenuKey) {
+            _toggleFavoritesFilter();
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
@@ -1177,6 +1213,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
               label: t.liveTv.searchGuide,
               onTap: _showGuideSearch,
               expand: true,
+              leftToSidebar: true,
             ),
           ),
           const SizedBox(width: 10),

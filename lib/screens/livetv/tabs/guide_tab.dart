@@ -47,6 +47,9 @@ class GuideTab extends StatefulWidget {
   /// Overrides what selecting a channel does (default: open full screen).
   final void Function(LiveTvChannel channel)? onChannelTap;
 
+  /// Remote "Menu/Options" key pressed on the channel column or time bar.
+  final VoidCallback? onMenuKey;
+
   /// Called whenever the guide data (re)loads, keyed by liveTvChannelScopeKey.
   final void Function(Map<String, List<LiveTvProgram>> programs)? onProgramsLoaded;
 
@@ -58,6 +61,7 @@ class GuideTab extends StatefulWidget {
     this.onNavigateUp,
     this.onBack,
     this.onChannelTap,
+    this.onMenuKey,
     this.onProgramsLoaded,
   });
 
@@ -895,6 +899,13 @@ class GuideTabState extends State<GuideTab>
       if (selectResult != KeyEventResult.ignored) return selectResult;
       final channelSelectResult = _handleFocusedChannelSelectKey(event);
       if (channelSelectResult != KeyEventResult.ignored) return channelSelectResult;
+    }
+
+    if (key.isContextMenuKey &&
+        widget.onMenuKey != null &&
+        (_focusZone == _GuideZone.timeNav || _gridColumn == 0)) {
+      if (event is KeyDownEvent) widget.onMenuKey!();
+      return KeyEventResult.handled;
     }
 
     final contextMenuResult = _handleFocusedProgramContextMenuKey(event);

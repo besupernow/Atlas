@@ -63,6 +63,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
   /// so it shows the SAME stream instead of opening a second player.
   final ValueNotifier<Object?> playerNotifier = ValueNotifier<Object?>(null);
   bool _suspended = false;
+  bool _tickerEnabled = true;
   bool _muted = false;
   String? _error;
 
@@ -71,6 +72,23 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (widget.channel != null) _tune();
+  }
+
+  /// Hidden tabs (IndexedStack) and covered routes lose their tickers. That is
+  /// a reliable "not on screen" signal even when the tab callbacks fire before
+  /// this widget exists, so stop the stream (and its audio) when it flips off.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final enabled = TickerMode.of(context);
+    if (enabled == _tickerEnabled) return;
+    _tickerEnabled = enabled;
+    if (_fullscreen) return; // our own full-screen route covers us on purpose
+    if (!enabled) {
+      unawaited(suspend());
+    } else {
+      resume();
+    }
   }
 
   @override
@@ -140,7 +158,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
 
   /// Start again after [suspend].
   void resume() {
-    if (!_suspended || _player != null || _vc != null) return;
+    if (!_suspended || _player != null || _vc != null || !_tickerEnabled) return;
     _suspended = false;
     if (widget.channel != null && mounted) _tune();
   }
@@ -447,80 +465,80 @@ class _LiveFullscreenState extends State<_LiveFullscreen> {
       body: PopScope(
         canPop: true,
         child: Focus(
-        autofocus: true,
-        onKeyEvent: (_, event) {
-          if (event is KeyDownEvent) _bump();
-          return KeyEventResult.ignored;
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _bump,
-          child: ValueListenableBuilder<Object?>(
-            valueListenable: st.playerNotifier,
-            builder: (context, player, _) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (player == null)
-                    const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
-                  else if (player is vp.VideoPlayerController)
-                    _TextureVideo(controller: player, cover: false)
-                  else if (player is Player)
-                    Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
-                  AnimatedOpacity(
-                    opacity: _showControls ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: IgnorePointer(
-                      ignoring: !_showControls,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Container(
-                          padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xB3000000), Colors.transparent],
+          autofocus: true,
+          onKeyEvent: (_, event) {
+            if (event is KeyDownEvent) _bump();
+            return KeyEventResult.ignored;
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _bump,
+            child: ValueListenableBuilder<Object?>(
+              valueListenable: st.playerNotifier,
+              builder: (context, player, _) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (player == null)
+                      const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
+                    else if (player is vp.VideoPlayerController)
+                      _TextureVideo(controller: player, cover: false)
+                    else if (player is Player)
+                        Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
+                    AnimatedOpacity(
+                      opacity: _showControls ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !_showControls,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xB3000000), Colors.transparent],
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                autofocus: true,
-                                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                                onPressed: () => Navigator.of(context).maybePop(),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  autofocus: true,
+                                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                                  onPressed: () => Navigator.of(context).maybePop(),
                                 ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
-                                  color: Colors.white,
+                                Expanded(
+                                  child: Text(
+                                    [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                                  ),
                                 ),
-                                onPressed: () {
-                                  st.toggleMute();
-                                  setState(() {});
-                                  _bump();
-                                },
-                              ),
-                            ],
+                                IconButton(
+                                  icon: Icon(
+                                    st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    st.toggleMute();
+                                    setState(() {});
+                                    _bump();
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
-      ),
       ),
     );
   }
