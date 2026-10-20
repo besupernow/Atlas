@@ -15,7 +15,7 @@ import 'base_shared_preferences_service.dart';
 /// via auto_updater for native update dialogs and in-app installs.
 /// On all other platforms: falls back to GitHub API check + browser link dialog.
 class UpdateService {
-  static const String _githubRepo = 'besupernow/atlastv';
+  static const String _githubRepo = 'besupernow/Atlas';
   static const String _feedUrl = 'https://cdn.jsdelivr.net/gh/edde746/plezy@appcast/appcast.xml';
 
   static const String _keySkippedVersion = 'update_skipped_version';
@@ -40,12 +40,10 @@ class UpdateService {
 
   /// Whether the native auto_updater (Sparkle/WinSparkle) should be used.
   /// True on macOS (non-Homebrew) and installed Windows (has uninstaller).
-  static bool get useNativeUpdater {
-    if (!isUpdateCheckAvailable) return false;
-    if (Platform.isMacOS) return !_isHomebrewInstall();
-    if (Platform.isWindows) return _isInstalledApp() && !_isWingetInstall();
-    return false;
-  }
+  ///
+  /// Atlas has no Sparkle appcast feed, so every platform uses the GitHub
+  /// release check (the dialog then links to the download).
+  static bool get useNativeUpdater => false;
 
   /// Initialize the native auto_updater (Sparkle/WinSparkle).
   /// Call once at startup if [useNativeUpdater] is true.
@@ -177,6 +175,7 @@ class UpdateService {
         }
 
         return {
+          'downloadUrl': _pickAssetUrl(data['assets']),
           'hasUpdate': true,
           'currentVersion': currentVersion,
           'latestVersion': cleanVersion,
@@ -220,6 +219,36 @@ class UpdateService {
   /// Returns update info if available, null otherwise
   static Future<Map<String, dynamic>?> checkForUpdatesOnStartup() {
     return _performUpdateCheck(respectCooldown: true);
+  }
+
+  /// Direct download URL of the release asset that matches this platform, or
+  /// null (the dialog then opens the release page instead).
+  static String? _pickAssetUrl(Object? assets) {
+    if (assets is! List) return null;
+    final files = <({String name, String url})>[
+      for (final a in assets)
+        if (a is Map && a['name'] is String && a['browser_download_url'] is String)
+          (name: (a['name'] as String).toLowerCase(), url: a['browser_download_url'] as String),
+    ];
+    String? first(bool Function(String name) test) {
+      for (final f in files) {
+        if (test(f.name)) return f.url;
+      }
+      return null;
+    }
+
+    if (Platform.isAndroid) {
+      return first((n) => n.endsWith('.apk') && n.contains('arm64')) ?? first((n) => n.endsWith('.apk'));
+    }
+    if (Platform.isIOS) return first((n) => n.endsWith('.ipa'));
+    if (Platform.isMacOS) return first((n) => n.endsWith('.dmg')) ?? first((n) => n.contains('macos'));
+    if (Platform.isWindows) {
+      return first((n) => n.endsWith('.exe')) ?? first((n) => n.endsWith('.msi')) ?? first((n) => n.contains('windows'));
+    }
+    if (Platform.isLinux) {
+      return first((n) => n.endsWith('.appimage')) ?? first((n) => n.endsWith('.deb')) ?? first((n) => n.contains('linux'));
+    }
+    return null;
   }
 
   /// Parse version string into list of integers

@@ -1,10 +1,13 @@
 import 'dart:async';
+
 import '../../media/ids.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../focus/dpad_navigator.dart';
+import '../../navigation/main_screen_scope.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -85,6 +88,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   bool _hasRecordings = false;
   bool _tabVisible = true;
   Timer? _resumeTimer;
+  Timer? _hoverTimer;
 
   // App bar action bar
   final _actionBarKey = GlobalKey<FocusableActionBarState>();
@@ -117,13 +121,134 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   bool _favoritesLoaded = false;
   bool _favoritesWritable = false;
 
-  List<LiveTvChannel> get _filteredChannels => filterLiveTvChannelsForFavorites(
+  /// Hard-coded channel groups by channel-number range (edit freely). Channels
+  /// are placed by the number Dispatcharr gives them; anything outside every
+  /// range lands in "Other", last. Group/sub-group order is the order here.
+  static const List<_AtlasGroup> kAtlasGroups = [
+    _AtlasGroup('Atlas Original TV', 1, 60, [
+      _AtlasGroup('News', 1, 10),
+      _AtlasGroup('Movies', 11, 20),
+      _AtlasGroup('Entertainment', 21, 30),
+      _AtlasGroup('Kids', 31, 40),
+      _AtlasGroup('Lifestyle', 41, 50),
+      _AtlasGroup('Music', 51, 60),
+    ]),
+    _AtlasGroup('Sports', 61, 80, [
+      _AtlasGroup('Live Sports', 61, 70),
+      _AtlasGroup('Sports Talk', 71, 80),
+    ]),
+  ];
+  static const String _kNoGroup = 'Other';
+
+  /// Group currently at the top of the guide (highlighted chip). Chips jump
+  /// the guide to a group; they never filter it.
+  String? _selectedGroup;
+  final List<FocusNode> _groupFocus = [];
+
+  double? _numberOf(LiveTvChannel c) => double.tryParse((c.number ?? '').trim());
+
+  /// (group index, sub index) for a channel; (-1, -1) when outside all ranges.
+  (int, int) _slotOf(LiveTvChannel c) {
+    final n = _numberOf(c);
+    if (n == null) return (-1, -1);
+    for (var gi = 0; gi < kAtlasGroups.length; gi++) {
+      final g = kAtlasGroups[gi];
+      if (n >= g.start && n < g.end + 1) {
+        for (var si = 0; si < g.subs.length; si++) {
+          final sub = g.subs[si];
+          if (n >= sub.start && n < sub.end + 1) return (gi, si);
+        }
+        return (gi, -1);
+      }
+    }
+    return (-1, -1);
+  }
+
+  String _groupOf(LiveTvChannel c) {
+    final gi = _slotOf(c).$1;
+    return gi < 0 ? _kNoGroup : kAtlasGroups[gi].name;
+  }
+
+  String? _subOf(LiveTvChannel c) {
+    final (gi, si) = _slotOf(c);
+    return gi < 0 || si < 0 ? null : kAtlasGroups[gi].subs[si].name;
+  }
+
+  /// Header text shown above each run of channels in the guide.
+  String _headerFor(LiveTvChannel c) {
+    final g = _groupOf(c);
+    final sub = _subOf(c);
+    return sub == null ? g : '$g · $sub';
+  }
+
+  List<LiveTvChannel> get _favoritesScoped => filterLiveTvChannelsForFavorites(
     channels: _channels,
     favoritesOnly: _showFavoritesOnly,
     favoritesLoaded: _favoritesLoaded,
     favorites: _favoriteChannels,
     sourceForChannel: _sourceForChannel,
   );
+
+  /// Top-level groups present in the guide, in hard-coded order.
+  List<String> get _groups {
+    final present = <String>{for (final c in _favoritesScoped) _groupOf(c)};
+    return [
+      for (final g in kAtlasGroups)
+        if (present.contains(g.name)) g.name,
+      if (present.contains(_kNoGroup)) _kNoGroup,
+    ];
+  }
+
+  /// All channels (favorites-scoped), ordered by group, sub-group, number.
+  List<LiveTvChannel> get _filteredChannels {
+    final list = _favoritesScoped;
+    int key(LiveTvChannel c) {
+      final (gi, si) = _slotOf(c);
+      return (gi < 0 ? 999 : gi) * 1000 + (si < 0 ? 999 : si);
+    }
+
+    final indexed = [for (var i = 0; i < list.length; i++) (i, list[i])];
+    indexed.sort((a, b) {
+      final r = key(a.$2).compareTo(key(b.$2));
+      if (r != 0) return r;
+      final na = _numberOf(a.$2), nb = _numberOf(b.$2);
+      if (na != null && nb != null && na != nb) return na.compareTo(nb);
+      return a.$1.compareTo(b.$1);
+    });
+    return [for (final e in indexed) e.$2];
+  }
+
+  /// Dense layout for TVs and short landscape windows.
+  bool get _compactLayout => PlatformDetector.isTV() || MediaQuery.sizeOf(context).height < 560;
+
+  void _focusGroupRow() {
+    final i = _selectedGroup == null ? 0 : _groups.indexOf(_selectedGroup!);
+    if (i >= 0 && i < _groupFocus.length && _groupFocus[i].context != null) {
+      _groupFocus[i].requestFocus();
+    } else {
+      _focusFilterRow();
+    }
+  }
+
+  /// Where Up from the guide goes.
+  void _upFromGuide() => _groups.isEmpty ? _focusFilterRow() : _focusGroupRow();
+
+  void _jumpToGroup(String g) {
+    setState(() => _selectedGroup = g);
+    _guideTabKey.currentState?.scrollToGroup(g);
+  }
+
+  void _onVisibleGroupChanged(String g) {
+    if (!mounted || _selectedGroup == g) return;
+    setState(() => _selectedGroup = g);
+    final i = _groups.indexOf(g);
+    if (i >= 0 && i < _groupFocus.length) {
+      final ctx = _groupFocus[i].context;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.5, duration: const Duration(milliseconds: 200));
+      }
+    }
+  }
 
   /// True when the favorites filter removed every loaded channel, so the guide
   /// tab shows an explanatory empty state instead of a bare timeline.
@@ -162,6 +287,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     super.initState();
     suppressAutoFocus = true;
     _showFavoritesOnly = context.settingsRead(SettingsService.liveTvDefaultFavorites);
+    unawaited(_restoreFavoritesFilter());
     final initialTabs = _tabStateFor(context.read<MultiServerProvider>());
     _visibleTabs = initialTabs.tabs;
     _canProcessRules = initialTabs.canProcessRules;
@@ -178,7 +304,11 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     _guideEmptyStateActionFocusNode.dispose();
     _searchPillFocus.dispose();
     _favoritesPillFocus.dispose();
+    for (final n in _groupFocus) {
+      n.dispose();
+    }
     _resumeTimer?.cancel();
+    _hoverTimer?.cancel();
     disposeTabNavigation();
     super.dispose();
   }
@@ -486,11 +616,12 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       });
 
       if (!mounted) return;
+      final groupedChannels = allChannels;
 
-      appLogger.d('Live TV: loaded ${allChannels.length} channels');
+      appLogger.d('Live TV: loaded ${groupedChannels.length} channels');
 
       setState(() {
-        _channels = allChannels;
+        _channels = groupedChannels;
         _favoriteScopeByLiveServer
           ..clear()
           ..addAll(favoriteScopeByLiveServer);
@@ -646,10 +777,25 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     setState(() => _previewChannel = channel);
   }
 
+  /// TV: just moving onto a channel previews it, after a short pause so
+  /// scrolling through the list does not start a stream per row.
+  void _onGuideChannelFocused(LiveTvChannel channel) {
+    if (!PlatformDetector.isTV()) return;
+    _hoverTimer?.cancel();
+    final current = _previewChannel;
+    if (current != null && liveTvChannelScopeKey(current) == liveTvChannelScopeKey(channel)) return;
+    _hoverTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted || !_tabVisible) return;
+      _rememberChannel(channel);
+      setState(() => _previewChannel = channel);
+    });
+  }
+
   /// Enlarges the SAME stream (no second player). A different channel is
   /// tuned into the mini player first, then expanded.
   Future<void> _openFullscreen([LiveTvChannel? channel]) async {
     if (!mounted) return;
+    _hoverTimer?.cancel();
     if (channel != null) {
       _rememberChannel(channel);
       final cur = _previewChannel;
@@ -714,10 +860,31 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     });
   }
 
+  static const _kFavFilterPref = 'atlas_live_tv_favorites_filter';
+
+  /// The last Favorites on/off choice wins over the settings default.
+  Future<void> _restoreFavoritesFilter() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getBool(_kFavFilterPref);
+      if (saved != null && mounted && saved != _showFavoritesOnly) {
+        setState(() => _showFavoritesOnly = saved);
+      }
+    } catch (_) {}
+  }
+
   void _toggleFavoritesFilter() {
     setState(() {
       _showFavoritesOnly = !_showFavoritesOnly;
     });
+    final value = _showFavoritesOnly;
+    unawaited(
+      SharedPreferences.getInstance().then((p) => p.setBool(_kFavFilterPref, value)).catchError((Object _) => false),
+    );
+  }
+
+  void _goSidebar() {
+    if (mounted) MainScreenFocusScope.focusSidebarOf(context);
   }
 
   /// Clears the favorites filter from the guide's empty state. When the action
@@ -918,6 +1085,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: _compactLayout ? 40 : null,
         title: Text(t.liveTv.title),
         actions: DesktopAppBarHelper.buildAdjustedActions([
           if (_hasRecordings)
@@ -957,7 +1125,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                 actionFocusNode: _guideEmptyStateActionFocusNode,
                 onAction: _showAllChannelsFromEmptyState,
                 onActionNavigateUp: _focusFilterRow,
-                onActionBack: onTabBarBack,
+                onActionBack: _goSidebar,
               ),
             ),
           ),
@@ -968,9 +1136,15 @@ class _LiveTvScreenState extends State<LiveTvScreen>
         channels: guideChannels,
         isFavoriteChannel: _isFavoriteChannel,
         onToggleFavorite: _toggleFavorite,
-        onNavigateUp: _focusFilterRow,
-        onBack: _focusFilterRow,
+        onNavigateUp: _upFromGuide,
+        onVisibleGroupChanged: _onVisibleGroupChanged,
+        compact: true,
+        groupLabelOf: _groups.isEmpty ? null : _headerFor,
+        onBack: _goSidebar,
+        onMenuKey: _toggleFavoritesFilter,
         onChannelTap: _onGuideChannelTap,
+        onChannelFocused: _onGuideChannelFocused,
+        initialChannel: _previewChannel,
         onProgramsLoaded: (programs) {
           if (!mounted) return;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1014,6 +1188,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       showFullscreenButton: !isTv,
     );
 
+    final compact = _compactLayout;
     final wide = isTv || MediaQuery.sizeOf(context).width > 800;
     final ch = _previewChannel;
     final theme = Theme.of(context);
@@ -1041,15 +1216,80 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     final programTitle = current == null ? null : (current.grandparentTitle ?? current.title);
     final summary = current?.summary?.trim();
 
+    // TV / short-landscape info column: channel + time on one line, title,
+    // description, then the chip toolbar.
+    final scheme = theme.colorScheme;
+    final compactInfo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            if (ch?.number != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: scheme.onSurface.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(ch!.number!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            Flexible(
+              child: Text(
+                ch?.displayName ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: theme.hintColor, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (current != null) ...[
+              Text('   ·   ', style: TextStyle(color: theme.hintColor, fontSize: 12)),
+              Text(
+                '${clock(current.beginsAt)} – ${clock(current.endsAt)}',
+                style: TextStyle(color: theme.hintColor, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          programTitle ?? (ch?.displayName ?? ''),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        if (episode != null && episode.isNotEmpty && episode != programTitle)
+          Text(
+            episode,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: theme.hintColor, fontSize: 12),
+          ),
+        if (summary != null && summary.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(
+              summary,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: theme.hintColor, fontSize: 12, height: 1.25),
+            ),
+          ),
+        const SizedBox(height: 10),
+        _buildFilterRow(),
+      ],
+    );
+
     final hero = Padding(
-      padding: EdgeInsets.fromLTRB(wide ? 20 : 16, 8, wide ? 20 : 16, 0),
+      padding: EdgeInsets.fromLTRB(wide ? 20 : 16, compact ? 6 : 8, wide ? 20 : 16, compact ? 8 : 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(width: wide ? 240 : 168, child: preview),
-          SizedBox(width: wide ? 20 : 12),
+          SizedBox(width: compact ? 200 : (wide ? 240 : 168), child: preview),
+          SizedBox(width: compact ? 18 : (wide ? 20 : 12)),
           Expanded(
-            child: Column(
+            child: compact ? compactInfo : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1059,21 +1299,21 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: theme.hintColor, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: compact ? 2 : 4),
                 Text(
                   programTitle ?? (ch?.displayName ?? ''),
-                  maxLines: 2,
+                  maxLines: compact ? 1 : 2,
                   overflow: TextOverflow.ellipsis,
                   style: (wide ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (episode != null && episode.isNotEmpty && episode != programTitle)
+                if (!compact && episode != null && episode.isNotEmpty && episode != programTitle)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(episode, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                if (current != null)
+                if (!compact && current != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
@@ -1081,7 +1321,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                       style: TextStyle(color: theme.hintColor, fontSize: 12),
                     ),
                   ),
-                if (summary != null && summary.isNotEmpty)
+                if (!compact && summary != null && summary.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -1101,10 +1341,145 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     return Column(
       children: [
         hero,
-        _buildFilterRow(),
+        if (!compact) ...[_buildFilterRow(), _buildGroupRow()],
         Expanded(child: _buildTabContent(LiveTvTab.guide, guideChannels)),
       ],
     );
+  }
+
+  /// Group chips: tapping one jumps the guide to that group; the highlighted
+  /// chip follows whichever group is at the top of the guide as you scroll.
+  Widget _buildGroupRow({VoidCallback? leftTarget, VoidCallback? rightTarget, bool small = false}) {
+    final groups = _groups;
+    if (groups.isEmpty) return const SizedBox.shrink();
+    return _chipRow(
+      labels: groups,
+      selected: _selectedGroup ?? groups.first,
+      nodes: _groupFocus,
+      onSelect: (g) {
+        if (g != null) _jumpToGroup(g);
+      },
+      onUp: _focusFilterRow,
+      onDown: _focusCurrentTab,
+      onLeftEdge: leftTarget,
+      onRightEdge: rightTarget,
+      small: small,
+    );
+  }
+
+  Widget _chipRow({
+    required List<String?> labels,
+    required String? selected,
+    required List<FocusNode> nodes,
+    required void Function(String?) onSelect,
+    required VoidCallback onUp,
+    required VoidCallback onDown,
+    VoidCallback? onLeftEdge,
+    VoidCallback? onRight,
+    VoidCallback? onRightEdge,
+    bool vertical = false,
+    bool small = false,
+  }) {
+    while (nodes.length < labels.length) {
+      nodes.add(FocusNode(debugLabel: 'live_chip_${nodes.length}'));
+    }
+    final scheme = Theme.of(context).colorScheme;
+    final list = ListView.separated(
+      scrollDirection: vertical ? Axis.vertical : Axis.horizontal,
+      padding: vertical
+          ? const EdgeInsets.fromLTRB(0, 0, 0, 8)
+          : (small ? const EdgeInsets.fromLTRB(0, 0, 8, 0) : const EdgeInsets.fromLTRB(16, 0, 16, 8)),
+      itemCount: labels.length,
+      separatorBuilder: (_, _) => vertical ? const SizedBox(height: 6) : const SizedBox(width: 8),
+      itemBuilder: (context, i) {
+        final g = labels[i];
+        final isSel = selected == g;
+        return Focus(
+          canRequestFocus: false,
+          onKeyEvent: (_, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            final key = event.logicalKey;
+            void step(int to) {
+              nodes[to].requestFocus();
+              Scrollable.ensureVisible(nodes[to].context!, alignment: 0.5);
+            }
+
+            final isPrev = vertical ? key == LogicalKeyboardKey.arrowUp : key.isLeftKey;
+            final isNext = vertical ? key == LogicalKeyboardKey.arrowDown : key == LogicalKeyboardKey.arrowRight;
+            if (isPrev) {
+              if (i > 0) {
+                step(i - 1);
+              } else {
+                (vertical ? onUp : (onLeftEdge ?? _goSidebar))();
+              }
+              return KeyEventResult.handled;
+            }
+            if (isNext) {
+              if (i < labels.length - 1) {
+                step(i + 1);
+              } else if (!vertical) {
+                onRightEdge?.call();
+              }
+              return KeyEventResult.handled;
+            }
+            // Cross axis: horizontal rows go up/down, vertical lists left/right.
+            if (!vertical && key == LogicalKeyboardKey.arrowDown) {
+              onDown();
+              return KeyEventResult.handled;
+            }
+            if (!vertical && key == LogicalKeyboardKey.arrowUp) {
+              onUp();
+              return KeyEventResult.handled;
+            }
+            if (vertical && key.isLeftKey) {
+              (onLeftEdge ?? _goSidebar)();
+              return KeyEventResult.handled;
+            }
+            if (vertical && key == LogicalKeyboardKey.arrowRight) {
+              (onRight ?? onDown)();
+              return KeyEventResult.handled;
+            }
+            if (key.isBackKey) {
+              _goSidebar();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Builder(
+            builder: (context) {
+              final focused = Focus.of(context).hasFocus;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                decoration: BoxDecoration(
+                  color: isSel
+                      ? scheme.primary.withValues(alpha: 0.22)
+                      : scheme.surfaceContainerHighest.withValues(alpha: small ? 0.3 : 0.45),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: focused ? scheme.primary : Colors.transparent, width: 2),
+                ),
+                child: InkWell(
+                  focusNode: nodes[i],
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => onSelect(g),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: small ? 14 : 16, vertical: vertical ? 10 : (small ? 5 : 8)),
+                    child: Text(
+                      g ?? 'All',
+                      style: TextStyle(
+                        fontSize: small ? 12 : null,
+                        fontWeight: FontWeight.w600,
+                        color: isSel ? scheme.primary : null,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+    return vertical ? list : SizedBox(height: small ? 38 : 48, child: list);
   }
 
   /// Search pill + Favorites filter pill under the mini player.
@@ -1116,12 +1491,39 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       required VoidCallback onTap,
       bool selected = false,
       bool expand = false,
+      bool leftToSidebar = false,
+      VoidCallback? onRight,
+      VoidCallback? onLeft,
+      bool dense = false,
+      bool iconOnly = false,
     }) {
       final scheme = Theme.of(context).colorScheme;
       return Focus(
         onKeyEvent: (_, event) {
-          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
-            _focusCurrentTab();
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowDown) {
+            if (_groups.isEmpty || _compactLayout) {
+              _focusCurrentTab();
+            } else {
+              _focusGroupRow();
+            }
+            return KeyEventResult.handled;
+          }
+          if (onRight != null && key == LogicalKeyboardKey.arrowRight) {
+            onRight();
+            return KeyEventResult.handled;
+          }
+          if (leftToSidebar && key.isLeftKey) {
+            _goSidebar();
+            return KeyEventResult.handled;
+          }
+          if (onLeft != null && key.isLeftKey) {
+            onLeft();
+            return KeyEventResult.handled;
+          }
+          if (key.isContextMenuKey) {
+            _toggleFavoritesFilter();
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
@@ -1143,19 +1545,26 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                 borderRadius: BorderRadius.circular(999),
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: iconOnly
+                      ? const EdgeInsets.all(8)
+                      : EdgeInsets.symmetric(horizontal: dense ? 12 : 16, vertical: dense ? 8 : 10),
                   child: Row(
                     mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
                     children: [
                       Icon(icon, size: 20, color: selected ? scheme.primary : null),
-                      const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: selected ? scheme.primary : null,
+                      if (!iconOnly) const SizedBox(width: 8),
+                      if (!iconOnly)
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: selected ? scheme.primary : null,
+                            ),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -1166,6 +1575,41 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       );
     }
 
+    final compact = _compactLayout;
+    if (compact) {
+      // Lives inside the hero, under the now-playing text: chips on the left,
+      // icon-only Search / Favorites on the right.
+      return Row(
+        children: [
+          Expanded(
+            child: _buildGroupRow(
+              small: true,
+              rightTarget: () => _searchPillFocus.requestFocus(),
+            ),
+          ),
+          const SizedBox(width: 4),
+          pill(
+            node: _searchPillFocus,
+            icon: Symbols.search_rounded,
+            label: t.liveTv.searchGuide,
+            onTap: _showGuideSearch,
+            iconOnly: true,
+            onLeft: _groups.isEmpty ? _goSidebar : _focusGroupRow,
+            onRight: () => _favoritesPillFocus.requestFocus(),
+          ),
+          const SizedBox(width: 8),
+          pill(
+            node: _favoritesPillFocus,
+            icon: _showFavoritesOnly ? Symbols.star_rounded : Symbols.star_outline_rounded,
+            label: t.liveTv.favorites,
+            onTap: _toggleFavoritesFilter,
+            selected: _showFavoritesOnly,
+            iconOnly: true,
+            onLeft: () => _searchPillFocus.requestFocus(),
+          ),
+        ],
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
@@ -1177,6 +1621,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
               label: t.liveTv.searchGuide,
               onTap: _showGuideSearch,
               expand: true,
+              leftToSidebar: true,
             ),
           ),
           const SizedBox(width: 10),
@@ -1199,4 +1644,13 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       ),
     );
   }
+}
+
+/// A channel-number range used to bucket channels into groups / sub-groups.
+class _AtlasGroup {
+  final String name;
+  final int start;
+  final int end;
+  final List<_AtlasGroup> subs;
+  const _AtlasGroup(this.name, this.start, this.end, [this.subs = const []]);
 }

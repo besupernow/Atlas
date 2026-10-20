@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart' as vp;
 import '../../media/ids.dart';
 import '../../media/live_tv_support.dart';
 import '../../models/livetv_channel.dart';
+import '../../models/transcode_quality_preset.dart';
 import '../../mpv/mpv.dart';
 import '../../providers/multi_server_provider.dart';
 import '../../services/playback_coordinator.dart';
@@ -20,6 +21,14 @@ import '../../utils/live_tv_player_navigation.dart';
 /// set this to false: the hero shows the channel card with a Play button
 /// that opens full screen instead.
 const bool kLiveTvInlinePreview = true;
+
+/// Same stream quality as full screen, so enlarging never re-tunes or skips.
+const TranscodeQualityPreset kLiveTvPreviewQuality = TranscodeQualityPreset.original;
+
+/// Full screen brings up the original-quality stream and swaps to it. The two
+/// encodes are independent, so the swap can step back a moment; set this to
+/// false to keep the light stream in full screen instead (no swap at all).
+const bool kLiveTvUpgradeOnFullscreen = true;
 
 /// Android, iOS and macOS draw mpv/ExoPlayer video on a full-window native
 /// plane that cannot be placed in a small rectangle, so the mini player (and
@@ -63,6 +72,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
   /// so it shows the SAME stream instead of opening a second player.
   final ValueNotifier<Object?> playerNotifier = ValueNotifier<Object?>(null);
   bool _suspended = false;
+  bool _tickerEnabled = true;
   bool _muted = false;
   String? _error;
 
@@ -71,6 +81,23 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (widget.channel != null) _tune();
+  }
+
+  /// Hidden tabs (IndexedStack) and covered routes lose their tickers. That is
+  /// a reliable "not on screen" signal even when the tab callbacks fire before
+  /// this widget exists, so stop the stream (and its audio) when it flips off.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final enabled = TickerMode.of(context);
+    if (enabled == _tickerEnabled) return;
+    _tickerEnabled = enabled;
+    if (_fullscreen) return; // our own full-screen route covers us on purpose
+    if (!enabled) {
+      unawaited(suspend());
+    } else {
+      resume();
+    }
   }
 
   @override
@@ -140,7 +167,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
 
   /// Start again after [suspend].
   void resume() {
-    if (!_suspended || _player != null || _vc != null) return;
+    if (!_suspended || _player != null || _vc != null || !_tickerEnabled) return;
     _suspended = false;
     if (widget.channel != null && mounted) _tune();
   }
@@ -177,7 +204,15 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       _loading = true;
       _error = null;
     });
-    await _teardown();
+    if (_useTexturePlayer) {
+      // The current picture stays up until the new channel is playing.
+      unawaited(_tuneTexture(channel, generation));
+      return;
+    }
+    // Release the previous channel in the background: its server calls (stop
+    // transcode, close tuner) no longer sit in front of the new tune. The
+    // fields are detached synchronously inside _teardown, so nothing races.
+    unawaited(_teardown());
     if (!mounted || generation != _generation) return;
 
     try {
@@ -186,7 +221,11 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       final client = info == null ? null : multi.getClientForServer(ServerId(info.serverId));
       if (info == null || client == null) throw StateError('Live TV server unavailable');
 
-      final session = await client.liveTv.startPlayback(channel.key, dvrKey: info.dvrKey);
+      final session = await client.liveTv.startPlayback(
+        channel.key,
+        dvrKey: info.dvrKey,
+        quality: kLiveTvPreviewQuality,
+      );
       if (session == null) throw StateError('Channel could not be started');
       if (!mounted || generation != _generation) {
         unawaited(session.discard());
@@ -194,56 +233,13 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       }
       _session = session;
 
-      final url = await session.streamUrlAt();
+      var url = await session.streamUrlAt();
       if (url == null) throw StateError('No stream URL');
+      url = _fasterHlsStart(url);
       if (!mounted || generation != _generation) return;
 
       await PlaybackCoordinator.instance.claimVideo();
       if (!mounted || generation != _generation) return;
-
-      if (_useTexturePlayer) {
-        // AVPlayer (iOS/macOS) rejects a live HLS playlist that has no
-        // segments yet (CoreMedia -12884), and a fresh transcode needs a few
-        // seconds to produce them. Retry before giving up.
-        appLogger.i('Live preview stream: ${Uri.parse(url).path}');
-        vp.VideoPlayerController? ready;
-        Object? lastError;
-        for (var attempt = 0; attempt < 4 && ready == null; attempt++) {
-          if (attempt > 0) {
-            await Future<void>.delayed(Duration(milliseconds: 1500 * attempt));
-            if (!mounted || generation != _generation) return;
-          }
-          final vc = vp.VideoPlayerController.networkUrl(
-            Uri.parse(url),
-            videoPlayerOptions: vp.VideoPlayerOptions(mixWithOthers: false),
-          );
-          try {
-            await vc.initialize();
-            ready = vc;
-          } catch (e) {
-            lastError = e;
-            appLogger.d('Live preview attempt ${attempt + 1} failed', error: e);
-            try {
-              await vc.dispose();
-            } catch (_) {}
-          }
-        }
-        if (ready == null) throw lastError ?? StateError('Preview could not start');
-        final vc = ready;
-        _vc = vc;
-        if (!mounted || generation != _generation) {
-          if (identical(_vc, vc)) _vc = null;
-          await vc.dispose();
-          return;
-        }
-        await vc.setVolume(_muted ? 0 : 1);
-        await vc.setLooping(false);
-        await vc.play();
-        appLogger.i('Live preview playing (texture): ${channel.displayName}');
-        playerNotifier.value = vc;
-        setState(() => _loading = false);
-        return;
-      }
 
       final player = Player();
       _player = player;
@@ -286,6 +282,130 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
     }
   }
 
+  Future<void> _release(vp.VideoPlayerController? vc, LiveTvPlaybackSession? session) async {
+    try {
+      await vc?.dispose();
+    } catch (_) {}
+    try {
+      await session?.discard();
+    } catch (_) {}
+  }
+
+  /// Texture-player tune. Everything lives in locals until the new stream is
+  /// really playing, then it replaces the old one in a single swap: no black
+  /// gap, and a superseded/failed attempt cleans up after itself.
+  Future<void> _tuneTexture(
+      LiveTvChannel channel,
+      int generation, {
+        TranscodeQualityPreset quality = kLiveTvPreviewQuality,
+        bool quiet = false,
+      }) async {
+    LiveTvPlaybackSession? session;
+    vp.VideoPlayerController? vc;
+    var committed = false;
+    bool stale() => !mounted || generation != _generation;
+    try {
+      final multi = context.read<MultiServerProvider>();
+      final info = liveTvServerInfoForChannel(multi, channel);
+      final client = info == null ? null : multi.getClientForServer(ServerId(info.serverId));
+      if (info == null || client == null) throw StateError('Live TV server unavailable');
+
+      session = await client.liveTv.startPlayback(channel.key, dvrKey: info.dvrKey, quality: quality);
+      if (session == null) throw StateError('Channel could not be started');
+      if (stale()) return;
+
+      var url = await session.streamUrlAt();
+      if (url == null) throw StateError('No stream URL');
+      url = _fasterHlsStart(url);
+      if (stale()) return;
+
+      await PlaybackCoordinator.instance.claimVideo();
+      if (stale()) return;
+
+      // AVPlayer (iOS/macOS) rejects a live HLS playlist that has no segments
+      // yet (CoreMedia -12884); a fresh transcode needs a moment. Retry.
+      appLogger.i('Live preview stream: ${Uri.parse(url).path}');
+      Object? lastError;
+      for (var attempt = 0; attempt < 4 && vc == null; attempt++) {
+        if (attempt > 0) {
+          await Future<void>.delayed(Duration(milliseconds: 1200 * attempt));
+          if (stale()) return;
+        }
+        final candidate = vp.VideoPlayerController.networkUrl(
+          Uri.parse(url),
+          videoPlayerOptions: vp.VideoPlayerOptions(mixWithOthers: true),
+        );
+        try {
+          await candidate.initialize();
+          vc = candidate;
+        } catch (e) {
+          lastError = e;
+          appLogger.d('Live preview attempt ${attempt + 1} failed', error: e);
+          try {
+            await candidate.dispose();
+          } catch (_) {}
+        }
+      }
+      final ready = vc;
+      if (ready == null) throw lastError ?? StateError('Preview could not start');
+      if (stale()) return;
+
+      await ready.setVolume(0); // silent until it replaces the old picture
+      await ready.setLooping(false);
+      // A fresh HLS session starts a few segments behind live. Move it to just
+      // before the live edge so it lines up with what was already on screen.
+      try {
+        final total = ready.value.duration;
+        if (total > const Duration(seconds: 4)) {
+          await ready.seekTo(total - const Duration(milliseconds: 1200));
+        }
+      } catch (_) {}
+      await ready.play();
+      if (stale()) return;
+
+      final oldVc = _vc;
+      final oldSession = _session;
+      unawaited(oldVc?.setVolume(0));
+      _vc = ready;
+      _session = session;
+      committed = true;
+      await ready.setVolume(_muted ? 0 : 1);
+      appLogger.i('Live preview playing (texture): ${channel.displayName}');
+      playerNotifier.value = ready;
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = null;
+        });
+      }
+      unawaited(_release(oldVc, oldSession));
+    } catch (e, st) {
+      appLogger.w('Live preview failed (${quality.name})', error: e, stackTrace: st);
+      if (stale()) return;
+      // A background quality swap that fails just keeps the current picture.
+      if (quiet && _vc != null) return;
+      unawaited(_teardown());
+      setState(() {
+        _loading = false;
+        _error = 'Preview unavailable';
+      });
+    } finally {
+      if (!committed) unawaited(_release(vc, session));
+    }
+  }
+
+  /// Jellyfin cuts live HLS into 6 s segments by default and the player waits
+  /// for several before it moves, which is most of the "frozen first frame".
+  /// Ask for short segments so playback gets going in a couple of seconds.
+  static String _fasterHlsStart(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.path.toLowerCase().endsWith('.m3u8')) return url;
+    final query = Map<String, String>.from(uri.queryParameters);
+    query['SegmentLength'] = '2';
+    query.putIfAbsent('MinSegments', () => '1');
+    return uri.replace(queryParameters: query).toString();
+  }
+
   void _toggleMute() {
     setState(() => _muted = !_muted);
     unawaited(_player?.setVolume(_muted ? 0 : 100));
@@ -298,7 +418,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
     final theme = Theme.of(context);
     final player = _player;
     final vc = _vc;
-    final hasVideo = (player != null || vc != null) && !_loading;
+    final hasVideo = vc != null || (player != null && !_loading);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -447,80 +567,80 @@ class _LiveFullscreenState extends State<_LiveFullscreen> {
       body: PopScope(
         canPop: true,
         child: Focus(
-        autofocus: true,
-        onKeyEvent: (_, event) {
-          if (event is KeyDownEvent) _bump();
-          return KeyEventResult.ignored;
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _bump,
-          child: ValueListenableBuilder<Object?>(
-            valueListenable: st.playerNotifier,
-            builder: (context, player, _) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (player == null)
-                    const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
-                  else if (player is vp.VideoPlayerController)
-                    _TextureVideo(controller: player, cover: false)
-                  else if (player is Player)
-                    Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
-                  AnimatedOpacity(
-                    opacity: _showControls ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: IgnorePointer(
-                      ignoring: !_showControls,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Container(
-                          padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xB3000000), Colors.transparent],
+          autofocus: true,
+          onKeyEvent: (_, event) {
+            if (event is KeyDownEvent) _bump();
+            return KeyEventResult.ignored;
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _bump,
+            child: ValueListenableBuilder<Object?>(
+              valueListenable: st.playerNotifier,
+              builder: (context, player, _) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (player == null)
+                      const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
+                    else if (player is vp.VideoPlayerController)
+                      _TextureVideo(controller: player, cover: false)
+                    else if (player is Player)
+                        Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
+                    AnimatedOpacity(
+                      opacity: _showControls ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !_showControls,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 24),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xB3000000), Colors.transparent],
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                autofocus: true,
-                                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                                onPressed: () => Navigator.of(context).maybePop(),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  autofocus: true,
+                                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                                  onPressed: () => Navigator.of(context).maybePop(),
                                 ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
-                                  color: Colors.white,
+                                Expanded(
+                                  child: Text(
+                                    [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                                  ),
                                 ),
-                                onPressed: () {
-                                  st.toggleMute();
-                                  setState(() {});
-                                  _bump();
-                                },
-                              ),
-                            ],
+                                IconButton(
+                                  icon: Icon(
+                                    st.muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    st.toggleMute();
+                                    setState(() {});
+                                    _bump();
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
-      ),
       ),
     );
   }

@@ -87,6 +87,47 @@ class MonoPalette {
     accent: Color(0xFFEDEDED),
   );
 
+  /// Cherry blossom at night: deep rosewood with a soft sakura-pink accent.
+  static const sakura = MonoPalette(
+    bg: Color(0xFF150E12),
+    surface: Color(0xFF211620),
+    outline: Color(0x22FFD6E4),
+    text: Color(0xFFFBEDF2),
+    textMuted: Color(0xA8FBEDF2),
+    accent: Color(0xFFFF9FC1),
+  );
+
+  /// Cherry blossom in daylight: warm petal-white with a deep blossom pink.
+  static const blossom = MonoPalette(
+    bg: Color(0xFFFFF4F7),
+    surface: Color(0xFFFFFFFF),
+    outline: Color(0x1F5A2A3C),
+    text: Color(0xFF2E1822),
+    textMuted: Color(0xB02E1822),
+    accent: Color(0xFFC03A74),
+  );
+
+  /// Cherry blossom viewing at dusk (hanami): a dusty plum evening sky, a
+  /// lifted mauve card, pale petal text and a bright cherry-pink accent. A
+  /// mid-tone sibling of Sakura: lighter and warmer, not near-black.
+  static const hanami = MonoPalette(
+    bg: Color(0xFF3D1724),
+    surface: Color(0xFF522233),
+    outline: Color(0x33FFB0CC),
+    text: Color(0xFFFFEFF4),
+    textMuted: Color(0xB3FFEFF4),
+    accent: Color(0xFFFF86AF),
+  );
+
+  static const lovely = MonoPalette(
+    bg: Color(0xFF0A0509),
+    surface: Color(0xFF1B0A17),
+    outline: Color(0x55FF2E93),
+    text: Color(0xFFF6FFF2),
+    textMuted: Color(0xB3F6FFF2),
+    accent: Color(0xFF39FF14),
+  );
+
   // Presets keep bg/surface low-chroma so artwork stays the loudest thing on
   // screen; the character is in the tint and the accent. Every accent clears
   // 4.5:1 against bg and surface, because primary is also used as text.
@@ -150,7 +191,7 @@ class MonoPalette {
     const white = Color(0xFFFFFFFF);
     final accentLuminance = accent.computeLuminance();
     return _contrastRatio(accentLuminance, bg.computeLuminance()) >=
-            _contrastRatio(accentLuminance, white.computeLuminance())
+        _contrastRatio(accentLuminance, white.computeLuminance())
         ? bg
         : white;
   }
@@ -208,12 +249,12 @@ class MonoPalette {
   @override
   bool operator ==(Object other) =>
       other is MonoPalette &&
-      other.bg == bg &&
-      other.surface == surface &&
-      other.outline == outline &&
-      other.text == text &&
-      other.textMuted == textMuted &&
-      other.accent == accent;
+          other.bg == bg &&
+          other.surface == surface &&
+          other.outline == outline &&
+          other.text == text &&
+          other.textMuted == textMuted &&
+          other.accent == accent;
 
   @override
   int get hashCode => Object.hash(bg, surface, outline, text, textMuted, accent);
@@ -241,7 +282,7 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
   final brightness = c.brightness;
   final onAccent = c.onAccent;
   final clickableCursor = WidgetStateProperty.resolveWith<MouseCursor>(
-    (states) => states.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
+        (states) => states.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
   );
 
   // Disabled buttons use the Material disabled opacities over the text colour;
@@ -251,10 +292,10 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
     elevation: const WidgetStatePropertyAll(0),
     backgroundColor: WidgetStateProperty.resolveWith(
-      (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.12) : c.accent,
+          (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.12) : c.accent,
     ),
     foregroundColor: WidgetStateProperty.resolveWith(
-      (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.38) : onAccent,
+          (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.38) : onAccent,
     ),
     shape: const WidgetStatePropertyAll(StadiumBorder()),
   );
@@ -320,11 +361,11 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     textTheme: Typography.englishLike2021
         .apply(bodyColor: c.text, displayColor: c.text)
         .copyWith(
-          displayLarge: const TextStyle(fontWeight: .w700, letterSpacing: -0.5),
-          titleMedium: const TextStyle(fontWeight: .w600),
-          bodyMedium: TextStyle(color: c.text),
-          bodySmall: TextStyle(color: c.textMuted),
-        ),
+      displayLarge: const TextStyle(fontWeight: .w700, letterSpacing: -0.5),
+      titleMedium: const TextStyle(fontWeight: .w600),
+      bodyMedium: TextStyle(color: c.text),
+      bodySmall: TextStyle(color: c.textMuted),
+    ),
     cardTheme: CardThemeData(
       color: c.surface,
       elevation: 0,
@@ -414,7 +455,7 @@ InputDecorationTheme _inputDecorationTheme(Color text, Color textMuted) {
   return InputDecorationTheme(
     filled: true,
     fillColor: WidgetStateColor.resolveWith(
-      (states) => states.contains(WidgetState.focused) ? focusedFill : unfocusedFill,
+          (states) => states.contains(WidgetState.focused) ? focusedFill : unfocusedFill,
     ),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

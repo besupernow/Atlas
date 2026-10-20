@@ -136,6 +136,10 @@ class ThemeProvider extends ChangeNotifier with DisposableChangeNotifierMixin, W
     settings.ThemeMode.light => MonoPalette.light,
     settings.ThemeMode.dark => MonoPalette.dark,
     settings.ThemeMode.oled => MonoPalette.oled,
+    settings.ThemeMode.sakura => MonoPalette.sakura,
+    settings.ThemeMode.lovely => MonoPalette.lovely,
+    settings.ThemeMode.blossom => MonoPalette.blossom,
+    settings.ThemeMode.hanami => MonoPalette.hanami,
     settings.ThemeMode.ember => MonoPalette.ember,
     settings.ThemeMode.glacier => MonoPalette.glacier,
     settings.ThemeMode.forest => MonoPalette.forest,
@@ -253,6 +257,10 @@ class ThemeProvider extends ChangeNotifier with DisposableChangeNotifierMixin, W
     settings.ThemeMode.light => Symbols.light_mode_rounded,
     settings.ThemeMode.dark => Symbols.dark_mode_rounded,
     settings.ThemeMode.oled => Symbols.contrast_rounded,
+    settings.ThemeMode.sakura ||
+    settings.ThemeMode.blossom ||
+    settings.ThemeMode.lovely => Symbols.favorite_rounded,
+    settings.ThemeMode.hanami => Symbols.local_florist_rounded,
     settings.ThemeMode.system => Symbols.brightness_auto_rounded,
     settings.ThemeMode.ember ||
     settings.ThemeMode.glacier ||

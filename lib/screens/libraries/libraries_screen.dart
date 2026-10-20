@@ -808,11 +808,11 @@ class _LibrariesScreenState extends State<LibrariesScreen>
 
     List<FocusableAction> appBarActions() => [
       if (allLibraries.isNotEmpty)
-        FocusableAction(
-          icon: Symbols.edit_rounded,
-          tooltip: t.libraries.manageLibraries,
-          onPressed: _showLibraryManagementSheet,
-        ),
+        // FocusableAction(
+        //   icon: Symbols.edit_rounded,
+        //   tooltip: t.libraries.manageLibraries,
+        //   onPressed: _showLibraryManagementSheet,
+        // ),
       if (showBrowseOptionsAction)
         FocusableAction(
           icon: Symbols.tune_rounded,
@@ -845,7 +845,7 @@ class _LibrariesScreenState extends State<LibrariesScreen>
                 )
               : null,
         ),
-      FocusableAction(icon: Symbols.refresh_rounded, tooltip: t.common.refresh, onPressed: manualRefresh),
+      // FocusableAction(icon: Symbols.refresh_rounded, tooltip: t.common.refresh, onPressed: manualRefresh),
     ];
 
     Widget appBar({required bool floating}) => DesktopSliverAppBar(

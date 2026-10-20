@@ -47,6 +47,26 @@ class GuideTab extends StatefulWidget {
   /// Overrides what selecting a channel does (default: open full screen).
   final void Function(LiveTvChannel channel)? onChannelTap;
 
+  /// Remote "Menu/Options" key pressed on the channel column or time bar.
+  final VoidCallback? onMenuKey;
+
+  /// A channel row took D-pad focus (arrow keys moved onto it).
+  final void Function(LiveTvChannel channel)? onChannelFocused;
+
+  /// When set, the guide inserts a header row whenever this label changes
+  /// (channels must already be ordered by it).
+  final String Function(LiveTvChannel channel)? groupLabelOf;
+
+  /// The group header currently at the top of the guide changed (scroll spy).
+  final void Function(String group)? onVisibleGroupChanged;
+
+  /// Dense layout for TVs / short landscape screens: smaller rows, and the
+  /// day/time label lives in the top-left corner instead of its own bar.
+  final bool compact;
+
+  /// Channel to land on when the guide first shows (the remembered one).
+  final LiveTvChannel? initialChannel;
+
   /// Called whenever the guide data (re)loads, keyed by liveTvChannelScopeKey.
   final void Function(Map<String, List<LiveTvProgram>> programs)? onProgramsLoaded;
 
@@ -58,6 +78,12 @@ class GuideTab extends StatefulWidget {
     this.onNavigateUp,
     this.onBack,
     this.onChannelTap,
+    this.onMenuKey,
+    this.onChannelFocused,
+    this.groupLabelOf,
+    this.onVisibleGroupChanged,
+    this.compact = false,
+    this.initialChannel,
     this.onProgramsLoaded,
   });
 
@@ -107,7 +133,16 @@ sealed class _GuideRow {
 final class _GuideSourceHeaderRow extends _GuideRow {
   final String label;
 
-  const _GuideSourceHeaderRow({required this.label});
+  /// True for a sub-group header, drawn inset under its parent group.
+  final bool inset;
+
+  /// Channels under this header (shown as a muted count), when known.
+  final int? count;
+
+  /// Compact layout: sub-group shown inline after the group ("Group › Sub").
+  final String? sub;
+
+  const _GuideSourceHeaderRow({required this.label, this.inset = false, this.count, this.sub});
 }
 
 final class _GuideChannelRow extends _GuideRow {
@@ -130,10 +165,14 @@ class GuideTabState extends State<GuideTab>
   }
 
   static const _slotWidth = 180.0;
-  static const _channelColumnWidth = 132.0;
-  static const _rowHeight = 64.0;
-  static const _sourceHeaderRowHeight = 40.0;
-  static const _timeHeaderHeight = 40.0;
+  double get _channelColumnWidth => widget.compact ? 76.0 : 132.0;
+  double get _rowHeight => widget.compact ? 50.0 : 64.0;
+  double get _sourceHeaderRowHeight => widget.compact ? 30.0 : 44.0;
+  double get _subHeaderRowHeight => widget.compact ? 22.0 : 32.0;
+  double get _timeHeaderHeight => widget.compact ? 28.0 : 40.0;
+
+  /// Slim bar above the time header holding the day status + "Now" pill.
+  double get _statusBarHeight => widget.compact ? 34.0 : 0.0;
   static const _minutesPerSlot = 30;
 
   /// Minimum time away (backgrounded or on another section) before the
@@ -178,12 +217,16 @@ class GuideTabState extends State<GuideTab>
   // past — deliberately picked day/time windows are never yanked.
   DateTime? _hiddenSince;
   bool _nowWasInWindow = true;
+  bool _extendingWindow = false;
+  static const _maxDaysAhead = 7;
 
   // Focus state
   final FocusNode _guideFocusNode = FocusNode(debugLabel: 'guide_tab');
   _GuideZone _focusZone = _GuideZone.timeNav;
   int _timeNavIndex = 1; // 0=left arrow, 1=day picker, 2=right arrow
   int _gridChannelIndex = 0;
+  bool _initialChannelApplied = false;
+  bool _userNavigated = false;
   int _gridColumn = 0; // 0=channel, 1=program
   bool _hasFocus = false;
   final ValueNotifier<_GuideFocusSnapshot> _focusSnapshot = ValueNotifier((
@@ -219,7 +262,7 @@ class GuideTabState extends State<GuideTab>
       if (widget.channels.isNotEmpty) {
         _focusZone = _GuideZone.grid;
         _gridColumn = 0;
-        _gridChannelIndex = 0;
+        _gridChannelIndex = _firstVisibleChannelIndex();
         _focusedProgram = null;
       } else {
         _focusZone = _GuideZone.timeNav;
@@ -314,9 +357,12 @@ class GuideTabState extends State<GuideTab>
     super.initState();
     _initTimeRange();
     _loadPrograms();
+    _applyInitialChannel();
 
     _gridHorizontalController.addListener(_syncGridToHeader);
     _headerHorizontalController.addListener(_syncHeaderToGrid);
+    _gridHorizontalController.addListener(_maybeExtendWindow);
+    _gridVerticalController.addListener(_onVerticalScrollSpy);
   }
 
   // Not the gated data-refresh timer the other tabs run: the tick is a
@@ -349,9 +395,31 @@ class GuideTabState extends State<GuideTab>
     });
   }
 
+  /// Select (and scroll to) the remembered channel once the list is known.
+  void _applyInitialChannel() {
+    if (_initialChannelApplied) return;
+    final target = widget.initialChannel;
+    if (target == null || widget.channels.isEmpty) return;
+    _initialChannelApplied = true;
+    final key = liveTvChannelScopeKey(target);
+    final index = widget.channels.indexWhere((c) => liveTvChannelScopeKey(c) == key);
+    if (index < 0) return;
+    void apply() {
+      if (!mounted || _userNavigated || index >= widget.channels.length) return;
+      _updateFocus(() => _gridChannelIndex = index);
+      _scrollToChannel(index);
+    }
+
+    // The grid may not be laid out yet (guide data still loading): retry.
+    WidgetsBinding.instance.addPostFrameCallback((_) => apply());
+    Future<void>.delayed(const Duration(milliseconds: 500), apply);
+    Future<void>.delayed(const Duration(milliseconds: 1500), apply);
+  }
+
   @override
   void didUpdateWidget(GuideTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _applyInitialChannel();
     if (!identical(oldWidget.channels, widget.channels)) {
       _programsByChannelScope = _indexProgramsByChannel(_programs, widget.channels);
     }
@@ -369,6 +437,8 @@ class GuideTabState extends State<GuideTab>
     _selectLongPressController.dispose();
     _guideFocusNode.dispose();
     _gridVerticalController.dispose();
+    _gridVerticalController.removeListener(_onVerticalScrollSpy);
+    _gridHorizontalController.removeListener(_maybeExtendWindow);
     _gridHorizontalController.removeListener(_syncGridToHeader);
     _headerHorizontalController.removeListener(_syncHeaderToGrid);
     _headerHorizontalController.dispose();
@@ -675,8 +745,41 @@ class GuideTabState extends State<GuideTab>
   String _recordingKey(ServerId serverId, String type, String value) => '$serverId\u0000$type\u0000$value';
 
   List<_GuideRow> get _guideRows {
-    final groups = groupLiveTvChannelsBySource(widget.channels);
+    final labelOf = widget.groupLabelOf;
+    final groups = labelOf != null ? const <LiveTvChannelGroup>[] : groupLiveTvChannelsBySource(widget.channels);
     if (groups.length <= 1) {
+      if (labelOf != null) {
+        final rows = <_GuideRow>[];
+        String? last;
+        final groupCounts = <String, int>{};
+        final subCounts = <String, int>{};
+        for (final c in widget.channels) {
+          final l = labelOf(c);
+          groupCounts.update(l.split(' · ').first, (v) => v + 1, ifAbsent: () => 1);
+          subCounts.update(l, (v) => v + 1, ifAbsent: () => 1);
+        }
+        for (var i = 0; i < widget.channels.length; i++) {
+          final label = labelOf(widget.channels[i]);
+          if (label != last) {
+            // "Group · Sub": a group header when the group changes, then an
+            // inset sub-group header.
+            final parts = label.split(' · ');
+            final group = parts.first;
+            final sub = parts.length > 1 ? parts.sublist(1).join(' · ') : null;
+            final lastGroup = last?.split(' · ').first;
+            if (widget.compact) {
+              // One compact line: "Group › Sub".
+              rows.add(_GuideSourceHeaderRow(label: group, sub: sub, count: subCounts[label]));
+            } else {
+              if (group != lastGroup) rows.add(_GuideSourceHeaderRow(label: group, count: groupCounts[group]));
+              if (sub != null) rows.add(_GuideSourceHeaderRow(label: sub, inset: true, count: subCounts[label]));
+            }
+            last = label;
+          }
+          rows.add(_GuideChannelRow(channel: widget.channels[i], channelIndex: i));
+        }
+        return rows;
+      }
       return [
         for (var i = 0; i < widget.channels.length; i++) _GuideChannelRow(channel: widget.channels[i], channelIndex: i),
       ];
@@ -706,7 +809,7 @@ class GuideTabState extends State<GuideTab>
 
   double _guideRowHeight(_GuideRow row) {
     return switch (row) {
-      _GuideSourceHeaderRow() => _sourceHeaderRowHeight,
+      _GuideSourceHeaderRow(:final inset) => inset ? _subHeaderRowHeight : _sourceHeaderRowHeight,
       _GuideChannelRow() => _rowHeight,
     };
   }
@@ -726,6 +829,155 @@ class GuideTabState extends State<GuideTab>
       top += _guideRowHeight(row);
     }
     return channelIndex * _rowHeight;
+  }
+
+  String? _spyGroup;
+
+  /// Group whose header is at (or just above) the top of the viewport.
+  String? _groupAtTop() {
+    if (!_gridVerticalController.hasClients) return null;
+    final offset = _gridVerticalController.offset;
+    var top = 0.0;
+    String? current;
+    for (final row in _guideRows) {
+      if (row is _GuideSourceHeaderRow && !row.inset) {
+        if (top > offset + _rowHeight * 0.6 && current != null) break;
+        current = row.label;
+      }
+      top += _guideRowHeight(row);
+    }
+    return current;
+  }
+
+  void _onVerticalScrollSpy() {
+    final g = _groupAtTop();
+    if (g == null || g == _spyGroup) return;
+    _spyGroup = g;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onVisibleGroupChanged?.call(g);
+    });
+  }
+
+  /// Scrolls so [group]'s header is at the top of the guide.
+  void scrollToGroup(String group) {
+    if (!_gridVerticalController.hasClients) return;
+    var top = 0.0;
+    for (final row in _guideRows) {
+      if (row is _GuideSourceHeaderRow && !row.inset && row.label == group) {
+        final max = _gridVerticalController.position.maxScrollExtent;
+        _spyGroup = group;
+        unawaited(
+          _gridVerticalController.animateTo(
+            top.clamp(0.0, max),
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+        return;
+      }
+      top += _guideRowHeight(row);
+    }
+  }
+
+  /// First channel row at/under the top of the viewport.
+  int _firstVisibleChannelIndex() {
+    if (!_gridVerticalController.hasClients) return 0;
+    final offset = _gridVerticalController.offset;
+    var top = 0.0;
+    for (final row in _guideRows) {
+      if (row is _GuideChannelRow && top + _rowHeight / 2 >= offset) return row.channelIndex;
+      top += _guideRowHeight(row);
+    }
+    return 0;
+  }
+
+  /// Scrolling near the right edge grows the window by 6h (up to 7 days ahead)
+  /// by fetching just the new chunk, so the viewport never jumps.
+  void _maybeExtendWindow() {
+    if (_extendingWindow || _isLoading || !_gridHorizontalController.hasClients) return;
+    final pos = _gridHorizontalController.position;
+    if (pos.maxScrollExtent - pos.pixels > _slotWidth * 3) return;
+    unawaited(_extendWindow());
+  }
+
+  Future<void> _extendWindow() async {
+    final cap = DateTime.now().add(const Duration(days: _maxDaysAhead));
+    if (!_gridEnd.isBefore(cap) || !mounted) return;
+    _extendingWindow = true;
+    final generation = _programLoadGeneration;
+    final oldEnd = _gridEnd;
+    var newEnd = oldEnd.add(const Duration(hours: 6));
+    if (newEnd.isAfter(cap)) newEnd = cap;
+    try {
+      final added = <LiveTvProgram>[];
+      final multiServer = context.read<MultiServerProvider>();
+      bool current() => mounted && generation == _programLoadGeneration;
+      await forEachLiveTvServer(
+        multiServer,
+        resolveClient: multiServer.getClientForServer,
+        isCurrent: current,
+        body: (client, serverInfo) async {
+          final programs = await client.liveTv.fetchSchedule(
+            from: oldEnd.toUtc(),
+            to: newEnd.toUtc(),
+          );
+          if (current()) added.addAll(programs);
+        },
+        onError: (client, serverInfo, error, stackTrace) {
+          appLogger.w('Failed to extend guide window for ${serverInfo.serverId}', error: error);
+        },
+      );
+      if (!current()) return;
+      String sig(LiveTvProgram p) => '${p.channelIdentifier}|${p.beginsAt}|${p.key}';
+      final seen = {for (final p in _programs) sig(p)};
+      final fresh = [
+        for (final p in added)
+          if (seen.add(sig(p))) p,
+      ];
+      setState(() {
+        _gridEnd = newEnd;
+        _programs = [..._programs, ...fresh];
+        _programsByChannelScope = _indexProgramsByChannel(_programs, widget.channels);
+        widget.onProgramsLoaded?.call(_programsByChannelScope);
+      });
+    } finally {
+      _extendingWindow = false;
+    }
+  }
+
+  /// Time at the left edge of the viewport, rounded down to a 30 min mark.
+  DateTime _viewTime() {
+    final offset = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
+    final minutes = (offset / _slotWidth * _minutesPerSlot).floor();
+    final rounded = (minutes ~/ _minutesPerSlot) * _minutesPerSlot;
+    return _gridStart.add(Duration(minutes: rounded));
+  }
+
+  /// True when the live line is out of view (or the window left "now" behind).
+  bool _nowOutOfView() {
+    final now = DateTime.now();
+    if (!_nowInWindow(now)) return true;
+    if (!_gridHorizontalController.hasClients) return false;
+    final x = now.difference(_gridStart).inMinutes / _minutesPerSlot * _slotWidth;
+    final pos = _gridHorizontalController.position;
+    return x < pos.pixels || x > pos.pixels + pos.viewportDimension;
+  }
+
+  void _recenterOnNow() {
+    final now = DateTime.now();
+    if (!_nowInWindow(now) || !_gridHorizontalController.hasClients) {
+      _jumpToNow();
+      return;
+    }
+    final x = now.difference(_gridStart).inMinutes / _minutesPerSlot * _slotWidth;
+    final pos = _gridHorizontalController.position;
+    unawaited(
+      _gridHorizontalController.animateTo(
+        (x - MediaQuery.sizeOf(context).width / 3).clamp(0.0, pos.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _scrollToNow({int? loadGeneration}) {
@@ -878,6 +1130,20 @@ class GuideTabState extends State<GuideTab>
       if (BackKeyUpSuppressor.consumeIfSuppressed(event)) {
         return KeyEventResult.handled;
       }
+      if (_focusZone == _GuideZone.grid && widget.compact) {
+        // On a program card: Back first returns to this row's channel card;
+        // from the channel card Back goes on to the sidebar.
+        if (_gridColumn == 1) {
+          if (event is KeyUpEvent) {
+            _updateFocus(() {
+              _gridColumn = 0;
+              _focusedProgram = null;
+            });
+          }
+          return KeyEventResult.handled;
+        }
+        return handleBackKeyAction(event, () => widget.onBack?.call());
+      }
       if (_focusZone == _GuideZone.grid) {
         if (event is KeyUpEvent) {
           _updateFocus(() {
@@ -897,6 +1163,13 @@ class GuideTabState extends State<GuideTab>
       if (channelSelectResult != KeyEventResult.ignored) return channelSelectResult;
     }
 
+    if (key.isContextMenuKey &&
+        widget.onMenuKey != null &&
+        (_focusZone == _GuideZone.timeNav || _gridColumn == 0)) {
+      if (event is KeyDownEvent) widget.onMenuKey!();
+      return KeyEventResult.handled;
+    }
+
     final contextMenuResult = _handleFocusedProgramContextMenuKey(event);
     if (contextMenuResult != KeyEventResult.ignored) return contextMenuResult;
     final channelContextMenuResult = _handleFocusedChannelContextMenuKey(event);
@@ -909,15 +1182,15 @@ class GuideTabState extends State<GuideTab>
 
   KeyEventResult _handleTimeNavKey(LogicalKeyboardKey key) {
     if (key.isLeftKey) {
-      if (_timeNavIndex > 0) {
-        _updateFocus(() => _timeNavIndex--);
+      if (_timeNavIndex == 2 && !widget.compact) {
+        _updateFocus(() => _timeNavIndex = 1);
       } else {
         widget.onBack?.call();
       }
       return KeyEventResult.handled;
     }
     if (key.isRightKey) {
-      if (_timeNavIndex < 2) _updateFocus(() => _timeNavIndex++);
+      if (_timeNavIndex == 1 && !widget.compact && _nowOutOfView()) _updateFocus(() => _timeNavIndex = 2);
       return KeyEventResult.handled;
     }
     if (key.isDownKey) {
@@ -945,7 +1218,11 @@ class GuideTabState extends State<GuideTab>
           SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
           _showDayPicker();
         case 2:
-          _shiftTimeRange(2);
+          _recenterOnNow();
+          _updateFocus(() {
+            if (widget.compact) _focusZone = _GuideZone.grid;
+            _timeNavIndex = 1;
+          });
       }
       return KeyEventResult.handled;
     }
@@ -957,12 +1234,18 @@ class GuideTabState extends State<GuideTab>
       // Move through rows in displayed (source-grouped) order. Stepping the
       // flat channel index would interleave sources whose channel numbers
       // overlap and could dead-end before the last displayed row.
+      _userNavigated = true;
       final order = _displayOrderChannelIndexes;
       final position = order.indexOf(_gridChannelIndex);
       if (key.isUpKey && position <= 0) {
+        if (widget.compact && !_nowOutOfView()) {
+          // Compact has no focusable time bar unless the "Now" pill is showing.
+          widget.onNavigateUp?.call();
+          return KeyEventResult.handled;
+        }
         _updateFocus(() {
           _focusZone = _GuideZone.timeNav;
-          _timeNavIndex = 1;
+          _timeNavIndex = widget.compact ? 2 : 1;
         });
       } else if (key.isUpKey || (position != -1 && position < order.length - 1)) {
         _updateFocus(() {
@@ -981,6 +1264,9 @@ class GuideTabState extends State<GuideTab>
         });
         _scrollToChannel(_gridChannelIndex);
         if (_gridColumn == 1) _scrollToProgramTime(_focusedProgram);
+        if (_gridChannelIndex >= 0 && _gridChannelIndex < widget.channels.length) {
+          widget.onChannelFocused?.call(widget.channels[_gridChannelIndex]);
+        }
       }
       return KeyEventResult.handled;
     }
@@ -1182,18 +1468,19 @@ class GuideTabState extends State<GuideTab>
     final rows = _guideRows;
     return Column(
       children: [
-        _buildTimeNavigation(theme),
+        if (!widget.compact) _buildTimeNavigation(theme),
         Expanded(
           child: ListenableBuilder(
             listenable: _gridHorizontalController,
             builder: (context, child) {
-              return Stack(children: [child!, _buildNowIndicatorOverlay(theme)]);
+              return Stack(children: [child!, _buildCompactHeaderOverlay(theme), _buildNowIndicatorOverlay(theme)]);
             },
             child: Column(
               children: [
+                if (widget.compact) _buildCompactStatusBar(theme),
                 Row(
                   children: [
-                    const SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
+                    SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
                     Expanded(
                       child: SingleChildScrollView(
                         controller: _headerHorizontalController,
@@ -1208,6 +1495,7 @@ class GuideTabState extends State<GuideTab>
                     ),
                   ],
                 ),
+
                 Expanded(
                   child: Row(
                     children: [
@@ -1223,7 +1511,7 @@ class GuideTabState extends State<GuideTab>
                               itemBuilder: (context, index) {
                                 final row = rows[index];
                                 return switch (row) {
-                                  _GuideSourceHeaderRow(:final label) => _buildSourceHeaderCell(label, theme),
+                                  _GuideSourceHeaderRow(:final label, :final inset) => _buildSourceHeaderCell(label, theme, inset: inset),
                                   _GuideChannelRow(:final channel, :final channelIndex) => _buildChannelCell(
                                     channel,
                                     theme,
@@ -1252,27 +1540,45 @@ class GuideTabState extends State<GuideTab>
                             physics: const ClampingScrollPhysics(),
                             child: SizedBox(
                               width: _totalGridWidth(),
-                              child: CustomScrollView(
-                                controller: _gridVerticalController,
-                                slivers: [
-                                  SliverVariedExtentList.builder(
-                                    itemCount: rows.length,
-                                    itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
-                                    itemBuilder: (context, index) {
-                                      final row = rows[index];
-                                      return switch (row) {
-                                        _GuideSourceHeaderRow(:final label) => _buildSourceHeaderGridRow(label, theme),
-                                        _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
-                                          channel,
-                                          _getProgramsForChannel(channel),
-                                          theme,
-                                          channelIndex: channelIndex,
-                                        ),
-                                      };
-                                    },
+                              child: Stack(children: [
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: CustomPaint(
+                                      painter: _SlotLinesPainter(
+                                        slotWidth: _slotWidth,
+                                        firstIsHour: _gridStart.minute == 0,
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                CustomScrollView(
+                                  controller: _gridVerticalController,
+                                  slivers: [
+                                    SliverVariedExtentList.builder(
+                                      itemCount: rows.length,
+                                      itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
+                                      itemBuilder: (context, index) {
+                                        final row = rows[index];
+                                        return switch (row) {
+                                          _GuideSourceHeaderRow(:final label, :final inset, :final count) => _buildSourceHeaderGridRow(
+                                            label,
+                                            theme,
+                                            inset: inset,
+                                            count: count,
+                                          ),
+                                          _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
+                                            channel,
+                                            _getProgramsForChannel(channel),
+                                            theme,
+                                            channelIndex: channelIndex,
+                                          ),
+                                        };
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ]),
                             ),
                           ),
                         ),
@@ -1296,18 +1602,40 @@ class GuideTabState extends State<GuideTab>
     final minutesSinceStart = now.difference(_gridStart).inMinutes.toDouble();
     final nowOffset = (minutesSinceStart / _minutesPerSlot) * _slotWidth;
     final scrollOffset = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
-    final left = _channelColumnWidth + nowOffset - scrollOffset;
+    final left = _channelColumnWidth + nowOffset - scrollOffset - 5;
 
     // Hide when scrolled behind the channel column
-    if (left < _channelColumnWidth) return const SizedBox.shrink();
+    if (left + 5 < _channelColumnWidth) return const SizedBox.shrink();
 
-    final gridHeight = _timeHeaderHeight + _guideContentHeight(_guideRows);
+    final gridHeight = _statusBarHeight + _timeHeaderHeight + _guideContentHeight(_guideRows);
 
     return Positioned(
       left: left,
       top: 0,
       height: gridHeight,
-      child: IgnorePointer(child: Container(width: 2, color: Colors.red)),
+      child: IgnorePointer(
+        child: SizedBox(
+          width: 10,
+          child: Stack(
+            alignment: .topCenter,
+            children: [
+              Positioned(
+                top: _statusBarHeight + _timeHeaderHeight - 5,
+                bottom: 0,
+                child: Container(width: 1.5, color: const Color(0xFFFF4D4D).withValues(alpha: 0.9)),
+              ),
+              Positioned(
+                top: _statusBarHeight + _timeHeaderHeight - 10,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(color: Color(0xFFFF4D4D), shape: BoxShape.circle),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1452,67 +1780,263 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
-  Widget _buildTimeNavigation(ThemeData theme) {
-    final timeLabel = formatClockTime(_gridStart, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context));
-    final dayLabel = _dayLabel(_gridStart);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Row(
-        children: [
-          _timeNavFocusWrap(
-            index: 0,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_left_rounded),
-              onPressed: () => _shiftTimeRange(-2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
+  /// Slim bar above the time header: day status on the left (not
+  /// interactive), "Now" pill on the right when the live line is off screen.
+  Widget _buildCompactStatusBar(ThemeData theme) {
+    return SizedBox(
+      height: _statusBarHeight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 2, 12, 4),
+        child: Row(
+          children: [
+            ListenableBuilder(
+              listenable: _gridHorizontalController,
+              builder: (context, _) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _dayLabel(_viewTime()),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700, color: theme.hintColor),
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: .center,
-              children: [
-                _timeNavFocusWrap(
-                  index: 1,
-                  child: ClickableCursor(
-                    child: GestureDetector(
-                      key: _dayPickerKey,
-                      onTap: _showDayPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: tokens(context).text.withValues(alpha: 0.08),
-                          borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+            const Spacer(),
+            _buildCompactNowPill(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact (TV) "Now" pill, floating at the right end of the time header.
+  /// Idle: outlined with a red dot. Focused: solid accent fill, like the
+  /// focused program card, with a soft glow.
+  Widget _buildCompactNowPill(ThemeData theme) {
+    return ListenableBuilder(
+      listenable: _gridHorizontalController,
+      builder: (context, _) {
+        if (!_nowOutOfView()) return const SizedBox.shrink();
+        final scheme = theme.colorScheme;
+        return _GuideFocusSelector(
+          valueListenable: _focusSnapshot,
+          isSelected: (focus) => focus.hasFocus && focus.zone == _GuideZone.timeNav && focus.timeNavIndex == 2,
+          builder: (context, focused) {
+            return ClickableCursor(
+              child: GestureDetector(
+                onTap: _recenterOnNow,
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedScale(
+                  scale: focused ? 1.06 : 1.0,
+                  duration: const Duration(milliseconds: 140),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: focused ? scheme.primary : scheme.surface.withValues(alpha: 0.92),
+                      border: Border.all(
+                        color: focused ? scheme.primary : scheme.error.withValues(alpha: 0.55),
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: focused
+                          ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.35), blurRadius: 14)]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: .min,
+                      children: [
+                        AppIcon(
+                          Symbols.fiber_manual_record_rounded,
+                          size: 8,
+                          color: focused ? scheme.error : scheme.error,
                         ),
-                        child: Row(
-                          mainAxisSize: .min,
-                          children: [
-                            Text(dayLabel, style: theme.textTheme.labelLarge),
-                            const SizedBox(width: 2),
-                            AppIcon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurface),
-                          ],
+                        const SizedBox(width: 6),
+                        Text(
+                          t.liveTv.now,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: .w700,
+                            color: focused ? scheme.onPrimary : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Compact (TV) group headers, drawn as one overlay line each so they span
+  /// the full width (never clipped to the narrow channel column).
+  Widget _buildCompactHeaderOverlay(ThemeData theme) {
+    if (!widget.compact) return const SizedBox.shrink();
+    final scheme = theme.colorScheme;
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: _timeHeaderHeight + _statusBarHeight,
+      bottom: 0,
+      child: IgnorePointer(
+        child: ClipRect(
+          child: ListenableBuilder(
+            listenable: _gridVerticalController,
+            builder: (context, _) {
+              final offset = _gridVerticalController.hasClients ? _gridVerticalController.offset : 0.0;
+              var top = 0.0;
+              final children = <Widget>[];
+              for (final row in _guideRows) {
+                final h = _guideRowHeight(row);
+                if (row is _GuideSourceHeaderRow && top + h > offset && top < offset + 4000) {
+                  children.add(
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: top - offset,
+                      height: h,
+                      child: Align(
+                        alignment: .bottomLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
+                          child: Text.rich(
+                            TextSpan(
+                              style: theme.textTheme.labelMedium,
+                              children: [
+                                TextSpan(
+                                  text: row.label,
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                if (row.sub != null) ...[
+                                  TextSpan(
+                                    text: '  ›  ',
+                                    style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.4)),
+                                  ),
+                                  TextSpan(
+                                    text: row.sub,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: scheme.onSurface.withValues(alpha: 0.75),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                top += h;
+              }
+              return Stack(children: children);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeNavigation(ThemeData theme) {
+    final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
+    const sideWidth = 84.0;
+
+    return ListenableBuilder(
+      listenable: _gridHorizontalController,
+      builder: (context, _) {
+        final view = _viewTime();
+        final showNow = _nowOutOfView();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              const SizedBox(width: sideWidth),
+              Expanded(
+                child: Center(
+                  child: _timeNavFocusWrap(
+                    index: 1,
+                    child: ClickableCursor(
+                      child: GestureDetector(
+                        key: _dayPickerKey,
+                        onTap: _showDayPicker,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          child: Row(
+                            mainAxisSize: .min,
+                            children: [
+                              Text(_dayLabel(view), style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700)),
+                              const SizedBox(width: 8),
+                              Text(
+                                formatClockTime(view, is24Hour: is24),
+                                style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(timeLabel, style: theme.textTheme.labelLarge),
-              ],
-            ),
+              ),
+              SizedBox(
+                width: sideWidth,
+                child: Align(
+                  alignment: .centerRight,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: !showNow
+                        ? const SizedBox.shrink(key: ValueKey('no-now'))
+                        : KeyedSubtree(
+                        key: const ValueKey('now'),
+                        child: _timeNavFocusWrap(
+                          index: 2,
+                          child: ClickableCursor(
+                            child: GestureDetector(
+                              onTap: _recenterOnNow,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.error.withValues(alpha: 0.14),
+                                  borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: .min,
+                                  children: [
+                                    AppIcon(
+                                      Symbols.fiber_manual_record_rounded,
+                                      size: 10,
+                                      color: theme.colorScheme.error,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      t.liveTv.now,
+                                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        )),
+                  ),
+                ),
+              ),
+            ],
           ),
-          _timeNavFocusWrap(
-            index: 2,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_right_rounded),
-              onPressed: () => _shiftTimeRange(2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1523,14 +2047,26 @@ class GuideTabState extends State<GuideTab>
 
     while (current.isBefore(_gridEnd)) {
       final timeStr = formatClockTime(current, is24Hour: is24Hour);
+      final isHour = current.minute == 0;
       slots.add(
-        SizedBox(
+        Container(
           width: _slotWidth,
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: tokens(context).text.withValues(alpha: isHour ? 0.18 : 0.08), width: 1),
+            ),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Align(
               alignment: .centerLeft,
-              child: Text(timeStr, style: theme.textTheme.labelSmall?.copyWith(color: tokens(context).textMuted)),
+              child: Text(
+                timeStr,
+                style: (widget.compact ? theme.textTheme.labelMedium : theme.textTheme.labelSmall)?.copyWith(
+                  color: isHour ? tokens(context).text.withValues(alpha: 0.85) : tokens(context).textMuted,
+                  fontWeight: isHour ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ),
@@ -1541,43 +2077,106 @@ class GuideTabState extends State<GuideTab>
     return Row(children: slots);
   }
 
-  Widget _buildSourceHeaderCell(String label, ThemeData theme) {
+  /// Channel-column side of a header row. Group: bold title with an accent
+  /// dot; sub-group: indented soft pill with a branch icon.
+  Widget _buildSourceHeaderCell(String label, ThemeData theme, {bool inset = false}) {
+    if (widget.compact) return SizedBox(height: _sourceHeaderRowHeight);
+    final scheme = theme.colorScheme;
+    final c = widget.compact;
+    if (!inset) {
+      return Container(
+        height: _sourceHeaderRowHeight,
+        alignment: .bottomLeft,
+        padding: EdgeInsets.fromLTRB(12, 0, 6, c ? 4 : 8),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: .centerLeft,
+          child: Row(
+            mainAxisSize: .min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                style: (c ? theme.textTheme.labelLarge : theme.textTheme.titleSmall)?.copyWith(
+                  fontWeight: .w700,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
-      height: _sourceHeaderRowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: _subHeaderRowHeight,
       alignment: .centerLeft,
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(color: tokens(context).textMuted, fontWeight: .w700),
-        maxLines: 2,
-        overflow: .ellipsis,
+      padding: EdgeInsets.fromLTRB(c ? 14 : 20, 0, 6, c ? 2 : 4),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(6, c ? 1 : 3, 10, c ? 1 : 3),
+        decoration: BoxDecoration(
+          color: scheme.onSurface.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: .min,
+          children: [
+            AppIcon(
+              Symbols.subdirectory_arrow_right_rounded,
+              size: 14,
+              color: scheme.onSurface.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.onSurface.withValues(alpha: 0.75),
+                  fontWeight: .w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSourceHeaderGridRow(String label, ThemeData theme) {
-    return SizedBox(
-      height: _sourceHeaderRowHeight,
-      child: ClipRect(
+  /// Timeline side of a header row: channel count pinned left + soft rule.
+  Widget _buildSourceHeaderGridRow(String label, ThemeData theme, {bool inset = false, int? count}) {
+    if (widget.compact) return SizedBox(height: _sourceHeaderRowHeight);
+    final scheme = theme.colorScheme;
+    final countText = count == null ? null : (count == 1 ? '1 channel' : '$count channels');
+    return Container(
+      height: inset ? _subHeaderRowHeight : _sourceHeaderRowHeight,
+      alignment: .bottomLeft,
+      decoration: inset
+          ? null
+          : BoxDecoration(
+        border: Border(bottom: BorderSide(color: scheme.onSurface.withValues(alpha: 0.07), width: 1)),
+      ),
+      child: countText == null
+          ? null
+          : ClipRect(
         child: ListenableBuilder(
           listenable: _gridHorizontalController,
           builder: (context, child) {
-            final scrollOffset = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
-            return Transform.translate(offset: Offset(scrollOffset, 0), child: child);
+            final off = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
+            return Transform.translate(offset: Offset(off, 0), child: child);
           },
-          child: Align(
-            alignment: .centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: tokens(context).textMuted,
-                  fontWeight: .w700,
-                  letterSpacing: 0.3,
-                ),
-                maxLines: 1,
-                overflow: .ellipsis,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 0, widget.compact ? 4 : (inset ? 8 : 9)),
+            child: Text(
+              countText,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurface.withValues(alpha: inset ? 0.35 : 0.45),
               ),
             ),
           ),
@@ -1648,7 +2247,7 @@ class GuideTabState extends State<GuideTab>
           padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
           child: Material(
             color: Color.alphaBlend(tk.surface.withValues(alpha: 0.5), tk.bg),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(tk.radiusXs)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             child: Center(
               child: Text(t.liveTv.noPrograms, style: theme.textTheme.bodySmall?.copyWith(color: tk.textMuted)),
             ),
@@ -1742,11 +2341,11 @@ class GuideTabState extends State<GuideTab>
           titleColor = theme.colorScheme.onPrimary;
           subtitleColor = theme.colorScheme.onPrimary.withValues(alpha: 0.7);
         } else if (isPast) {
-          fillColor = Color.alphaBlend(tk.surface.withValues(alpha: 0.5), tk.bg);
-          titleColor = tk.text.withValues(alpha: 0.5);
-          subtitleColor = tk.text.withValues(alpha: 0.3);
+          fillColor = Color.alphaBlend(tk.surface.withValues(alpha: 0.35), tk.bg);
+          titleColor = tk.text.withValues(alpha: 0.45);
+          subtitleColor = tk.text.withValues(alpha: 0.28);
         } else if (isCurrentlyAiring) {
-          fillColor = airingFill(context);
+          fillColor = Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.10), tk.surface);
           titleColor = tk.text;
           subtitleColor = tk.textMuted;
         } else {
@@ -1754,12 +2353,19 @@ class GuideTabState extends State<GuideTab>
           titleColor = tk.text;
           subtitleColor = tk.textMuted;
         }
-        final radius = BorderRadius.circular(isFocused ? tk.radiusSm : tk.radiusXs);
+        final radius = BorderRadius.circular(isFocused ? 12 : 10);
+        double? progress;
+        if (isCurrentlyAiring && !isFocused && program.beginsAt != null && program.endsAt != null) {
+          final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final span = program.endsAt! - program.beginsAt!;
+          if (span > 0) progress = ((nowSec - program.beginsAt!) / span).clamp(0.0, 1.0);
+        }
 
         return Padding(
-          padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
+          padding: const EdgeInsets.only(right: 4, bottom: 4),
           child: Material(
             color: fillColor,
+            clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(borderRadius: radius),
             child: InkWell(
               borderRadius: radius,
@@ -1768,50 +2374,70 @@ class GuideTabState extends State<GuideTab>
               onTap: () => _activateProgram(channel, program),
               onLongPress: () => _showProgramDetails(channel, program),
               onSecondaryTap: () => _showProgramDetails(channel, program),
-              child: Padding(
-                padding: .fromLTRB(
-                  6 + (scrollOffset - tileLeft).clamp(0.0, (tileWidth - tk.groupGap - 32).clamp(0.0, double.infinity)),
-                  4,
-                  6,
-                  4,
-                ),
-                child: Column(
-                  crossAxisAlignment: .start,
-                  mainAxisAlignment: .center,
-                  children: [
-                    Row(
-                      children: [
-                        if (isRecordingScheduled) ...[
-                          _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
-                          const SizedBox(width: 5),
-                        ],
-                        Expanded(
-                          child: Text(
-                            program.grandparentTitle ?? program.title,
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: .w600, color: titleColor),
-                            maxLines: 1,
-                            overflow: .ellipsis,
+              child: Stack(children: [
+                Padding(
+                  padding: .fromLTRB(
+                    (widget.compact ? 12 : 10) + (scrollOffset - tileLeft).clamp(0.0, (tileWidth - tk.groupGap - 32).clamp(0.0, double.infinity)),
+                    widget.compact ? 3 : 6,
+                    8,
+                    widget.compact ? 3 : 6,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    mainAxisAlignment: .center,
+                    children: [
+                      Row(
+                        children: [
+                          if (isRecordingScheduled) ...[
+                            _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
+                            const SizedBox(width: 5),
+                          ],
+                          Expanded(
+                            child: Text(
+                              program.grandparentTitle ?? program.title,
+                              style: (widget.compact ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)?.copyWith(
+                                fontSize: widget.compact ? 13 : null,
+                                fontWeight: .w600,
+                                color: titleColor,
+                              ),
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                            ),
                           ),
+                        ],
+                      ),
+                      if (program.grandparentTitle != null && !widget.compact)
+                        Text(
+                          '${program.parentIndex != null && program.index != null ? 'S${program.parentIndex}E${program.index} · ' : ''}${program.title}',
+                          style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
+                          maxLines: 1,
+                          overflow: .ellipsis,
                         ),
-                      ],
-                    ),
-                    if (program.grandparentTitle != null)
-                      Text(
-                        '${program.parentIndex != null && program.index != null ? 'S${program.parentIndex}E${program.index} · ' : ''}${program.title}',
-                        style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
-                    if (program.startTime != null)
-                      Text(
-                        '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} · ${formatDurationTextual(program.durationMinutes * 60_000)}',
-                        style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
-                  ],
+                      if (program.startTime != null)
+                        Text(
+                          '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} · ${formatDurationTextual(program.durationMinutes * 60_000)}',
+                          style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+                if (progress != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 3,
+                    child: Align(
+                      alignment: .centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: progress,
+                        child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.7)),
+                      ),
+                    ),
+                  ),
+              ]),
             ),
           ),
         );
@@ -1938,7 +2564,7 @@ class _ChannelCellState extends State<_ChannelCell> {
     final theme = widget.theme;
     final tk = tokens(context);
     final showAction = _hovered || widget.isFocused;
-    final radius = BorderRadius.circular(widget.isFocused ? tk.radiusSm : tk.radiusXs);
+    final radius = BorderRadius.circular(widget.isFocused ? 12 : 10);
     // Inverted focus card, matching the program-block cursor.
     final contentColor = widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
 
@@ -1951,7 +2577,7 @@ class _ChannelCellState extends State<_ChannelCell> {
         child: SizedBox(
           height: widget.rowHeight,
           child: Padding(
-            padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
+            padding: const EdgeInsets.only(right: 4, bottom: 4),
             child: Material(
               color: widget.isFocused ? theme.colorScheme.primary : tk.surface,
               shape: RoundedRectangleBorder(borderRadius: radius),
@@ -1985,6 +2611,19 @@ class _ChannelCellState extends State<_ChannelCell> {
                             : widget.fallbackBuilder(),
                       ),
                       if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
+                      if (widget.channel.number != null && widget.channelThumb != null && widget.client != null)
+                        Positioned(
+                          left: 0,
+                          bottom: 3,
+                          child: Text(
+                            widget.channel.number!,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: contentColor.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
                       if (widget.isFavorite)
                         Positioned(
                           top: 2,
@@ -2005,4 +2644,31 @@ class _ChannelCellState extends State<_ChannelCell> {
       ),
     );
   }
+}
+
+/// Soft vertical rules at every 30 minute slot boundary of the guide grid.
+class _SlotLinesPainter extends CustomPainter {
+  final double slotWidth;
+  final bool firstIsHour;
+  final Color color;
+
+  const _SlotLinesPainter({required this.slotWidth, required this.firstIsHour, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final hourPaint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    final halfPaint = Paint()
+      ..color = color.withValues(alpha: color.a * 0.5)
+      ..strokeWidth = 1;
+    var i = 0;
+    for (var x = 0.0; x < size.width; x += slotWidth, i++) {
+      final isHour = (i.isEven) == firstIsHour;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), isHour ? hourPaint : halfPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SlotLinesPainter old) => old.slotWidth != slotWidth || old.color != color || old.firstIsHour != firstIsHour;
 }
