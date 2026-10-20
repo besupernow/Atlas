@@ -36,6 +36,9 @@ const _sourceThemes = [
   settings.ThemeMode.light,
   settings.ThemeMode.dark,
   settings.ThemeMode.oled,
+  settings.ThemeMode.sakura,
+  settings.ThemeMode.blossom,
+  settings.ThemeMode.hanami,
   settings.ThemeMode.ember,
   settings.ThemeMode.glacier,
   settings.ThemeMode.forest,
@@ -268,77 +271,77 @@ class _CustomThemeEditorScreenState extends State<CustomThemeEditorScreen>
         title: Text(t.themeEditor.title),
         bottomBar: narrow
             ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!warningsInBar)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: _ThemePreview(theme: _previewThemeData),
-                    )
-                  else if (slotWarnings.isNotEmpty)
-                    Padding(
-                      key: const ValueKey('custom_theme_bar_warnings'),
-                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                      child: _ContrastWarnings(checks: slotWarnings, palette: _draft),
-                    ),
-                  _buildActions(context),
-                ],
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!warningsInBar)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _ThemePreview(theme: _previewThemeData),
               )
+            else if (slotWarnings.isNotEmpty)
+              Padding(
+                key: const ValueKey('custom_theme_bar_warnings'),
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+                child: _ContrastWarnings(checks: slotWarnings, palette: _draft),
+              ),
+            _buildActions(context),
+          ],
+        )
             : _buildActions(context),
         slivers: narrow
             ? [
-                SliverPadding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  sliver: SliverList(delegate: SliverChildListDelegate(controls)),
-                ),
-              ]
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: 16),
+            sliver: SliverList(delegate: SliverChildListDelegate(controls)),
+          ),
+        ]
             : [
-                SliverFillRemaining(
-                  hasScrollBody: true,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: controls),
-                        ),
-                      ),
-                      SizedBox(
-                        width: (MediaQuery.sizeOf(context).width * 0.4).clamp(300.0, 440.0),
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(0, 8, 16, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(4, 16, 0, 8),
-                                child: Text(
-                                  t.themeEditor.preview,
-                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: tokens(context).textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              _ThemePreview(theme: _previewThemeData),
-                            ],
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: controls),
+                  ),
+                ),
+                SizedBox(
+                  width: (MediaQuery.sizeOf(context).width * 0.4).clamp(300.0, 440.0),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(0, 8, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 16, 0, 8),
+                          child: Text(
+                            t.themeEditor.preview,
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: tokens(context).textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        _ThemePreview(theme: _previewThemeData),
+                      ],
+                    ),
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   List<Widget> _buildControls(
-    BuildContext context,
-    List<PaletteContrastCheck> failing,
-    List<PaletteContrastCheck> slotWarnings,
-  ) {
+      BuildContext context,
+      List<PaletteContrastCheck> failing,
+      List<PaletteContrastCheck> slotWarnings,
+      ) {
     return [
       SettingsGroup(
         children: [

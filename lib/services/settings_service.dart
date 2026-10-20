@@ -52,6 +52,10 @@ enum ThemeMode {
   ember,
   glacier,
   forest,
+  sakura,
+  blossom,
+  hanami,
+  lovely,
   plum,
   paper,
   custom;
@@ -60,7 +64,7 @@ enum ThemeMode {
   /// every build.
   bool get isSupporterPerk => switch (this) {
     system || light || dark || oled => false,
-    ember || glacier || forest || plum || paper || custom => true,
+    ember || glacier || forest || lovely || plum ||  sakura || blossom || hanami || paper || custom => true,
   };
 }
 

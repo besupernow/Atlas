@@ -170,6 +170,9 @@ class GuideTabState extends State<GuideTab>
   double get _sourceHeaderRowHeight => widget.compact ? 30.0 : 44.0;
   double get _subHeaderRowHeight => widget.compact ? 22.0 : 32.0;
   double get _timeHeaderHeight => widget.compact ? 28.0 : 40.0;
+
+  /// Slim bar above the time header holding the day status + "Now" pill.
+  double get _statusBarHeight => widget.compact ? 34.0 : 0.0;
   static const _minutesPerSlot = 30;
 
   /// Minimum time away (backgrounded or on another section) before the
@@ -1474,36 +1477,25 @@ class GuideTabState extends State<GuideTab>
             },
             child: Column(
               children: [
-                Stack(children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: _channelColumnWidth,
-                        height: _timeHeaderHeight,
-                        child: widget.compact ? _buildCompactTimeCorner(theme) : null,
-                      ),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          controller: _headerHorizontalController,
-                          scrollDirection: Axis.horizontal,
-                          physics: const ClampingScrollPhysics(),
-                          child: SizedBox(
-                            width: _totalGridWidth(),
-                            height: _timeHeaderHeight,
-                            child: _buildTimeHeader(theme),
-                          ),
+                if (widget.compact) _buildCompactStatusBar(theme),
+                Row(
+                  children: [
+                    SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _headerHorizontalController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const ClampingScrollPhysics(),
+                        child: SizedBox(
+                          width: _totalGridWidth(),
+                          height: _timeHeaderHeight,
+                          child: _buildTimeHeader(theme),
                         ),
                       ),
-                    ],
-                  ),
-                  if (widget.compact)
-                    Positioned(
-                      right: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(child: _buildCompactNowPill(theme)),
                     ),
-                ]),
+                  ],
+                ),
+
                 Expanded(
                   child: Row(
                     children: [
@@ -1615,7 +1607,7 @@ class GuideTabState extends State<GuideTab>
     // Hide when scrolled behind the channel column
     if (left + 5 < _channelColumnWidth) return const SizedBox.shrink();
 
-    final gridHeight = _timeHeaderHeight + _guideContentHeight(_guideRows);
+    final gridHeight = _statusBarHeight + _timeHeaderHeight + _guideContentHeight(_guideRows);
 
     return Positioned(
       left: left,
@@ -1628,12 +1620,12 @@ class GuideTabState extends State<GuideTab>
             alignment: .topCenter,
             children: [
               Positioned(
-                top: _timeHeaderHeight - 5,
+                top: _statusBarHeight + _timeHeaderHeight - 5,
                 bottom: 0,
                 child: Container(width: 1.5, color: const Color(0xFFFF4D4D).withValues(alpha: 0.9)),
               ),
               Positioned(
-                top: _timeHeaderHeight - 10,
+                top: _statusBarHeight + _timeHeaderHeight - 10,
                 child: Container(
                   width: 9,
                   height: 9,
@@ -1788,26 +1780,34 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
-  /// Compact (TV) corner above the channel logos: plain, non-interactive day.
-  Widget _buildCompactTimeCorner(ThemeData theme) {
-    return ListenableBuilder(
-      listenable: _gridHorizontalController,
-      builder: (context, _) => Align(
-        alignment: .centerLeft,
-        // Status only: not tappable, not focusable.
-        child: Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(999),
+  /// Slim bar above the time header: day status on the left (not
+  /// interactive), "Now" pill on the right when the live line is off screen.
+  Widget _buildCompactStatusBar(ThemeData theme) {
+    return SizedBox(
+      height: _statusBarHeight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 2, 12, 4),
+        child: Row(
+          children: [
+            ListenableBuilder(
+              listenable: _gridHorizontalController,
+              builder: (context, _) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _dayLabel(_viewTime()),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700, color: theme.hintColor),
+                ),
+              ),
             ),
-            child: Text(
-              _dayLabel(_viewTime()),
-              style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700, color: theme.hintColor),
-            ),
-          ),
+            const Spacer(),
+            _buildCompactNowPill(theme),
+          ],
         ),
       ),
     );
@@ -1883,7 +1883,7 @@ class GuideTabState extends State<GuideTab>
     return Positioned(
       left: 0,
       right: 0,
-      top: _timeHeaderHeight,
+      top: _timeHeaderHeight + _statusBarHeight,
       bottom: 0,
       child: IgnorePointer(
         child: ClipRect(

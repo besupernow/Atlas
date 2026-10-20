@@ -28,12 +28,15 @@ const _builtIns = [
   settings.ThemeMode.light,
   settings.ThemeMode.dark,
   settings.ThemeMode.oled,
+
 ];
 
 const _presets = [
-  settings.ThemeMode.ember,
+  settings.ThemeMode.lovely,
   settings.ThemeMode.glacier,
   settings.ThemeMode.forest,
+  settings.ThemeMode.sakura,
+  settings.ThemeMode.hanami,
   settings.ThemeMode.plum,
   settings.ThemeMode.paper,
 ];
