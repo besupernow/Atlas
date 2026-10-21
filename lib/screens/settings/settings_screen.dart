@@ -354,8 +354,8 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
       children: [
         SettingNavigationTile(
           icon: Symbols.tap_and_play_rounded,
-          title: 'Authorize a device',
-          subtitle: 'Approve a Quick Connect code from a TV or another device',
+          title: 'Devices & access',
+          subtitle: 'Approve a new device, create a guest pass, manage your devices',
           destinationBuilder: (context) => const AuthorizeDeviceScreen(),
         ),
         // Connections are managed per-profile (via the Profiles section

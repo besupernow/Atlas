@@ -853,6 +853,7 @@ class PlezyActivity : FlutterActivity() {
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
+    AtlasBlockStore.register(flutterEngine, this)
     flutterEngine.plugins.add(MpvPlayerPlugin())
     flutterEngine.plugins.add(ExoPlayerPlugin())
     flutterEngine.plugins.add(MpvAudioPlayerPlugin())

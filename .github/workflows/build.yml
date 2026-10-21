@@ -32,7 +32,7 @@ on:
 env:
   FLUTTER_VERSION: "3.47.1"
   # No Sentry, donations or upstream update check in the family build.
-  DART_DEFINES: --dart-define=ENABLE_UPDATE_CHECK=false --dart-define=GIT_COMMIT=${{ github.sha }} --dart-define=SUPPORTER_MODE=unlocked
+  DART_DEFINES: --dart-define=ENABLE_UPDATE_CHECK=true --dart-define=GIT_COMMIT=${{ github.sha }} --dart-define=SUPPORTER_MODE=unlocked
   LINUX_APT_PACKAGES: >
     clang cmake meson ninja-build pkg-config nasm libgtk-3-dev libevdev-dev liblzma-dev
     libstdc++-12-dev libasound2-dev libass-dev libfreetype-dev libfontconfig-dev libfribidi-dev
@@ -40,7 +40,8 @@ env:
     libva-dev libvdpau-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev
     libxss-dev libxpresent-dev libxkbcommon-dev libpulse-dev libdbus-1-dev libdrm-dev
     libdisplay-info-dev libgbm-dev libwayland-dev wayland-protocols liblcms2-dev libmujs-dev liblua5.2-dev
-    build-essential libcurl4-openssl-dev zstd
+    build-essential libcurl4-openssl-dev zstd libsecret-1-dev libjsoncpp-dev
+
 
 jobs:
   android:

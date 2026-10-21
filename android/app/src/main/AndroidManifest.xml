@@ -68,14 +68,21 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="plezy" android:host="play"/>
+                <data android:scheme="atlas" android:host="play"/>
             </intent-filter>
             <!-- Deep link for tuning a live TV channel: plezy://live?channel=...&start=beginning|live -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="plezy" android:host="live"/>
+                <data android:scheme="atlas" android:host="live"/>
+            </intent-filter>
+            <!-- Approve a new device from its QR code: atlas://authorize?code=123456 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="atlas" android:host="authorize"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

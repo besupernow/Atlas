@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../services/atlas_gate/atlas_gate_headers.dart';
 import 'app_logger.dart';
+
 
 /// [http.Client] that can abort and drain its active requests before closing.
 ///
@@ -59,6 +61,9 @@ class ManagedHttpClient extends http.BaseClient implements GracefulHttpClient {
     if (_closing) {
       throw http.ClientException('HTTP client is closing', request.url);
     }
+
+    final atlasKey = AtlasGateHeaders.forUri(request.url);
+    if (atlasKey != null) request.headers['X-Atlas-Key'] = atlasKey;
 
     final tracked = _TrackedRequest(request.url);
     _active.add(tracked);

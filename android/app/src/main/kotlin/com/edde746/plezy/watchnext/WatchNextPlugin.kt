@@ -34,6 +34,8 @@ class WatchNextPlugin() :
      */
     fun handleIntent(intent: Intent?): String? {
       val data = intent?.data ?: return null
+      // atlas://authorize?code=... (QR code on a waiting TV): forwarded whole and parsed in Dart.
+      if (data.scheme == "atlas" && data.authority == "authorize") return data.toString()
       if (data.scheme != "plezy") return null
       return when (data.authority) {
         "play" -> data.getQueryParameter("content_id")

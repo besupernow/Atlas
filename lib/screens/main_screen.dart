@@ -4,12 +4,15 @@ import '../media/media_server_client.dart';
 import '../navigation/main_screen_scope.dart';
 import '../navigation/page_refresh_shortcut.dart';
 import 'dart:io' show Platform, exit;
+import 'settings/authorize_device_screen.dart';
+import '../utils/atlas_deep_link.dart';
 
 export '../navigation/main_screen_scope.dart'
     show MainScreenFocusScope, MainScreenScopeAspect, SideNavigationBleedBuilder;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'atlas_access_screen.dart';
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, KeyRepeatEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:material_symbols_icons/symbols.dart';
@@ -518,7 +521,10 @@ class _MainScreenState extends State<MainScreen>
 
     WidgetsBinding.instance.addObserver(this);
     _contentFocusScope.addListener(_syncSidebarFocusWithContent);
-    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_autoConnectSeerr()));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_autoConnectSeerr());
+      unawaited(_maybePromptAtlasRecovery());
+    });
 
     if (PlatformDetector.isDesktopOS()) {
       windowManager.addListener(this);
@@ -883,8 +889,33 @@ class _MainScreenState extends State<MainScreen>
   }
 
   /// Handle a launcher shelf content ID by fetching metadata and starting playback.
+  void _openAuthorizeLink(AtlasAuthorizeLink link) {
+    if (!mounted) return;
+    unawaited(
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => AuthorizeDeviceScreen(initialCode: link.code))),
+    );
+  }
+
+  /// iOS and macOS hand custom-scheme links to Flutter as route information.
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) async {
+    final link = AtlasAuthorizeLink.tryParse(routeInformation.uri.toString());
+    if (link == null || !mounted) return super.didPushRouteInformation(routeInformation);
+    _openAuthorizeLink(link);
+    return true;
+  }
+
+  /// Handle a launcher shelf content ID by fetching metadata and starting playback.
+
   Future<void> _handleShelfContentId(String contentId) async {
     if (!mounted) return;
+
+    // `atlas://authorize?code=...` (from the QR code on a waiting TV).
+    final authorizeLink = AtlasAuthorizeLink.tryParse(contentId);
+    if (authorizeLink != null) {
+      _openAuthorizeLink(authorizeLink);
+      return;
+    }
 
     // `plezy://live?...` links arrive through the same channel as shelf IDs.
     final liveLink = LiveTvDeepLink.tryParse(contentId);
@@ -1043,6 +1074,21 @@ class _MainScreenState extends State<MainScreen>
       }
     }
   }
+  Future<void> _maybePromptAtlasRecovery() async {
+    if (!mounted || widget.isOfflineMode) return;
+    final multi = context.read<MultiServerProvider>();
+    for (var i = 0; i < 10 && mounted; i++) {
+      for (final id in multi.onlineServerIds) {
+        final client = multi.getClientForServer(ServerId(id));
+        if (client is JellyfinClient) {
+          await promptAtlasRecoveryIfNeeded(context, client.connection.accessToken);
+          return;
+        }
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+  }
+
   Future<void> _autoConnectSeerr() async {
     if (!mounted || widget.isOfflineMode) return;
     final seerr = context.read<SeerrAccountProvider?>();

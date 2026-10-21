@@ -6,8 +6,12 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../services/atlas_gate/atlas_gate.dart';
+import '../atlas_access_screen.dart';
 
 import '../../connection/connection.dart';
+import '../../widgets/atlas_wall_view.dart';
+
 import '../../connection/connection_registry.dart';
 import '../../exceptions/media_server_exceptions.dart';
 import '../../focus/card_focus_scope.dart';
@@ -132,13 +136,21 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   bool _quickConnectEnabled = false;
   int _localDiscoveryAttemptId = 0;
 
+  // Atlas+ closed-server wall (device not approved yet).
+  bool _gateWall = false;
+  bool _gateRequestSent = false;
+  bool _wallLoopRunning = false;
+  AtlasGateStatus _gateStatus = const AtlasGateStatus(state: 'unknown');
+  Timer? _gatePoll;
+
+
   @override
   void initState() {
     super.initState();
     _isDiscoveringLocalServers = false;
     _urlController.text = _atlasServerUrl;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_probe());
+      if (mounted) unawaited(_gateThenProbe());
     });
   }
 
@@ -147,6 +159,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     // Short-circuit any in-flight Quick Connect poll so it doesn't try to
     // setState after the widget is gone.
     endQuickConnectFlow();
+    _gatePoll?.cancel();
     _urlFocus.dispose();
     _findServerFocus.dispose();
     _changeServerFocus.dispose();
@@ -230,6 +243,96 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     });
     await _probe();
   }
+  /// Atlas+ is a closed server. An unapproved device gets the wall: a Quick
+  /// Connect code (and a QR on TV) that an approved device can approve, plus
+  /// request access / invite code. The normal form returns once it is in.
+  Future<void> _gateThenProbe() async {
+    final status = await AtlasGate.status();
+    if (!mounted) return;
+    if (status.needsWall) _enterWall(status);
+    await _probe();
+    if (_gateWall) unawaited(_wallQuickConnectLoop());
+  }
+
+  void _enterWall(AtlasGateStatus status) {
+    setState(() {
+      _gateWall = true;
+      _gateStatus = status;
+      _gateRequestSent = status.state == 'pending';
+    });
+    _gatePoll?.cancel();
+    _gatePoll = Timer.periodic(const Duration(seconds: 4), (_) async {
+      final s = await AtlasGate.status();
+      if (!mounted || !_gateWall) return;
+      // Approved through a request: drop the wall. If it was approved through
+      // Quick Connect, that flow finishes the sign-in on its own, so leave it.
+      if (s.approved && _gateRequestSent) {
+        _leaveWall();
+      } else if (s.state == 'denied' || s.state == 'banned') {
+        setState(() {
+          _gateStatus = s;
+          _gateRequestSent = false;
+        });
+      }
+    });
+  }
+
+  void _leaveWall() {
+    _gatePoll?.cancel();
+    if (!mounted) return;
+    cancelQuickConnect();
+    setState(() {
+      _gateWall = false;
+      _gateRequestSent = false;
+    });
+    requestFocusAfterFrame(_usernameFocus);
+  }
+
+  /// Keeps a live Quick Connect code on the wall, fetching a fresh one when it
+  /// expires.
+  Future<void> _wallQuickConnectLoop() async {
+    if (_wallLoopRunning) return;
+    _wallLoopRunning = true;
+    try {
+      while (mounted && _gateWall && _serverInfo != null && _quickConnectEnabled) {
+        await _startQuickConnect();
+        if (!mounted || !_gateWall) break;
+        await Future<void>.delayed(Duration(seconds: errorText != null ? 8 : 1));
+      }
+    } finally {
+      _wallLoopRunning = false;
+    }
+  }
+
+  Future<void> _openAccessScreen(AtlasAccessMode mode) async {
+    final result = await Navigator.of(
+      context,
+    ).push<AtlasAccessResult>(MaterialPageRoute(builder: (_) => AtlasAccessScreen(mode: mode)));
+    if (!mounted) return;
+    if (result == AtlasAccessResult.approved) {
+      _leaveWall();
+    } else if (result == AtlasAccessResult.requested) {
+      setState(() {
+        _gateRequestSent = true;
+        _gateStatus = const AtlasGateStatus(state: 'pending');
+      });
+    }
+  }
+
+  String? get _wallNotice {
+    switch (_gateStatus.state) {
+      case 'denied':
+        return "Your last request wasn't approved.";
+      case 'banned':
+        return "Access can't be requested from this device.";
+      case 'expired':
+        return 'Your guest pass has ended.';
+      case 'revoked':
+        return 'This device was removed from Atlas+. Approve it from another device, or use your recovery code.';
+      default:
+        return null;
+    }
+  }
 
   Future<void> _probe() async {
     final input = JellyfinEndpointDiscovery.buildUserInputCandidates(_enteredUrls(), dialect: widget.dialect);
@@ -282,6 +385,14 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
       await _probe();
       return;
     }
+    final gate = await AtlasGate.status();
+    if (!mounted) return;
+    if (gate.needsWall) {
+      _enterWall(gate);
+      unawaited(_wallQuickConnectLoop());
+      return;
+    }
+
     await runAsync<void>(
       () async {
         final auth = await _buildAuthService();
@@ -321,6 +432,10 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
         final deviceId = await storage.getOrCreateClientIdentifier();
 
         final initiation = await auth.initiateQuickConnect(baseUrl: endpoint.activeBaseUrl, deviceId: deviceId);
+        if (!isCurrentQuickConnectAttempt(attemptId)) return;
+        // Tell the gate which code this device is about to show, so approving
+        // that code on a trusted device also lets this device through.
+        await AtlasGate.registerEnrollment(initiation.code);
         if (!isCurrentQuickConnectAttempt(attemptId)) return;
         // Show the waiting panel without a spinner — opt-out of busy mid-flow
         // so the user-visible state matches "we're polling, nothing for you to do".
@@ -467,6 +582,27 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_gateWall) {
+      return PopScope(
+        canPop: widget.targetProfile != null,
+        child: Scaffold(
+          body: SafeArea(
+            child: AtlasWallView(
+              code: quickConnectCode,
+              isTv: PlatformDetector.isTV(),
+              pending: _gateRequestSent,
+              lockdown: _gateStatus.lockdown,
+              notice: _wallNotice,
+              error: quickConnectCode == null ? errorText : null,
+              onRequestAccess: () => _openAccessScreen(AtlasAccessMode.request),
+              onHaveCode: () => _openAccessScreen(AtlasAccessMode.code),
+              onRetry: _serverInfo == null || errorText != null ? () => unawaited(_gateThenProbe()) : null,
+              onBack: widget.targetProfile != null ? () => Navigator.of(context).maybePop() : null,
+            ),
+          ),
+        ),
+      );
+    }
     return PopScope(
       canPop: widget.targetProfile != null, // no back out of the login screen
       child: Scaffold(

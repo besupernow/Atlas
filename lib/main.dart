@@ -9,6 +9,8 @@ import 'package:flutter/material.dart' as material show ThemeMode;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'services/atlas_gate/atlas_gate.dart';
+
 import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -272,6 +274,7 @@ Future<void> _optionalGatePhase(
 Future<_StartupDependencies> _initializeApplication() async {
   final settings = await _gatePhase(StartupPhase.preferences, SettingsService.getInstance);
   setLoggerLevel(settings.read(SettingsService.enableDebugLogging));
+  await AtlasGate.init();
 
   if (_enableSentry) {
     // Crash reporting is observability: it must never veto the launch it
