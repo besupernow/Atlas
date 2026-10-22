@@ -1,4 +1,5 @@
-import 'dart:io';
+﻿import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:auto_updater/auto_updater.dart';

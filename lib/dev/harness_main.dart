@@ -1,4 +1,4 @@
-// Measurement harness entrypoint. NOT part of the app.
+﻿// Measurement harness entrypoint. NOT part of the app.
 //
 // Drives the real PlayerLinux/mpv/Video rendering path with a local file so
 // the compositing cost can be measured without a Plex server. Build with:
@@ -16,7 +16,8 @@
 //   PLEZY_HARNESS_INSET=<px>                  toggles a padding every 6s, so the
 //                                             plane has to move, not just resize
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';

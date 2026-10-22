@@ -1,8 +1,10 @@
 import 'dart:async';
 import '../media/ids.dart';
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'dart:math' as math;
 
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:plezy/widgets/app_icon.dart';
 import '../widgets/server_activities_button.dart';
@@ -792,11 +794,15 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       child: Row(
         children: [
           if (!PlatformDetector.isTV())
-            Text(
-              t.discover.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(color: foregroundColor, fontWeight: .bold),
+            Expanded(
+              child: Text(
+                t.discover.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(color: foregroundColor, fontWeight: .bold),
+              ),
             ),
-          const Spacer(),
+          if (PlatformDetector.isTV()) const Spacer(),
           // TV only: a fullscreen leanback app hides the system clock, while a
           // phone status bar and a desktop menu bar already show one.
           if (PlatformDetector.isTV()) ...[
@@ -811,12 +817,13 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             onNavigateDown: _focusContentFromAppBar,
             actions: [
               // User menu: profiles + sign out
-              FocusableAction(
-                icon: Symbols.download_rounded,
-                iconColor: foregroundColor,
-                tooltip: 'Downloads',
-                onPressed: () => showDownloadsPanel(context),
-              ),
+              if (!kIsWeb)
+                FocusableAction(
+                  icon: Symbols.download_rounded,
+                  iconColor: foregroundColor,
+                  tooltip: 'Downloads',
+                  onPressed: () => showDownloadsPanel(context),
+                ),
               _buildUserMenuAction(context),
             ],
           ),

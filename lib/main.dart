@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io' show Directory, Platform, ProcessInfo;
+import 'dart:io' show Directory, ProcessInfo;
+import 'package:plezy/utils/app_platform.dart';
 import 'dart:ui' show AppExitResponse;
 import 'package:flutter/foundation.dart';
 // ignore: depend_on_referenced_packages
@@ -1027,11 +1028,14 @@ void _startNonessentialInitialization(SettingsService settings) {
     'Date formatting',
     () => initializeDateFormatting(settings.read(SettingsService.appLocale).intlLocaleName, null),
   );
-  bestEffort('Download storage', () => DownloadStorageService.instance.initialize(settings));
+  bestEffort('Download storage', () async {
+    if (kIsWeb) return;
+    await DownloadStorageService.instance.initialize(settings);
+  });
   bestEffort('Trackers', TrackerCoordinator.instance.initialize);
 
   bestEffort('Legacy image cache cleanup', () async {
-    if (settings.read(SettingsService.cleanedOldImageCache)) return;
+    if (kIsWeb || settings.read(SettingsService.cleanedOldImageCache)) return;
     try {
       final tempDir = await getTemporaryDirectory();
       final oldCacheDir = Directory('${tempDir.path}/plexImageCache');

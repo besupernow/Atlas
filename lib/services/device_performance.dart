@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -44,6 +45,10 @@ class DevicePerformance {
       _singleton.getInstance(() => DevicePerformance._().._override = override, (instance) => instance._detect());
 
   Future<void> _detect() async {
+    if (kIsWeb) {
+      _autoReduced = true; // browsers: cheaper effects, smaller artwork
+      return;
+    }
     if (!Platform.isAndroid) return; // tvOS/iOS/desktop: always full tier
     try {
       final result = await deviceChannel.invokeMapMethod<dynamic, dynamic>('getPerformanceSignals');

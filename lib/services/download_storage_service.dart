@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../media/ids.dart';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';

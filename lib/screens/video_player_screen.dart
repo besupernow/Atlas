@@ -1,7 +1,8 @@
 import 'dart:async';
 import '../services/playback_launch_observer.dart';
 import '../media/ids.dart';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

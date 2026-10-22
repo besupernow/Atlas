@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+﻿import 'package:plezy/utils/app_platform.dart';
 
 import '../../models/audio_channel_limit.dart';
 import '../../media/playback_rate.dart';
@@ -10,6 +10,8 @@ import 'player_state.dart';
 import 'player_streams.dart';
 import 'platform/player_linux.dart';
 import 'platform/player_windows.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'platform/player_web_stub.dart' if (dart.library.js_interop) 'platform/player_web.dart' as web_player;
 
 export 'player_base.dart';
 
@@ -400,6 +402,7 @@ abstract class Player {
   /// software ones, where DV reshaping can actually happen (see
   /// MpvPlayerCore.initialVideoOutput; #2010).
   factory Player({bool? useExoPlayer, bool hardwareDecoding = true}) {
+    if (kIsWeb) return web_player.createWebPlayer();
     if (Platform.isAndroid) {
       // Default to MPV on Android, with ExoPlayer as the opt-in alternative.
       // The caller should pass useExoPlayer based on SettingsService.useExoPlayer.
@@ -433,6 +436,7 @@ abstract class Player {
   /// `PlaybackCoordinator`), and the video core only exists while the video
   /// player screen is open.
   factory Player.audio() {
+    if (kIsWeb) return web_player.createWebPlayer(audioOnly: true);
     if (Platform.isAndroid || Platform.isMacOS || Platform.isIOS || Platform.isWindows || Platform.isLinux) {
       return PlayerNative.audio();
     }

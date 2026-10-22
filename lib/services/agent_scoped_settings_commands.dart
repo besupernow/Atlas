@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:provider/provider.dart';
 

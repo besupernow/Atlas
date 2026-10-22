@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';

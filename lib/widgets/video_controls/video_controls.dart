@@ -1,5 +1,6 @@
-import 'dart:async' show StreamSubscription, Timer, unawaited;
-import 'dart:io' show Platform;
+﻿import 'dart:async' show StreamSubscription, Timer, unawaited;
+import 'package:plezy/utils/app_platform.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../media/ids.dart';
 

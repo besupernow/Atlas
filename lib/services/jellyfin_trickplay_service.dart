@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/painting.dart' show ImageProvider;
@@ -19,9 +20,10 @@ typedef TrickplaySheetImageBuilder = ImageProvider Function(String url);
 typedef TrickplaySheetCacheWarmer = Future<void> Function(String url);
 
 ImageProvider _defaultSheetImageBuilder(String url) =>
-    CachedNetworkImageProvider(url, cacheManager: PlexImageCacheManager.instance);
+    CachedNetworkImageProvider(url, cacheManager: kIsWeb ? null : PlexImageCacheManager.instance);
 
-Future<void> _defaultSheetCacheWarmer(String url) => PlexImageCacheManager.instance.getFileStream(url).drain<void>();
+Future<void> _defaultSheetCacheWarmer(String url) =>
+    kIsWeb ? Future<void>.value() : PlexImageCacheManager.instance.getFileStream(url).drain<void>();
 
 /// Jellyfin sprite-sheet scrub thumbnails. Picks the best width from the
 /// per-source manifest at construction, then computes

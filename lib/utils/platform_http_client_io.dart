@@ -1,4 +1,5 @@
-import 'dart:io' show HttpClient, Platform;
+import 'dart:io' show HttpClient;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';

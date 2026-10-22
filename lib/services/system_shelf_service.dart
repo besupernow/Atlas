@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+﻿import 'package:plezy/utils/app_platform.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';

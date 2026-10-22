@@ -379,7 +379,10 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       }
 
       final transcodingUrl = chosenSource['TranscodingUrl'];
-      if (!wantsOriginal && transcodingUrl is String && transcodingUrl.isNotEmpty) {
+      // A browser can't decode everything mpv can, so the server's "direct
+      // play isn't possible" verdict has to win even at original quality.
+      final webNeedsTranscode = kIsWeb && chosenSource['SupportsDirectPlay'] != true;
+      if ((!wantsOriginal || webNeedsTranscode) && transcodingUrl is String && transcodingUrl.isNotEmpty) {
         // TranscodingUrl is server-relative and already encodes container,
         // codecs, MediaSourceId, and PlaySessionId; we just append the
         // dialect's token query parameter for auth.
@@ -623,7 +626,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     // `subrip` and WebVTT ones `webvtt`, so the raw name would ask for `Stream.subrip` and get
     // nothing. Only load-bearing since extracted rows without a `DeliveryUrl` started coming
     // through here.
-    final extension = CodecUtils.getSubtitleExtension(codec);
+    final extension = kIsWeb ? 'vtt' : CodecUtils.getSubtitleExtension(codec);
     final path = Uri(
       pathSegments: ['Videos', itemId, sourceId, 'Subtitles', streamIndex.toString(), 'Stream.$extension'],
     ).path;
@@ -656,7 +659,9 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       if (burnedSourceStreamId != null && track.id == burnedSourceStreamId) continue;
       final isText = CodecUtils.isTextSubtitleCodec(track.codec);
       if (isTranscoding && !isText) continue;
-      if (!track.isExternalFile && !isTranscoding) continue;
+      // Browsers can only draw text cues; bitmap subtitles get burned in.
+      if (kIsWeb && !isText) continue;
+      if (!track.isExternalFile && !isTranscoding && !kIsWeb) continue;
       final path = track.key ?? _jellyfinSubtitleFallbackPath(itemId, mediaSourceId, track);
       if (path == null) continue;
       // Jellyfin's subtitle URL is a path relative to baseUrl; build the
@@ -906,7 +911,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       body: {
         'UserId': connection.userId,
         ...negotiation,
-        'DeviceProfile': <String, Object?>{
+        'DeviceProfile': buildWebDeviceProfile(maxStreamingBitrate: maxStreamingBitrate, burnSubtitles: burnSubtitles, audioProfile: audioProfile) ?? <String, Object?>{
           'Name': 'Plezy',
           'MaxStreamingBitrate': ?maxStreamingBitrate,
           'CodecProfiles': const <Map<String, Object?>>[],

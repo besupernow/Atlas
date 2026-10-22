@@ -1,8 +1,10 @@
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../i18n/strings.g.dart';
 import '../../models/audio_channel_limit.dart';
 import '../../models/audio_quality_preset.dart';
@@ -71,8 +73,8 @@ class PlaybackSettingsScreen extends StatelessWidget {
               children: [
                 if (Platform.isAndroid) _playerBackendSelector(),
                 if (PlatformDetector.supportsExternalPlayers()) _externalPlayerTile(),
-                if (!exoActive) _mpvConfigTile(),
-                _hardwareDecodingTile(),
+                if (!exoActive && !kIsWeb) _mpvConfigTile(),
+                if (!kIsWeb) _hardwareDecodingTile(),
                 if (exoActive) _playbackBufferTile(),
                 if (exoActive) _tunneledPlaybackTile(),
                 if (PlatformDetector.supportsPictureInPicture()) _autoPipTile(),
@@ -93,23 +95,24 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 if (Platform.isAndroid && !exoActive) _hdrSdrConversionTile(),
                 // mpv-only (#2149): ExoPlayer has no filter chain, so the
                 // tile disappears while the ExoPlayer backend is active.
-                if (!exoActive) _deinterlaceTile(),
+                if (!exoActive && !kIsWeb) _deinterlaceTile(),
                 // TODO: "Extend video into display cutout" toggle (#1769)
                 // goes here, Android-only.
               ],
             ),
 
-            SettingsGroup(
-              title: t.settings.audio,
-              children: [
-                if (PlatformDetector.supportsAudioPassthrough()) _audioPassthroughTile(),
-                _audioChannelLimitTile(exoActive: exoActive),
-                // Only a stereo fold mixes the center away; any fold can clip.
-                if (channelLimit == AudioChannelLimit.stereo) _downmixCenterBoostTile(),
-                if (channelLimit != AudioChannelLimit.original) _downmixNormalizeTile(),
-                _maxVolumeTile(),
-              ],
-            ),
+            if (!kIsWeb)
+              SettingsGroup(
+                title: t.settings.audio,
+                children: [
+                  if (PlatformDetector.supportsAudioPassthrough()) _audioPassthroughTile(),
+                  _audioChannelLimitTile(exoActive: exoActive),
+                  // Only a stereo fold mixes the center away; any fold can clip.
+                  if (channelLimit == AudioChannelLimit.stereo) _downmixCenterBoostTile(),
+                  if (channelLimit != AudioChannelLimit.original) _downmixNormalizeTile(),
+                  _maxVolumeTile(),
+                ],
+              ),
 
             SettingsGroup(
               title: t.settings.quality,
@@ -130,17 +133,18 @@ class PlaybackSettingsScreen extends StatelessWidget {
               ],
             ),
 
-            SettingsGroup(
-              title: t.settings.subtitles,
-              children: [
-                SettingNavigationTile(
-                  icon: Symbols.subtitles_rounded,
-                  title: t.settings.subtitleStyling,
-                  subtitle: t.settings.subtitleStylingDescription,
-                  destinationBuilder: (_) => const SubtitleStylingScreen(),
-                ),
-              ],
-            ),
+            if (!kIsWeb)
+              SettingsGroup(
+                title: t.settings.subtitles,
+                children: [
+                  SettingNavigationTile(
+                    icon: Symbols.subtitles_rounded,
+                    title: t.settings.subtitleStyling,
+                    subtitle: t.settings.subtitleStylingDescription,
+                    destinationBuilder: (_) => const SubtitleStylingScreen(),
+                  ),
+                ],
+              ),
 
             _seekAndTimingGroup(),
             _autoPlayAndSkipGroup(),

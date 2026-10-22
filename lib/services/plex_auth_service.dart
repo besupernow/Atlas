@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io' show InternetAddress, InternetAddressType, Platform;
+import 'dart:io' show InternetAddress, InternetAddressType;
+import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'storage_service.dart';

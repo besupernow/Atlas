@@ -1,6 +1,7 @@
-import 'dart:async';
+﻿import 'dart:async';
 import '../media/ids.dart';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

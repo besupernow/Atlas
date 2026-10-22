@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show lerpDouble;
 import '../media/ids.dart';
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:plezy/widgets/app_icon.dart';

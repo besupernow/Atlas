@@ -3,7 +3,8 @@ import '../media/ids.dart';
 import '../media/media_server_client.dart';
 import '../navigation/main_screen_scope.dart';
 import '../navigation/page_refresh_shortcut.dart';
-import 'dart:io' show Platform, exit;
+import 'dart:io' show exit;
+import 'package:plezy/utils/app_platform.dart';
 import 'settings/authorize_device_screen.dart';
 import '../utils/atlas_deep_link.dart';
 

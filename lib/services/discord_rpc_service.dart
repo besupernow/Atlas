@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dart_discord_presence/dart_discord_presence.dart';
 import 'package:flutter/foundation.dart';
 
 import '../media/media_item.dart';
@@ -72,7 +71,6 @@ class DiscordRPCService {
     _testingInstance = service;
   }
 
-  DiscordRPC? _rpc;
   bool _isConnected = false;
   bool _isEnabled = false;
   bool _isInitialized = false;
@@ -91,14 +89,16 @@ class DiscordRPCService {
   StreamSubscription<void>? _disconnectedSubscription;
   StreamSubscription<dynamic>? _errorSubscription;
 
-  DiscordRPCService._() : _rpcFactory = DiscordRPC.new;
+  DiscordRPCService._() : _rpcFactory = _unavailableRpc;
+
+  static Object _unavailableRpc() => Object();
 
   /// Standalone instance for tests; [rpcFactory] supplies fake clients so no
   /// IPC connection is attempted.
   @visibleForTesting
   DiscordRPCService.forTesting({required this._rpcFactory});
 
-  final DiscordRPC Function() _rpcFactory;
+  final Object Function() _rpcFactory;
 
   static bool get isAvailable {
     return false;
@@ -199,7 +199,7 @@ class DiscordRPCService {
   }
 
   /// Build timestamps for Discord progress bar
-  DiscordTimestamps? _buildTimestamps() {
+  Object? _buildTimestamps() {
 
   }
 

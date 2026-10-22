@@ -2,7 +2,8 @@ import 'dart:convert';
 import '../media/ids.dart';
 import '../media/playback_rate.dart';
 import '../media/media_version_preference.dart';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
@@ -701,7 +702,7 @@ class SettingsService extends BaseSharedPreferencesService {
   /// selections instead of carrying the current choice over (#1717).
   static const followServerTrackSelections = BoolPref('follow_server_track_selections');
   static const showChapterMarkersOnTimeline = BoolPref('show_chapter_markers_on_timeline', defaultValue: true);
-  static const clickVideoTogglesPlayback = BoolPref('click_video_toggles_playback');
+  static const clickVideoTogglesPlayback = BoolPref('click_video_toggles_playback', defaultValue: true);
   static const skipIntroMode = _SkipMarkerModePref('skip_intro_mode', legacyKey: _legacyAutoSkipIntroKey);
   static const skipCreditsMode = _SkipMarkerModePref('skip_credits_mode', legacyKey: _legacyAutoSkipCreditsKey);
 
@@ -870,7 +871,7 @@ class SettingsService extends BaseSharedPreferencesService {
   /// at all. UI-only: catalog sources stay connected so watchlist surfaces
   /// keep working while the tab is hidden.
   static const showExploreTab = BoolPref('show_explore_tab', defaultValue: true);
-  static const alwaysKeepSidebarOpen = BoolPref('always_keep_sidebar_open');
+  static const alwaysKeepSidebarOpen = BoolPref('always_keep_sidebar_open', defaultValue: kIsWeb);
 
   /// Sidebar Libraries section expansion. Persisted so a collapsed section
   /// stays collapsed across launches instead of springing back open (#1896).

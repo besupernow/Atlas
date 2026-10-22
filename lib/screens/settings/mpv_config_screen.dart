@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:io' show Platform;
+﻿import 'dart:async';
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../exceptions/media_server_exceptions.dart';
 import '../i18n/strings.g.dart';
 import '../mpv/mpv.dart';
@@ -178,6 +180,10 @@ class TrackManager {
   /// stop the work, not the allocation.
   void applyTrackSelectionWhenReady() {
     if (!_managerIsActive) return;
+    if (kIsWeb) {
+      unawaited(applyTrackSelection());
+      return;
+    }
     final selectionGeneration = _selectionGeneration;
     bool selectionIsCurrent() => _isSelectionCurrent(selectionGeneration);
     final currentTracks = player.state.tracks;

@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -95,6 +96,14 @@ class DeviceIdentityService {
       appLogger.w('DeviceIdentity: failed to resolve device info', error: e);
     }
 
+    if (kIsWeb) {
+      try {
+        final web = await DeviceInfoPlugin().webBrowserInfo;
+        final browser = web.browserName.name;
+        final label = browser.isEmpty ? 'Browser' : '${browser[0].toUpperCase()}${browser.substring(1)}';
+        return DeviceIdentity(platform: 'Web', deviceModel: browser, deviceName: '$label (Web)', isTv: isTv);
+      } catch (_) {}
+    }
     return DeviceIdentity(platform: Platform.operatingSystem, isTv: isTv);
   }
 }

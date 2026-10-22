@@ -1,5 +1,5 @@
 import 'dart:async' show Timer;
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 

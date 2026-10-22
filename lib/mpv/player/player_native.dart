@@ -1,6 +1,6 @@
 import 'dart:async' show unawaited;
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart' show mapEquals, visibleForTesting;
 import 'package:flutter/services.dart';

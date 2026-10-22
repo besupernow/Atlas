@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 import '../media/ids.dart';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
+import 'app_database_executor_stub.dart'
+if (dart.library.io) 'app_database_executor_native.dart'
+if (dart.library.js_interop) 'app_database_executor_web.dart'
+as db_executor;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
@@ -90,22 +95,30 @@ class AppDatabase extends _$AppDatabase {
     TvosDatabaseRecoveryStore? recoveryStore,
     TvosDatabaseRecoveryPriorInstallEvidence? priorInstallEvidence,
   }) async {
-    final file = databaseFile ?? await _resolveProductionDatabaseFile();
-    if (!await file.parent.exists()) {
-      await file.parent.create(recursive: true);
-    }
-    if (databaseFile == null && !Platform.isAndroid && !Platform.isIOS && !await file.exists()) {
-      await migrateLegacyDesktopDatabase(target: file);
-    }
+    // Web has no filesystem (IndexedDB/OPFS backed executor), so every File
+    // step is skipped there. Mobile and desktop behave exactly as before.
+    final File? file = kIsWeb ? null : (databaseFile ?? await _resolveProductionDatabaseFile());
+    var databaseExisted = true;
+    if (file != null) {
+      if (!await file.parent.exists()) {
+        await file.parent.create(recursive: true);
+      }
+      if (databaseFile == null && !Platform.isAndroid && !Platform.isIOS && !await file.exists()) {
+        await migrateLegacyDesktopDatabase(target: file);
+      }
 
-    final databaseExisted = await file.exists();
-    if (!databaseExisted) {
-      await _removeOrphanedDatabaseSidecars(file);
+      databaseExisted = await file.exists();
+      if (!databaseExisted) {
+        await _removeOrphanedDatabaseSidecars(file);
+      }
     }
 
     final prefs = preferences ?? await BaseSharedPreferencesService.sharedCache();
     final store = recoveryStore ?? TvosDatabaseRecoveryStore(prefs, isTvos: isTvos);
-    final database = AppDatabase._((executorFactory ?? _createNativeDatabase)(file), recoveryStore: store);
+    final QueryExecutor executor = file == null
+        ? db_executor.createDatabaseExecutor(null)
+        : (executorFactory ?? db_executor.createDatabaseExecutor)(file);
+    final database = AppDatabase._(executor, recoveryStore: store);
     try {
       if (!isTvos) {
         // Drift executors open lazily. Force the connection through setup and
@@ -1446,19 +1459,6 @@ Future<void> _removeOrphanedDatabaseSidecars(File databaseFile) async {
       appLogger.w('Unable to remove orphaned database sidecar ${sidecar.path}', error: error, stackTrace: stackTrace);
     }
   }
-}
-
-QueryExecutor _createNativeDatabase(File file) {
-  return NativeDatabase.createInBackground(
-    file,
-    setup: (db) {
-      db.execute('PRAGMA journal_mode=WAL');
-      db.execute('PRAGMA synchronous=NORMAL');
-      // Enforce ProfileConnections → Connections cascades.
-      // SQLite requires this on every connection — it is not persisted.
-      db.execute('PRAGMA foreign_keys = ON');
-    },
-  );
 }
 
 /// Move the legacy desktop DB from `Documents/` to `ApplicationSupport/`.

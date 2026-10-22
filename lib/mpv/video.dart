@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'player/player.dart';
 import 'player/video_rect_support.dart';
+import 'player/web_video_surface.dart';
 
 /// Video widget for displaying player output.
 ///
@@ -131,6 +132,10 @@ class _VideoState extends State<Video> {
   }
 
   Widget _buildVideoSurface() {
+    final player = widget.player;
+    if (player is WebVideoSurface) {
+      return (player as WebVideoSurface).buildVideoSurface(context);
+    }
     if (widget.player is VideoRectSupport) {
       return LayoutBuilder(
         builder: (context, constraints) {

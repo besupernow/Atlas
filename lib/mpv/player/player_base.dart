@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
@@ -203,7 +203,7 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
   static int _nativeInstanceCounter = 0;
   final int nativeInstanceId = ++_nativeInstanceCounter;
 
-  static const _maximumDurationMilliseconds = 9223372036854775;
+  static const _maximumDurationMilliseconds = 9007199254740991;
 
   static double? _finiteDouble(Object? value) {
     if (value is! num) return null;

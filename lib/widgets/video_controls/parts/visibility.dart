@@ -1,5 +1,6 @@
 part of '../video_controls.dart';
 
+
 extension _PlexVideoControlsVisibilityMethods on _PlexVideoControlsState {
   /// Called when hasFirstFrame changes - start auto-hide timer when first frame is ready
   void _onFirstFrameReady() {
@@ -201,7 +202,7 @@ extension _PlexVideoControlsVisibilityMethods on _PlexVideoControlsState {
   }
 
   Future<void> _toggleFullscreen() async {
-    if (!PlatformDetector.isDesktopOS()) return;
+    if (!kIsWeb && !PlatformDetector.isDesktopOS()) return;
     await FullscreenStateManager().toggleFullscreen();
   }
 

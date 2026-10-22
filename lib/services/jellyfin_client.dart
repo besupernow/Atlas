@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'jellyfin_client/web_device_profile_stub.dart'
+if (dart.library.js_interop) 'jellyfin_client/web_device_profile_web.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';

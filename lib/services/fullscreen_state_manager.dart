@@ -1,7 +1,9 @@
-import 'dart:io' show Platform;
+﻿import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
+import '../utils/app_platform.dart';
 import '../utils/platform_detector.dart';
+import 'fullscreen_web_stub.dart' if (dart.library.js_interop) 'fullscreen_web.dart';
 import 'macos_window_service.dart';
 import 'native_window_service.dart';
 
@@ -62,6 +64,7 @@ class FullscreenStateManager extends ChangeNotifier with WindowListener {
 
   /// Toggle fullscreen state, handling maximized-to-fullscreen transition on Windows/Linux
   Future<void> toggleFullscreen() async {
+    if (kIsWeb) return webSetFullscreen(!webIsFullscreen());
     if (!PlatformDetector.isDesktopOS()) return;
 
     final isCurrentlyFullscreen = await _platformIsFullscreen();
@@ -70,6 +73,7 @@ class FullscreenStateManager extends ChangeNotifier with WindowListener {
 
   /// Enter fullscreen, preserving maximized state on Windows/Linux for restoration on exit.
   Future<void> enterFullscreen() async {
+    if (kIsWeb) return webSetFullscreen(true);
     if (!PlatformDetector.isDesktopOS()) return;
 
     await _platformSetFullscreen(true);
@@ -77,6 +81,7 @@ class FullscreenStateManager extends ChangeNotifier with WindowListener {
 
   /// Exit fullscreen, restoring maximized state if needed
   Future<void> exitFullscreen() async {
+    if (kIsWeb) return webSetFullscreen(false);
     if (!PlatformDetector.isDesktopOS()) return;
 
     await _platformSetFullscreen(false);
@@ -87,6 +92,11 @@ class FullscreenStateManager extends ChangeNotifier with WindowListener {
   /// Returns whether fullscreen consumed the request. Querying the native
   /// source avoids relying on listener state that may still be catching up.
   Future<bool> exitFullscreenIfActive() async {
+    if (kIsWeb) {
+      if (!webIsFullscreen()) return false;
+      await webSetFullscreen(false);
+      return true;
+    }
     if (!PlatformDetector.isDesktopOS()) return false;
 
     final isActive = await _platformIsFullscreen();
@@ -131,6 +141,12 @@ class FullscreenStateManager extends ChangeNotifier with WindowListener {
   }
 
   void startMonitoring() {
+    if (kIsWeb) {
+      if (_isListening) return;
+      _isListening = true;
+      webListenFullscreen(setFullscreen);
+      return;
+    }
     if (!_shouldMonitor() || _isListening) return;
 
     // Use window_manager listener for Windows/Linux

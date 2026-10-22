@@ -1,6 +1,8 @@
 import 'package:http/http.dart' as http;
 
-/// Fallback stub — should never be called; actual implementation is selected
-/// via conditional imports in `media_server_http_client.dart`.
-http.Client createPlatformClient({Duration connectTimeout = Duration.zero}) =>
-    throw UnsupportedError('No platform HTTP client available');
+/// Used when dart:io is unavailable (web). `http.Client()` resolves to the
+/// browser's fetch/XHR-backed client; connect timeouts aren't controllable
+/// there, so [connectTimeout] is ignored (callers' own response deadlines
+/// still apply). Native platforms never reach this: they select
+/// `platform_http_client_io.dart` through the conditional imports.
+http.Client createPlatformClient({Duration connectTimeout = Duration.zero}) => http.Client();

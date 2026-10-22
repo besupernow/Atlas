@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:path/path.dart' as path;
 import 'package:plezy/utils/media_server_http_client.dart';
 import '../exceptions/media_server_exceptions.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../database/app_database.dart';
 import '../database/download_operations.dart';
 import '../media/download_resolution.dart';
@@ -242,7 +243,7 @@ class DownloadManagerService {
   static bool get platformDownloadsSupported => downloadsSupportedFor(tvosBuild: _tvosBuild);
 
   @visibleForTesting
-  static bool downloadsSupportedFor({required bool tvosBuild}) => !tvosBuild;
+  static bool downloadsSupportedFor({required bool tvosBuild}) => !tvosBuild && !kIsWeb;
 
   /// Cancels native work and discards resumable partial files so startup can
   /// recover enough space to reopen the application database.

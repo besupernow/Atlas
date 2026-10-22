@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' hide Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -223,18 +224,18 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
 
                 _buildConnectionsSection(sheetContext),
 
-                if (!PlatformDetector.isAppleTV()) _buildDownloadsSection(),
+                if (!PlatformDetector.isAppleTV() && !kIsWeb) _buildDownloadsSection(),
 
                 if (_keyboardShortcutsSupported || PlatformDetector.shouldActAsRemoteHost(sheetContext))
                   _buildControlsSection(sheetContext),
 
                 _buildAdvancedSection(),
 
-                if (UpdateService.isUpdateCheckAvailable) ...[_buildUpdateSection()],
+                if (!kIsWeb && UpdateService.isUpdateCheckAvailable) ...[_buildUpdateSection()],
 
                 // Hidden on Android TV / tvOS (no document picker); desktop in
                 // force-TV mode keeps it — FilePickerService works there.
-                if (!PlatformDetector.isTV() || PlatformDetector.isDesktopOS()) _buildBackupSection(),
+                if (!kIsWeb && (!PlatformDetector.isTV() || PlatformDetector.isDesktopOS())) _buildBackupSection(),
 
                 const SizedBox(height: 24),
                 SettingsGroup(
@@ -523,14 +524,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           subtitle: t.settings.videoPlayerNavigationDescription,
         ),
       ],
-      if (PlatformDetector.shouldActAsRemoteHost(context))
-        SettingSwitchTile(
-          focusNode: _focusTracker.get(_kCompanionRemoteServer),
-          pref: settings.SettingsService.enableCompanionRemoteServer,
-          icon: Symbols.phone_android_rounded,
-          title: t.settings.companionRemoteServer,
-          subtitle: t.settings.companionRemoteServerDescription,
-        ),
+      // if (PlatformDetector.shouldActAsRemoteHost(context))
+      //   SettingSwitchTile(
+      //     focusNode: _focusTracker.get(_kCompanionRemoteServer),
+      //     pref: settings.SettingsService.enableCompanionRemoteServer,
+      //     icon: Symbols.phone_android_rounded,
+      //     title: t.settings.companionRemoteServer,
+      //     subtitle: t.settings.companionRemoteServerDescription,
+      //   ),
     ];
     // Keyboard platforms render nothing until the shortcuts service loads; an
     // empty SettingsGroup would paint a bare section title.
@@ -570,13 +571,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           subtitle: t.settings.viewLogsDescription,
           destinationBuilder: (context) => const LogsScreen(),
         ),
-        SettingNavigationTile(
-          focusNode: _focusTracker.get(_kClearImageCache),
-          icon: Symbols.cleaning_services_rounded,
-          title: t.settings.clearImageCache,
-          subtitle: t.settings.clearImageCacheDescription,
-          onTap: () => _showClearImageCacheDialog(),
-        ),
+        if (!kIsWeb)
+          SettingNavigationTile(
+            focusNode: _focusTracker.get(_kClearImageCache),
+            icon: Symbols.cleaning_services_rounded,
+            title: t.settings.clearImageCache,
+            subtitle: t.settings.clearImageCacheDescription,
+            onTap: () => _showClearImageCacheDialog(),
+          ),
         SettingNavigationTile(
           focusNode: _focusTracker.get(_kResetSettings),
           icon: Symbols.restore_rounded,

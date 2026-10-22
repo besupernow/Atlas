@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/widgets.dart';
@@ -424,8 +425,8 @@ class MediaImageHelper {
     final provider = CachedNetworkImageProvider(
       imageUrl,
       cacheKey: _serverArtworkCacheKey(imageUrl),
-      cacheManager: PlexImageCacheManager.instance,
-      headers: const {'User-Agent': 'Plezy'},
+      cacheManager: kIsWeb ? null : PlexImageCacheManager.instance,
+      headers: kIsWeb ? null : const {'User-Agent': 'Plezy'},
     );
     final bounded = boundedDecode(provider, memWidth: memWidth, memHeight: memHeight);
     if (logoToneTarget == null) return bounded;

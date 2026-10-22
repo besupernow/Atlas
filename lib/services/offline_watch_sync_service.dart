@@ -1,6 +1,6 @@
 import 'dart:async';
 import '../media/ids.dart';
-import 'dart:io' show Platform;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart';
 

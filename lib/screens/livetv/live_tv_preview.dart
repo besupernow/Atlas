@@ -1,12 +1,12 @@
-import 'dart:async';
-import 'dart:io' show Platform;
+﻿import 'dart:async';
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart' as vp;
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../media/ids.dart';
 import '../../media/live_tv_support.dart';
 import '../../models/livetv_channel.dart';
@@ -267,7 +267,7 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       // the small view starts rendering live frames too.
       for (final ms in const [350, 1200]) {
         Future<void>.delayed(Duration(milliseconds: ms), () {
-          if (mounted && generation == _generation && identical(_player, player) && !_fullscreen) {
+          if (!kIsWeb && mounted && generation == _generation && identical(_player, player) && !_fullscreen) {
             setState(() => _videoEpoch++);
           }
         });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform, ProcessInfo;
+import 'dart:io' show ProcessInfo;
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/scheduler.dart';
 

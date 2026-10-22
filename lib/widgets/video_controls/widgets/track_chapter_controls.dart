@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../focus/dpad_navigator.dart';
 import '../../../mpv/mpv.dart';
 import '../../../media/media_source_info.dart';
@@ -352,7 +353,7 @@ class TrackChapterControls extends StatelessWidget {
         }
 
         // Fullscreen button (desktop only)
-        if (isDesktop) {
+        if (isDesktop || kIsWeb) {
           final currentIndex = buttonIndex;
           buttons.add(
             _buildTrackButton(
