@@ -367,12 +367,15 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   late double _zoomScale;
   String _dvConversionMode = 'auto';
   int _dvConversionWriteGeneration = 0;
+
   // Linux only, and answered by the native side. Starts false so the toggle
   // never flashes into view on an output that cannot carry HDR.
   bool _linuxHdrSupported = false;
+
   // Re-probes that answer when the app is shown or resumed. Null wherever the
   // capability is a constant and there is nothing to re-probe.
   AppLifecycleListener? _hdrSupportLifecycle;
+
   // The lifecycle hooks miss the case that matters most here: dragging the
   // window to another monitor changes the answer without the app ever being
   // hidden. Only the plane sees that, so it says so.
@@ -937,25 +940,27 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
         // it reports notApplicable. iOS covers iPhone, iPad, and Apple TV.
         if (Platform.isIOS) _AudioRenderingModeItem(player: widget.player),
 
-        _SettingsToggleItem(
-          pref: SettingsService.audioNormalization,
-          icon: Symbols.graphic_eq_rounded,
-          title: t.videoSettings.audioNormalization,
-          // Normalization wins over passthrough; say so where passthrough
-          // exists.
-          subtitle: PlatformDetector.supportsAudioPassthrough()
-              ? t.videoSettings.audioNormalizationDisablesPassthrough
-              : null,
-          onAfterWrite: widget.player.setAudioNormalization,
-        ),
+        if (!kIsWeb)
+          _SettingsToggleItem(
+            pref: SettingsService.audioNormalization,
+            icon: Symbols.graphic_eq_rounded,
+            title: t.videoSettings.audioNormalization,
+            // Normalization wins over passthrough; say so where passthrough
+            // exists.
+            subtitle: PlatformDetector.supportsAudioPassthrough()
+                ? t.videoSettings.audioNormalizationDisablesPassthrough
+                : null,
+            onAfterWrite: widget.player.setAudioNormalization,
+          ),
 
-        _SettingsMenuItem(
-          icon: Symbols.speaker_group_rounded,
-          title: t.settings.audioChannelLimit,
-          valueText: audioChannelLimitLabel(_displayedAudioChannelLimit),
-          isHighlighted: _displayedAudioChannelLimit != AudioChannelLimit.original,
-          onTap: () => _navigateTo(_SettingsView.audioChannelLimit),
-        ),
+        if (!kIsWeb)
+          _SettingsMenuItem(
+            icon: Symbols.speaker_group_rounded,
+            title: t.settings.audioChannelLimit,
+            valueText: audioChannelLimitLabel(_displayedAudioChannelLimit),
+            isHighlighted: _displayedAudioChannelLimit != AudioChannelLimit.original,
+            onTap: () => _navigateTo(_SettingsView.audioChannelLimit),
+          ),
 
         // Shader Preset (MPV only)
         if (_state.shaderService != null && _state.shaderService!.isSupported)
@@ -968,7 +973,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
           ),
 
         // Ambient Lighting (MPV only)
-        if (_state.onToggleAmbientLighting != null)
+        if (!kIsWeb && _state.onToggleAmbientLighting != null)
           FocusableListTile(
             leading: AppIcon(
               Symbols.blur_on_rounded,

@@ -3,15 +3,20 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../focus/focusable_button.dart';
 import '../services/atlas_gate/atlas_gate.dart';
+import '../utils/platform_detector.dart';
+import 'atlas_backdrop.dart';
 import 'loading_indicator_box.dart';
 
 /// The "closed private server" page an unapproved device sees instead of the
-/// sign-in form. It shows a Quick Connect code straight away (plus a QR code on
-/// TV) so an approved device can let this one in with a single tap, and offers
-/// request access / invite code underneath.
+/// sign-in form. It shows a Quick Connect code straight away so an approved
+/// device can let this one in with a single tap, and offers request access /
+/// invite code underneath.
 ///
-/// TV: edge-to-edge split, steps on the left and a tinted QR pane on the right.
-/// Phones and desktops: one centered column, no QR (the phone is the approver).
+/// Everything except phones (and mobile browsers) also gets a QR code: scan it
+/// with an approved phone and the code is filled in for you.
+///
+/// Wide screens: one frosted card, steps on the left and the QR on the right.
+/// Narrow screens: a single column, no QR.
 class AtlasWallView extends StatelessWidget {
   /// Quick Connect code to show, or null while one is being fetched.
   final String? code;
@@ -43,96 +48,122 @@ class AtlasWallView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, box) {
-        final showQr = isTv && code != null && box.maxWidth >= 700;
-        final content = _content(context, wide: box.maxWidth >= 700);
+    final mobile = PlatformDetector.isMobile(context);
+    return AtlasBackdrop(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final wide = box.maxWidth >= 860;
+          final showQr = !mobile && code != null && wide;
+          final pad = box.maxWidth >= 600 ? 32.0 : 20.0;
 
-        if (!showQr) {
-          return _scroll(
-            box,
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Padding(padding: const EdgeInsets.all(24), child: content),
-              ),
-            ),
-          );
-        }
-
-        final paneWidth = (box.maxWidth * 0.36).clamp(300.0, 420.0);
-        return Row(
-          children: [
-            Expanded(
-              child: _scroll(
-                box,
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: Padding(padding: const EdgeInsets.fromLTRB(56, 24, 40, 24), child: content),
+          final Widget body;
+          if (showQr) {
+            body = ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1040),
+              child: AtlasGlassCard(
+                padding: EdgeInsets.zero,
+                radius: 32,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(31),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 6,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(44, 40, 36, 40),
+                            child: _content(context, wide: true),
+                          ),
+                        ),
+                        Expanded(flex: 4, child: _qrPane(context)),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            SizedBox(width: paneWidth, child: _qrPane(context)),
-          ],
-        );
-      },
-    );
-  }
+            );
+          } else {
+            body = ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: AtlasGlassCard(
+                padding: EdgeInsets.all(box.maxWidth >= 600 ? 36 : 24),
+                child: _content(context, wide: false),
+              ),
+            );
+          }
 
-  /// Scrolls from the top when the content is taller than the screen, and
-  /// centers it when it is shorter.
-  Widget _scroll(BoxConstraints box, Widget child) {
-    return SingleChildScrollView(
-      child: ConstrainedBox(constraints: BoxConstraints(minHeight: box.maxHeight), child: child),
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: Center(
+                child: Padding(padding: EdgeInsets.all(pad), child: body),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _content(BuildContext context, {required bool wide}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final muted = scheme.onSurface.withValues(alpha: 0.68);
+    final muted = scheme.onSurface.withValues(alpha: 0.70);
+    final qrVisible = !PlatformDetector.isMobile(context) && code != null && wide;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lock_rounded, size: 18, color: scheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              'ATLAS+',
-              style: theme.textTheme.labelLarge?.copyWith(
-                letterSpacing: 3,
-                fontWeight: FontWeight.w800,
-                color: scheme.primary,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_rounded, size: 14, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'ATLAS+  PRIVATE',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  letterSpacing: 2.2,
+                  fontWeight: FontWeight.w800,
+                  color: scheme.primary,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Atlas+ is a closed private server',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontSize: wide ? 30 : 26,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
+            ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
+        Text(
+          'This server is invite only',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontSize: wide ? 34 : 27,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 10),
         Text(
           "Let this device in from one you've already signed in on.",
-          style: theme.textTheme.bodyLarge?.copyWith(color: muted),
+          style: theme.textTheme.bodyLarge?.copyWith(color: muted, height: 1.4),
         ),
-        const SizedBox(height: 26),
+        if (notice != null) ...[const SizedBox(height: 18), AtlasBanner(text: notice!, isError: false)],
+        if (error != null) ...[
+          const SizedBox(height: 18),
+          AtlasBanner(text: error!, onAction: onRetry),
+        ],
+        const SizedBox(height: 28),
         _stepRow(
           theme,
           1,
           'Open Atlas on an approved device',
-          subtitle: isTv ? 'Settings > Devices & access, or scan the QR code.' : 'Settings > Devices & access',
+          subtitle: qrVisible ? 'Scan the QR code, or go to Settings > Devices & access.' : 'Settings > Devices & access',
         ),
         const SizedBox(height: 22),
         _stepRow(
@@ -141,27 +172,14 @@ class AtlasWallView extends StatelessWidget {
           'Enter this code and tap Approve',
           trailing: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _codeTiles(theme),
-              const SizedBox(height: 14),
-              _statusPill(theme),
-            ],
+            children: [_codeTiles(theme), const SizedBox(height: 16), _statusPill(theme)],
           ),
         ),
-        if (notice != null) ...[
-          const SizedBox(height: 14),
-          Text(notice!, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error)),
-        ],
-        if (error != null) ...[
-          const SizedBox(height: 14),
-          Text(error!, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error)),
-          if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again')),
-        ],
-        const SizedBox(height: 26),
-        Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.45)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
+        Divider(height: 1, color: scheme.onSurface.withValues(alpha: 0.10)),
+        const SizedBox(height: 18),
         Text('No approved device?', style: theme.textTheme.labelLarge?.copyWith(color: muted)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 10,
           runSpacing: 8,
@@ -172,6 +190,10 @@ class AtlasWallView extends StatelessWidget {
               useBackgroundFocus: true,
               onPressed: lockdown ? null : onRequestAccess,
               child: FilledButton(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
                 onPressed: lockdown ? null : onRequestAccess,
                 child: Text(lockdown ? 'Not taking requests right now' : 'Request access'),
               ),
@@ -179,7 +201,15 @@ class AtlasWallView extends StatelessWidget {
             FocusableButton(
               useBackgroundFocus: true,
               onPressed: onHaveCode,
-              child: TextButton(onPressed: onHaveCode, child: const Text('Have a code?')),
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  side: BorderSide(color: scheme.onSurface.withValues(alpha: 0.18)),
+                ),
+                onPressed: onHaveCode,
+                child: const Text('I have a code'),
+              ),
             ),
             if (onBack != null)
               FocusableButton(
@@ -199,26 +229,29 @@ class AtlasWallView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 30,
-          height: 30,
+          width: 32,
+          height: 32,
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.16), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [scheme.primary, scheme.primary.withValues(alpha: 0.65)]),
+            shape: BoxShape.circle,
+          ),
           child: Text(
             '$n',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, color: scheme.primary),
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, color: scheme.onPrimary),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: 5),
                 child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   subtitle,
                   style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface.withValues(alpha: 0.68)),
@@ -237,21 +270,25 @@ class AtlasWallView extends StatelessWidget {
     final scheme = theme.colorScheme;
     final value = code;
     if (value == null) {
-      return const SizedBox(height: 62, child: Align(alignment: Alignment.centerLeft, child: LoadingIndicatorBox(size: 26)));
+      return const SizedBox(
+        height: 64,
+        child: Align(alignment: Alignment.centerLeft, child: LoadingIndicatorBox(size: 26)),
+      );
     }
     final tiles = <Widget>[];
     for (var i = 0; i < value.length; i++) {
-      if (value.length == 6 && i == 3) tiles.add(const SizedBox(width: 12));
+      if (value.length == 6 && i == 3) tiles.add(const SizedBox(width: 14));
       tiles.add(
         Container(
           width: 48,
-          height: 62,
+          height: 64,
           alignment: Alignment.center,
           margin: EdgeInsets.only(right: i == value.length - 1 ? 0 : 8),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: scheme.surface.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.40)),
+            boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.12), blurRadius: 14)],
           ),
           child: Text(
             value[i],
@@ -274,8 +311,11 @@ class AtlasWallView extends StatelessWidget {
   Widget _statusPill(ThemeData theme) {
     final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -295,38 +335,52 @@ class AtlasWallView extends StatelessWidget {
   Widget _qrPane(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final what = isTv
+        ? 'this TV'
+        : PlatformDetector.isDesktopOS()
+        ? 'this computer'
+        : 'this browser';
     return Container(
-      margin: const EdgeInsets.fromLTRB(0, 16, 16, 16),
       decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [scheme.primary.withValues(alpha: 0.16), scheme.primary.withValues(alpha: 0.05)],
+        ),
+        border: Border(left: BorderSide(color: scheme.onSurface.withValues(alpha: 0.08))),
       ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.28), blurRadius: 36)],
+                ),
                 child: QrImageView(
                   data: '$kAtlasGateBase/join?code=$code',
-                  size: 190,
+                  size: 200,
                   version: QrVersions.auto,
                   backgroundColor: Colors.white,
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                'Scan with your phone',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
+              const SizedBox(height: 22),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.qr_code_scanner_rounded, size: 20, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text('Scan with your phone', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
-                'Opens Atlas so you can approve this TV.',
+                'Opens Atlas on your phone so you can approve $what.',
                 style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface.withValues(alpha: 0.68)),
                 textAlign: TextAlign.center,
               ),
