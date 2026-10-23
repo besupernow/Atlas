@@ -217,7 +217,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build web
-        run: flutter build web --release ${{ env.DART_DEFINES }}
+        run: flutter build web --release --base-href /web/ ${{ env.DART_DEFINES }}
       - name: Zip site
         run: |
           cd build/web
