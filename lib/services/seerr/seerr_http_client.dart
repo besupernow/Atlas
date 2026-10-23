@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../../i18n/strings.g.dart';
@@ -68,6 +69,9 @@ enum SeerrRejection {
   intermediary,
 }
 
+/// Stored in place of `connect.sid` on web, where the browser owns the cookie.
+const String kBrowserManagedSeerrCookie = 'browser-managed-session';
+
 /// Thin wrapper around `package:http` for Seerr API calls.
 ///
 /// Adds the two things the tracker HTTP layer doesn't cover:
@@ -101,6 +105,12 @@ class SeerrHttpClient {
   /// a literal comma, so splitting on `,` and scanning each chunk for the
   /// `connect.sid=` prefix is safe.
   bool captureSessionCookie(http.Response response) {
+    // Browsers hide Set-Cookie from JS and keep the session cookie themselves
+    // (same-origin), so on web a placeholder marks the session as signed in.
+    if (kIsWeb) {
+      _cookie = kBrowserManagedSeerrCookie;
+      return true;
+    }
     final raw = response.headers['set-cookie'];
     if (raw == null || raw.isEmpty) return false;
     const prefix = '${SeerrConstants.sessionCookieName}=';
@@ -134,7 +144,7 @@ class SeerrHttpClient {
     final uri = _uri(path, query);
     final headers = <String, String>{
       'Accept': 'application/json',
-      if (authenticated && _cookie != null) 'Cookie': '${SeerrConstants.sessionCookieName}=$_cookie',
+      if (!kIsWeb && authenticated && _cookie != null) 'Cookie': '${SeerrConstants.sessionCookieName}=$_cookie',
       if (body != null) 'Content-Type': 'application/json',
     };
     final sw = Stopwatch()..start();

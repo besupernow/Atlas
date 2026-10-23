@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'atlas_web_env_stub.dart' if (dart.library.js_interop) 'atlas_web_env_web.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,6 +73,8 @@ class AtlasGateKey {
       if (prefs?.getString(_storageKey) != key) await prefs?.setString(_storageKey, key!);
     } catch (_) {}
     AtlasGateHeaders.setKey(key!);
+    atlasWebSetKeyCookie(key);
+    atlasWebRequestPersistentStorage();
     unawaited(AtlasBlockStore.write(_storageKey, key));
   }
 

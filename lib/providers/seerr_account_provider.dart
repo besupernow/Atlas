@@ -18,7 +18,7 @@ import '../utils/app_logger.dart';
 import '../services/trackers/future_coalescer.dart';
 
 /// The family Seerr instance every profile is signed in to automatically.
-const String kAtlasSeerrUrl = 'https://requests.besupernow.com';
+final String kAtlasSeerrUrl = kIsWeb ? 'https://atlas.besupernow.com/seerr' : 'https://requests.besupernow.com';
 
 /// Resolve the active profile's Plex token for Seerr sign-in/re-auth:
 /// the profile's per-user token when a bind exists (a Home user's Seerr

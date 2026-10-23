@@ -43,8 +43,8 @@ class AppIconService extends ChangeNotifier with DisposableChangeNotifierMixin {
   /// Alternate icons ship on iOS/iPadOS, tvOS (reported as iOS) and Android,
   /// and only in builds that offer the Supporter perks. The native side still
   /// answers whether this device's launcher can switch.
-  static bool get _defaultPlatformHasAlternateIcons =>
-      supporterBuildMode != SupporterMode.off && (Platform.isIOS || Platform.isAndroid);
+  static bool get _defaultPlatformHasAlternateIcons => false;
+      //supporterBuildMode != SupporterMode.off && (Platform.isIOS || Platform.isAndroid);
 
   final SupporterService _supporter;
   final bool _platformHasAlternateIcons;
