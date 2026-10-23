@@ -65,20 +65,24 @@ class AtlasWallView extends StatelessWidget {
                 radius: 32,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(31),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(44, 40, 36, 40),
-                            child: _content(context, wide: true),
-                          ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(44, 40, 20, 40),
+                          child: _content(context, wide: true),
                         ),
-                        Expanded(flex: 4, child: _qrPane(context)),
-                      ],
-                    ),
+                      ),
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
+                          child: _qrPane(context),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -347,7 +351,8 @@ class AtlasWallView extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [scheme.primary.withValues(alpha: 0.16), scheme.primary.withValues(alpha: 0.05)],
         ),
-        border: Border(left: BorderSide(color: scheme.onSurface.withValues(alpha: 0.08))),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
       ),
       child: Center(
         child: Padding(

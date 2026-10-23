@@ -1,12 +1,12 @@
 {
-    "name": "plezy",
-    "short_name": "plezy",
+    "name": "Atlas+",
+    "short_name": "Atlas+",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0B0B10",
+    "theme_color": "#0B0B10",
+    "description": "Atlas+, a private media app for family and friends.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
