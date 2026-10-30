@@ -22,6 +22,8 @@ import '../../providers/account_preferences_controller.dart';
 import '../../providers/hidden_libraries_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../providers/libraries_provider.dart';
+import '../../providers/multi_server_provider.dart';
+import '../../services/jellyfin_client.dart';
 import '../../services/donation_service.dart';
 import '../../services/download_storage_service.dart';
 import '../../services/file_picker_service.dart';
@@ -359,6 +361,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           subtitle: 'Approve a new device, create a guest pass, manage your devices',
           destinationBuilder: (context) => const AuthorizeDeviceScreen(),
         ),
+        if (_isJellyfinAdmin(context)) _buildServerDashboardTile(context),
         // Connections are managed per-profile (via the Profiles section
         // and each profile's detail screen). The shortcut here just opens
         // the picker scoped to the active profile so users can add a Plex
@@ -367,6 +370,34 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
         if (context.select<AccountPreferencesController, bool>((c) => c.accounts.isNotEmpty))
           _buildAccountPreferencesTile(context),
       ],
+    );
+  }
+
+  /// The Jellyfin admin dashboard only answers on the tailnet now that Atlas
+  /// owns /web on the public domain.
+  static const _jellyfinDashboardUrl = 'http://100.123.32.124:8096/web/#/dashboard';
+
+  bool _isJellyfinAdmin(BuildContext context) {
+    final manager = context.watch<MultiServerProvider>().serverManager;
+    return manager.onlineClients.values.any((c) => c is JellyfinClient && c.connection.isAdministrator);
+  }
+
+  Widget _buildServerDashboardTile(BuildContext context) {
+    return SettingNavigationTile(
+      icon: Symbols.admin_panel_settings_rounded,
+      title: 'Server dashboard',
+      subtitle: 'Jellyfin admin dashboard (Tailscale only)',
+      trailingIcon: Symbols.open_in_new_rounded,
+      onTap: () async {
+        final opened = await launchUrl(
+          Uri.parse(_jellyfinDashboardUrl),
+          mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank',
+        ).catchError((_) => false);
+        if (!opened && context.mounted) {
+          showErrorSnackBar(context, "Couldn't open the dashboard. Is this device on Tailscale?");
+        }
+      },
     );
   }
 
