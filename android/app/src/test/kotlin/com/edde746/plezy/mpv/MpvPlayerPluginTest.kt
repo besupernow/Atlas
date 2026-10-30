@@ -17,8 +17,10 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import com.edde746.mpv.EndFileReason
+import com.edde746.mpv.GpuVoPolicy
 import com.edde746.mpv.LogLevel
 import com.edde746.mpv.MpvEvent
+import com.edde746.mpv.MpvException
 import com.edde746.mpv.MpvPlayer
 import com.edde746.plezy.shared.AudioFocusManager
 import com.edde746.plezy.shared.FrameRateManager
@@ -150,9 +152,60 @@ class MpvPlayerPluginTest {
       assertEquals("SET_PROPERTY_FAILED", result.errorCode)
       assertEquals("MPV property write was rejected", result.errorMessage)
       assertTrue(result.errorMessage?.contains("secret-property-value") == false)
-      assertNull(result.errorDetails)
+      // The type of what failed, never its message.
+      assertEquals(
+        mapOf("property" to "volume", "sessionFailed" to false, "failure" to "exception", "exception" to "IllegalStateException"),
+        result.errorDetails
+      )
       assertNull(result.successValue)
     }
+  }
+
+  @Test
+  fun mpvRejectedSetPropertyReportsTheMpvErrorByCodeAndName() {
+    val plugin = MpvPlayerPlugin()
+    installCore(plugin, testCore { name, _ -> throw MpvException("Failed to set property '$name': error -10") })
+    val result = RecordingResult()
+
+    plugin.onMethodCall(propertyCall(), result)
+    awaitCompletion(result)
+
+    assertEquals("SET_PROPERTY_FAILED", result.errorCode)
+    assertEquals(
+      mapOf(
+        "property" to "volume",
+        "sessionFailed" to false,
+        "failure" to "mpvError",
+        "mpvError" to -10,
+        "mpvErrorName" to "property unavailable"
+      ),
+      result.errorDetails
+    )
+  }
+
+  @Test
+  fun writesToACondemnedSessionReportWhatCondemnedIt() {
+    // The session latches its failure for good, so every later write - a
+    // remote's play press on the failure screen included - is refused for it,
+    // not for its own value. Reports must tell that apart (#2662).
+    val writes = AtomicInteger()
+    val core = testCore { _, _ -> writes.incrementAndGet() }
+    val plugin = MpvPlayerPlugin()
+    installCore(plugin, core)
+    condemnNativeOperations(core)
+    val result = RecordingResult()
+
+    plugin.onMethodCall(MethodCall("setProperty", mapOf("name" to "pause", "value" to "no")), result)
+    awaitCompletion(result)
+
+    assertEquals(0, writes.get())
+    assertEquals(1, result.completionCount)
+    assertEquals("SET_PROPERTY_FAILED", result.errorCode)
+    assertEquals(
+      mapOf("property" to "pause", "sessionFailed" to true, "failure" to "unresponsive", "operation" to "property write"),
+      result.errorDetails
+    )
+    core.dispose()
   }
 
   @Test
@@ -1616,7 +1669,7 @@ class MpvPlayerPluginTest {
   @Test
   fun voTargetFollowsTheActiveReasonSet() {
     // Reason precedence through the real property-write path: DV reshaping
-    // outranks HDR-on-SDR, dropping the winner falls back to the reason still
+    // outranks HDR tone-mapping, dropping the winner falls back to the reason still
     // active, and dropping the last one returns the session to the plane.
     val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
     val writes = ConcurrentLinkedQueue<Pair<String, String>>()
@@ -1627,8 +1680,8 @@ class MpvPlayerPluginTest {
 
     fun lastVo(): String? = writes.toList().lastOrNull { it.first == "vo" }?.second
 
-    // HDR-on-SDR raises first, then the DV router wins the arbitration.
-    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_HDR_SDR, true)
+    // HDR tone-mapping raises first, then the DV router wins the arbitration.
+    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_TONE_MAP, true)
     invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_DV_RESHAPE, true)
     awaitCondition { lastVo() == "gpu-next" }
     assertEquals("gpu-next", lastVo())
@@ -1640,7 +1693,7 @@ class MpvPlayerPluginTest {
     assertEquals("gpu", lastVo())
 
     // Last reason dropping returns the session to the video plane.
-    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_HDR_SDR, false)
+    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_TONE_MAP, false)
     awaitCondition { lastVo() == "mediacodec" }
     assertEquals("mediacodec", lastVo())
   }
@@ -1663,13 +1716,13 @@ class MpvPlayerPluginTest {
       }
     }
 
-    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_HDR_SDR, true)
+    invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_TONE_MAP, true)
     invokeSetGpuVoRequirement(core, GpuVoPolicy.REASON_SHADERS, true)
 
     val logged = routes.toList()
     assertEquals(2, logged.size)
     assertTrue(logged[0].contains("mediacodec -> gpu"))
-    assertTrue(logged[1].contains(GpuVoPolicy.REASON_HDR_SDR))
+    assertTrue(logged[1].contains(GpuVoPolicy.REASON_TONE_MAP))
     assertTrue(logged[1].contains(GpuVoPolicy.REASON_SHADERS))
   }
 
@@ -1980,7 +2033,7 @@ class MpvPlayerPluginTest {
     // FFmpeg hevc_mediacodec options. Robolectric reports no Dolby Vision
     // display and no file is loaded, so `auto` takes the no-DV branch for a
     // file with no DOVI record deterministically; the per-file answer for a
-    // loaded P5/P8 is GpuVoPolicyTest's.
+    // loaded P5/P8 is mpv-android's GpuVoPolicyTest's.
     val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
     val writes = ConcurrentLinkedQueue<Pair<String, String>>()
     val core = MpvPlayerCore(activity, audioOnly = false, propertyWriter = { name, value ->

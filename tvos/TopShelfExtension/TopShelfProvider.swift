@@ -257,7 +257,7 @@ final class TopShelfProvider: TVTopShelfContentProvider {
 
   private func deepLinkURL(contentId: String) -> URL? {
     var components = URLComponents()
-    components.scheme = "plezy"
+    components.scheme = "atlas"
     components.host = "play"
     components.queryItems = [URLQueryItem(name: "content_id", value: contentId)]
     return components.url

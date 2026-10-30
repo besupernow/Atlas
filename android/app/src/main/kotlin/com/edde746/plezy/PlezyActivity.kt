@@ -27,13 +27,14 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
+import com.edde746.mpv.MediaCodecQuery
 import com.edde746.plezy.car.CarRestrictionsMonitor
+import com.edde746.plezy.deeplink.DeepLinkPlugin
 import com.edde746.plezy.exoplayer.ExoPlayerPlugin
 import com.edde746.plezy.mpv.MpvAudioPlayerPlugin
 import com.edde746.plezy.mpv.MpvPlayerPlugin
 import com.edde746.plezy.shared.AssistiveTechnologyMonitor
 import com.edde746.plezy.shared.DeviceQuirks
-import com.edde746.plezy.shared.MediaCodecQuery
 import com.edde746.plezy.shared.ThemeHelper
 import com.edde746.plezy.watchnext.WatchNextPlugin
 import io.flutter.embedding.android.FlutterActivity
@@ -111,7 +112,10 @@ class PlezyActivity : FlutterActivity() {
   private val APP_EXIT_CHANNEL = "com.plezy/app_exit"
   private val CAR_RESTRICTIONS_CHANNEL = "com.plezy/car_restrictions"
   private val ASSISTIVE_TECHNOLOGY_CHANNEL = "com.plezy/assistive_technology"
-  private var watchNextPlugin: WatchNextPlugin? = null
+
+  // Created with the activity rather than in configureFlutterEngine, so a link
+  // handled before the engine attaches still lands in the retained slot.
+  private val deepLinkPlugin = DeepLinkPlugin()
   private var carRestrictions: CarRestrictionsMonitor? = null
   private var carRestrictionsChannel: MethodChannel? = null
   private var assistiveTechnology: AssistiveTechnologyMonitor? = null
@@ -448,7 +452,10 @@ class PlezyActivity : FlutterActivity() {
         reason = exitInfo.reason,
         status = exitInfo.status,
         importance = exitInfo.importance,
-        timestamp = exitInfo.timestamp
+        timestamp = exitInfo.timestamp,
+        description = exitInfo.description,
+        pssKb = exitInfo.pss,
+        rssKb = exitInfo.rss
       ),
       deviceModel = Build.MODEL,
       apiLevel = Build.VERSION.SDK_INT,
@@ -575,19 +582,18 @@ class PlezyActivity : FlutterActivity() {
 
     if (isAndroidTvDevice()) installTextEditorProxy()
 
-    // Handle Watch Next deep link from initial launch. A restored activity or a
-    // relaunch from Recents carries the original launch intent, whose tap was
-    // already handled; replaying it would start that item again.
+    // Forward a deep link from the initial launch. A restored activity or a
+    // relaunch from Recents carries the original launch intent, whose link was
+    // already handled; replaying it would act on it again.
     val launchedFromHistory = (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
     if (savedInstanceState == null && !launchedFromHistory) {
-      handleWatchNextIntent(intent)
+      handleDeepLinkIntent(intent)
     }
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    // Handle Watch Next deep link when app is already running
-    handleWatchNextIntent(intent)
+    handleDeepLinkIntent(intent)
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -629,12 +635,8 @@ class PlezyActivity : FlutterActivity() {
     super.onDestroy()
   }
 
-  private fun handleWatchNextIntent(intent: Intent?) {
-    val contentId = WatchNextPlugin.handleIntent(intent)
-    if (contentId != null) {
-      // Notify the plugin to send event to Flutter
-      watchNextPlugin?.notifyDeepLink(contentId)
-    }
+  private fun handleDeepLinkIntent(intent: Intent?) {
+    DeepLinkPlugin.linkFrom(intent)?.let(deepLinkPlugin::notifyLink)
   }
 
   // Connects the car UX-restriction monitor on first use, retrying while the platform signal is
@@ -724,7 +726,14 @@ class PlezyActivity : FlutterActivity() {
     flutterTextureView.surfaceTextureListener =
       DeferredSurfaceTextureListener(
         delegate = original,
-        onSurfaceAvailable = ::tryReconnectFlutterSurface
+        onSurfaceAvailable = ::tryReconnectFlutterSurface,
+        // FlutterView sends the new viewport size immediately, so Flutter has already drawn
+        // it into the old-size surface by the time the deferred resize lands. Impeller's
+        // Vulkan swapchain only takes a new size from that resize and rebuilds on the next
+        // frame, which the engine's resize notification never schedules: an idle screen
+        // stayed squeezed into the old buffer after a rotation. The surface swap rebuilds
+        // the surface at the current size and schedules that frame.
+        onResize = { swapFlutterSurface(flutterTextureView) }
       ) { surface ->
         flutterTextureView.isAvailable && flutterTextureView.surfaceTexture === surface
       }
@@ -845,10 +854,19 @@ class PlezyActivity : FlutterActivity() {
       // its compositor surface during standby. Force Flutter's supported
       // surface-swap path so rendering resumes without restarting the engine.
       Log.i(TAG, "Reconnecting Flutter texture surface after Android TV standby")
-      textureView.pause()
-      textureView.resume()
+      swapFlutterSurface(textureView)
       flutterSurfaceReconnectPending = false
     }
+  }
+
+  // Flutter's supported surface-swap path: resume() after pause() hands the engine a new
+  // Surface for the same SurfaceTexture, which rebuilds the onscreen surface at the window's
+  // current size and schedules a frame. Flutter itself pauses this view only while a
+  // hybrid-composition platform view renders through an image view; Plezy has none, so
+  // resume() never revives a surface Flutter meant to keep paused.
+  private fun swapFlutterSurface(textureView: FlutterTextureView) {
+    textureView.pause()
+    textureView.resume()
   }
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -986,9 +1004,8 @@ class PlezyActivity : FlutterActivity() {
       }
     }
 
-    // Register Watch Next plugin and keep reference for deep link handling
-    watchNextPlugin = WatchNextPlugin()
-    flutterEngine.plugins.add(watchNextPlugin!!)
+    flutterEngine.plugins.add(WatchNextPlugin())
+    flutterEngine.plugins.add(deepLinkPlugin)
 
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PIP_CHANNEL).setMethodCallHandler { call, result ->
       when (call.method) {

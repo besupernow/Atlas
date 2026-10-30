@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
+import '../media/chapter_marker_classifier.dart';
 import '../media/artist_discography.dart';
 import '../media/download_resolution.dart';
 import '../media/episode_collection.dart';
 import '../media/library_filter_result.dart';
+import '../media/library_genre.dart';
 import '../media/library_first_character.dart';
 import '../media/library_query.dart';
 import '../media/live_tv_support.dart';
@@ -1798,19 +1800,16 @@ class PlexClient
     return _http.buildUri(thumbPath).toString().withPlexToken(config.token);
   }
 
-  /// Download the full BIF (Base Index Frames) file for a given part.
-  /// Returns the raw bytes, or null on failure.
-  Future<Uint8List?> downloadBifFile(int partId) async {
-    try {
-      final bytes = await _http.getBytes(
-        '${_http.baseUrl}/library/parts/$partId/indexes/sd',
-        timeout: const Duration(seconds: 30),
-      );
-      if (bytes.isNotEmpty) return bytes;
-      return null;
-    } catch (_) {
-      return null;
-    }
+  /// Download the full BIF (Base Index Frames) file for a given part, failing
+  /// once the body exceeds [maxBytes] instead of buffering it.
+  /// Returns null when the server answers with an empty body.
+  Future<Uint8List?> downloadBifFile(int partId, {required int maxBytes}) async {
+    final bytes = await _http.getBytes(
+      '${_http.baseUrl}/library/parts/$partId/indexes/sd',
+      timeout: const Duration(seconds: 30),
+      maxBytes: maxBytes,
+    );
+    return bytes.isEmpty ? null : bytes;
   }
 
   /// Chapters and markers for [ratingKey], from the shared
@@ -1862,7 +1861,7 @@ class PlexClient
               parseResponse: parseResponse,
             );
       final metadataJson = _getFirstMetadataJsonFromData(data);
-      final extras = _parsePlaybackExtrasFromMetadataJson(
+      final extras = await _parsePlaybackExtrasFromMetadataJson(
         metadataJson,
         introPattern: introPattern,
         creditsPattern: creditsPattern,
@@ -1906,13 +1905,14 @@ class PlexClient
     return _getFirstMetadataJsonFromData(data);
   }
 
-  PlaybackExtras _parsePlaybackExtrasFromMetadataJson(
+  Future<PlaybackExtras> _parsePlaybackExtrasFromMetadataJson(
     Map<String, dynamic>? metadataJson, {
     String? introPattern,
     String? creditsPattern,
     bool forceChapterFallback = false,
-  }) => plexPlaybackExtrasFromCacheJson(
+  }) async => plexPlaybackExtrasFromCacheJson(
     metadataJson,
+    classifier: await ChapterMarkerClassifier.bundled,
     introPattern: introPattern,
     creditsPattern: creditsPattern,
     forceChapterFallback: forceChapterFallback,
@@ -2736,7 +2736,7 @@ class PlexClient
     );
   }
 
-  /// Scan/refresh a library section to detect new files
+  @override
   Future<void> scanLibrary(String sectionId) async {
     await _getWithFailover('/library/sections/$sectionId/refresh');
   }
@@ -3533,17 +3533,12 @@ class PlexClient
   /// Full-series fallback for episode navigation when Plex `/playQueues`
   /// creation is unavailable. Grandchildren includes watched episodes; sort
   /// locally per [SettingsService.specialsOrdering]. Under `respectServer`
-  /// the faithful reproduction of the server queue this fallback replaces is
-  /// the aired interleave — Plex's own `/allLeaves` order — so that mode maps
-  /// to [SpecialsOrdering.airDate] here.
+  /// that is Specials-last, the order of the server queue this fallback
+  /// replaces (Plex Web's continuous show queue, #2770).
   @override
   Future<List<MediaItem>?> fetchClientSideEpisodeQueue(String seriesId) async {
     final episodes = await fetchPlayableDescendants(seriesId);
-    final ordering = effectiveSpecialsOrdering();
-    sortEpisodesByWatchOrder(
-      episodes,
-      ordering: ordering == SpecialsOrdering.respectServer ? SpecialsOrdering.airDate : ordering,
-    );
+    sortEpisodesByWatchOrder(episodes);
     return episodes;
   }
 
@@ -4149,6 +4144,43 @@ class PlexClient
     return LibraryFilterResult(filters: legacy, cachedValues: const {});
   }
 
+  /// Plex Web's Categories tab: one row per genre, keyed by the genre filter
+  /// that selects it (`/library/sections/2/all?genre=239`).
+  ///
+  /// PMS composes each tile image itself as
+  /// `/photo/:/transcode?blendColor=RRGGBB&width=2560&height=1440&url=<art>`.
+  /// The art and the tint are split back apart so the tile fetches the art at
+  /// its own size through [thumbnailUrl] and paints the tint itself, as it
+  /// does for backends that publish none.
+  @override
+  Future<List<LibraryGenre>> fetchLibraryGenres(String libraryId, {required MediaKind libraryKind}) async {
+    final response = await _getWithFailover('/library/sections/$libraryId/categories');
+    final directories = _getMediaContainer(response)?['Directory'];
+    if (directories is! List) return const [];
+    final genres = <LibraryGenre>[];
+    for (final entry in directories.whereType<Map<String, dynamic>>()) {
+      final title = entry['title'];
+      final key = entry['key'];
+      if (title is! String || title.isEmpty || key is! String) continue;
+      final value = Uri.tryParse(key)?.queryParameters[MediaFilterField.genre];
+      if (value == null || value.isEmpty) continue;
+      final (:artPath, :accentRgb) = _splitCategoryThumb(entry['thumb']);
+      genres.add(LibraryGenre(title: title, filterValue: value, artPath: artPath, accentRgb: accentRgb));
+    }
+    return genres;
+  }
+
+  static ({String? artPath, int? accentRgb}) _splitCategoryThumb(Object? thumb) {
+    if (thumb is! String || thumb.isEmpty) return (artPath: null, accentRgb: null);
+    final query = Uri.tryParse(thumb)?.queryParameters ?? const <String, String>{};
+    final art = query['url'];
+    final blend = query['blendColor'];
+    return (
+      artPath: art != null && art.isNotEmpty ? art : thumb,
+      accentRgb: blend == null ? null : int.tryParse(blend, radix: 16),
+    );
+  }
+
   /// Parse `Meta.Type[].Field[]` (the filterable fields for the browsed type)
   /// against `Meta.FieldType[].Operator[]` (what each field type can compare).
   List<MediaFilter> _parseFilterMetadata(MediaServerResponse response, {required String libraryId, int? typeId}) {
@@ -4350,7 +4382,7 @@ class PlexClient
     if (partId == null) return null;
     final service = BifThumbnailService();
     try {
-      await service.load(() => downloadBifFile(partId), aspectRatio: aspectRatio);
+      await service.load((maxBytes) => downloadBifFile(partId, maxBytes: maxBytes), aspectRatio: aspectRatio);
       return service;
     } catch (e, st) {
       appLogger.w('BIF thumbnail load failed for part $partId', error: e, stackTrace: st);

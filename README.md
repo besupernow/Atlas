@@ -90,7 +90,7 @@ sudo pacman -S plezy
 [Distribution package](https://github.com/aerynOS/recipes/tree/main/p/plezy).
 
 ```bash
-sudo moss it plezy
+sudo moss pad plezy
 ```
 
 </details>
@@ -156,13 +156,10 @@ sudo moss it plezy
 - Offline browsing with watch state sync-back on reconnect
 
 ### <img src="assets/readme_icons/watch-together.svg" height="20" alt="" align="center" /> Watch Together
-- Synchronized playback with friends
-- Real-time play / pause / seek sync
-- Host handoff when the relay and every connected peer support safe transfers
-- Automatic reconnect authenticates retained room membership; it never silently joins a reused room code.
-
-Self-hosted relays must support `authenticatedResume` for recovery. Deploy the updated relay before updating clients.
-Older relays still accept explicit create/join, but failed recovery requires joining or creating a room again.
+- Rooms on [Open Watch Party](https://openwatch.party) — share a six-character code; friends join from Plezy or another Open Watch Party app
+- Everyone plays their own copy from their own server — Plex, Jellyfin, or Emby — matched by catalogue IDs, with a picker when several copies fit
+- Synchronized play / pause / seek, host or shared control, room lock, and host handoff
+- Public relays by default, or point Plezy at your own self-hosted relay
 
 ### <img src="assets/readme_icons/integrations.svg" height="20" alt="" align="center" /> Integrations
 - Discord Rich Presence[^desktop]
@@ -170,6 +167,7 @@ Older relays still accept explicit create/join, but failed recovery requires joi
 - Scores from connected trackers on detail pages — Trakt, Simkl, MyAnimeList, and AniList, plus Rotten Tomatoes, Metacritic, Letterboxd, IMDb, and TMDB through MDBList
 - Plezy Remote — control desktop and TV from mobile
 - Watch Next row and tvOS Top Shelf[^shelf]
+- [`plezy://` links](#plezy-links) to open a profile, play a title, or tune a channel from Home Assistant, launchers, or an NFC tag; any movie, show, or episode menu shows its link[^links]
 
 ### <img src="assets/readme_icons/customization.svg" height="20" alt="" align="center" /> Platform & Customization
 - Desktop, mobile, and TV — full D-pad, keyboard, and gamepad support
@@ -198,6 +196,29 @@ Older relays still accept explicit create/join, but failed recovery requires joi
 [^desktop]: Desktop only.
 [^rt]: Real-time scrobbling on Trakt and Simkl; MyAnimeList and AniList update on completion.
 [^shelf]: Android TV / Fire TV and tvOS.
+[^links]: Android, iOS, macOS, and tvOS.
+
+## plezy:// links
+
+Links start Plezy from outside the app. Any link may add `profile=<profile>`: a profile id, a Plex Home user UUID, or a display name (ignoring case; it must match one profile). Plezy switches to that profile first, and a protected profile still asks for its PIN. A link replaces whatever is playing.
+
+| Link | Does |
+|---|---|
+| `plezy://open` | Opens Plezy |
+| `plezy://play?server=<server>&id=<item>` | Plays one item on one server, any backend |
+| `plezy://play?type=movie\|show&tmdb=<n>` | Plays a title from whichever server has it. Use `tmdb`, `tvdb`, `imdb=tt<n>`, or `plex=<hash>` (the Plex GUID without `plex://movie/`) |
+| `plezy://live?channel=<channel>` | Tunes a Live TV channel by key, number, or call sign. Optional `server=<server>` and `start=beginning\|live` |
+
+For a show, `mode=next` (the default) plays the next episode to watch, and `mode=shuffle` plays the show shuffled. The menu of any movie, show, or episode has **Show link**, and each profile's menu in **Switch Profile** has **Show profile link**. Both show the link as text and a QR code.
+
+```sh
+# Android / Android TV, over adb (Home Assistant: remote.turn_on with activity: plezy://...)
+adb shell am start -a android.intent.action.VIEW -d "plezy://play?type=show\&tvdb=81189\&profile=Kids"
+# macOS
+open "plezy://play?type=movie&tmdb=603"
+```
+
+On iOS, use the Open URLs action in Shortcuts.
 
 ## Building from Source
 
