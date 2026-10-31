@@ -13,6 +13,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'services/atlas_gate/atlas_gate.dart';
 
+import 'widgets/web_theme_color.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -2005,7 +2006,7 @@ class _AppShell extends StatelessWidget {
                       const SingleActivator(LogicalKeyboardKey.gameButtonB): const DismissIntent(),
                     },
                     builder: (context, child) {
-                      final shell = rootShell(child);
+                      final shell = WebThemeColorSync(child: rootShell(child));
                       if (!agentControlEnabled) return shell;
                       return AgentControlScope(
                         commandContext: () => rootNavigatorKey.currentState?.overlay?.context,
