@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../focus/focus_chrome.dart';
 import '../focus/focus_theme.dart';
 import '../focus/input_mode_tracker.dart';
+import '../utils/platform_detector.dart';
 import 'clickable_cursor.dart';
 
 /// Shared builders for focusable widgets to reduce code duplication.
@@ -96,6 +97,26 @@ class FocusBuilders {
   }) {
     final isKeyboardMode = InputModeTracker.isKeyboardMode(context);
 
+    // Mouse hover on desktop and desktop web: same chrome as keyboard focus
+    // (border, glow, lift), driven by the pointer instead.
+    // Hub rows pass null taps here outside keyboard mode (the card's own tap
+    // region handles clicks), so hover does not depend on them.
+    if (!isKeyboardMode && PlatformDetector.hasPointerUI()) {
+      final hover = _PointerHoverChrome(
+        borderRadius: borderRadius,
+        delegateFocusBorder: delegateFocusBorder,
+        // A delegated border sits on the poster only; a glow sized to the
+        // whole card (captions included) would look detached, so those
+        // cards get the border, shadow and lift without it.
+        useGlow: useFocusGlow || !delegateFocusBorder || glowSize != null,
+        glowSize: glowSize,
+        child: child,
+      );
+      return (onTap != null || onLongPress != null)
+          ? ClickableCursor(child: GestureDetector(onTap: onTap, onLongPress: onLongPress, child: hover))
+          : hover;
+    }
+
     // In touch mode, no item ever shows focus effects — skip animated wrappers
     // entirely. This saves ~2 element levels per card on ARM32 Android phones.
     if (!isKeyboardMode) {
@@ -132,3 +153,58 @@ class FocusBuilders {
         : focusedWidget;
   }
 }
+
+/// Hover feedback for [FocusBuilders.buildLockedFocusWrapper] cards on pointer
+/// platforms. The widget tree is the same hovered or not, so the card below
+/// is never remounted (no image reload flicker) when the mouse moves.
+class _PointerHoverChrome extends StatefulWidget {
+  const _PointerHoverChrome({
+    required this.borderRadius,
+    required this.delegateFocusBorder,
+    required this.useGlow,
+    required this.glowSize,
+    required this.child,
+  });
+
+  final double borderRadius;
+  final bool delegateFocusBorder;
+  final bool useGlow;
+  final Size? glowSize;
+  final Widget child;
+
+  @override
+  State<_PointerHoverChrome> createState() => _PointerHoverChromeState();
+}
+
+class _PointerHoverChromeState extends State<_PointerHoverChrome> {
+  bool _hovered = false;
+
+  void _set(bool value) {
+    if (_hovered != value) setState(() => _hovered = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = FocusTheme.getAnimationDuration(context);
+    return MouseRegion(
+      onEnter: (_) => _set(true),
+      onExit: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _hovered ? FocusTheme.hoverScale : 1.0,
+        duration: duration,
+        curve: Curves.easeOutCubic,
+        child: buildFocusChrome(
+          context,
+          showFocus: _hovered,
+          duration: duration,
+          borderRadius: widget.borderRadius,
+          useFocusGlow: widget.useGlow,
+          delegateFocusBorder: widget.delegateFocusBorder,
+          glowSize: widget.glowSize,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+

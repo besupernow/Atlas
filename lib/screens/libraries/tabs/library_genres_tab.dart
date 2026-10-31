@@ -322,7 +322,7 @@ class _TileTapRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!PlatformDetector.isDesktopOS()) {
+    if (!PlatformDetector.hasPointerUI()) {
       return GestureDetector(excludeFromSemantics: true, behavior: HitTestBehavior.opaque, onTap: onTap, child: child);
     }
     return Stack(

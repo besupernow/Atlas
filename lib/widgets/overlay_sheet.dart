@@ -120,7 +120,7 @@ class OverlaySheetController {
   static BoxConstraints _defaultSheetConstraints(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isWideViewport = size.width > 600;
-    final isDesktopWindow = isWideViewport && PlatformDetector.isDesktopOS() && !PlatformDetector.isTV();
+    final isDesktopWindow = isWideViewport && PlatformDetector.hasPointerUI() && !PlatformDetector.isTV();
     final maxHeight = size.height * 0.75;
     return BoxConstraints(
       maxWidth: isWideViewport ? 700 : double.infinity,
@@ -470,7 +470,7 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
   }
 
   double? _resolveSheetHorizontalAnchor(Alignment alignment) {
-    if (!PlatformDetector.isDesktopOS() || PlatformDetector.isTV()) return null;
+    if (!PlatformDetector.hasPointerUI() || PlatformDetector.isTV()) return null;
     if (InputModeTracker.isKeyboardMode(context, listen: false)) return null;
     if (alignment.x != 0 || alignment.y <= 0) return null;
     return _lastPointerPosition?.dx;

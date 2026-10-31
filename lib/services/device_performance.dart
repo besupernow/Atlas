@@ -45,10 +45,7 @@ class DevicePerformance {
       _singleton.getInstance(() => DevicePerformance._().._override = override, (instance) => instance._detect());
 
   Future<void> _detect() async {
-    if (kIsWeb) {
-      _autoReduced = true; // browsers: cheaper effects, smaller artwork
-      return;
-    }
+    if (kIsWeb) return; // browsers get the full desktop tier, like desktop apps
     if (!Platform.isAndroid) return; // tvOS/iOS/desktop: always full tier
     try {
       final result = await deviceChannel.invokeMapMethod<dynamic, dynamic>('getPerformanceSignals');
@@ -166,7 +163,7 @@ class DevicePerformance {
   static void applyImageCacheBudget() {
     _detectDisplayBudget();
     final cache = PaintingBinding.instance.imageCache;
-    if (PlatformDetector.isDesktopOS()) {
+    if (PlatformDetector.hasPointerUI()) {
       cache.maximumSize = 1000;
       cache.maximumSizeBytes = 150 << 20; // 150MB
     } else if (isReduced) {

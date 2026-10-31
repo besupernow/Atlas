@@ -3,6 +3,7 @@ import 'package:plezy/utils/app_platform.dart';
 import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -283,6 +284,19 @@ class PlatformDetector {
   /// keyboard, etc.); use [isDesktop] for layout decisions.
   static bool isDesktopOS() {
     return _debugIsDesktopOSOverride ?? (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  }
+
+  /// Mouse-driven UI: hover effects, pointer cursors, hover-reveal row
+  /// arrows. True on desktop OSes and desktop browsers; false on phones,
+  /// tablets, mobile browsers and TVs. Use this (not [isDesktopOS]) for
+  /// visual/interaction gating so the web build gets the desktop treatment;
+  /// keep [isDesktopOS] for real OS features (windows, native menus).
+  static bool hasPointerUI() {
+    if (kIsWeb) {
+      if (isTV()) return false;
+      return defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS;
+    }
+    return isDesktopOS();
   }
 
   static bool? _debugIsDesktopOSOverride;

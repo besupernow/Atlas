@@ -1,6 +1,5 @@
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../services/device_performance.dart';
@@ -73,7 +72,7 @@ class AtlasGlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final blur = !kIsWeb && !DevicePerformance.isReduced;
+    final blur = !DevicePerformance.isReduced;
     final fill = (tint ?? scheme.surfaceContainerHigh).withValues(alpha: blur ? 0.55 : 0.82);
     final card = Container(
       padding: padding,

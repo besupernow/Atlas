@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 
 import '../widgets/clickable_cursor.dart';
+import '../utils/platform_detector.dart';
 import '../utils/text_input_diagnostics.dart';
 import 'dpad_navigator.dart';
 import 'dpad_select_long_press_controller.dart';
@@ -232,6 +233,9 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
   FocusNode get _focusNode => _focusNodeBinding.node;
   bool _isFocused = false;
 
+  /// Mouse is over this widget (pointer platforms only; see [build]).
+  bool _isHovered = false;
+
   // Created lazily on first focus/keyboard-mode build: touch scrolling builds
   // hundreds of these wrappers and must not pay for a Ticker per card.
   AnimationController? _animationController;
@@ -305,10 +309,10 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
         _selectLongPress.reset();
       }
 
-      // Animate scale
+      // Animate scale (a hovered card keeps its lift when it loses focus)
       if (hasFocus) {
         _ensureAnimationController().forward();
-      } else {
+      } else if (!_isHovered) {
         _animationController?.reverse();
       }
 
@@ -323,6 +327,16 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
 
       // Notify listener
       widget.onFocusChange?.call(hasFocus);
+    }
+  }
+
+  void _setHovered(bool hovered) {
+    if (_isHovered == hovered || !mounted) return;
+    setState(() => _isHovered = hovered);
+    if (hovered) {
+      _ensureAnimationController().forward();
+    } else if (!(_isFocused && InputModeTracker.currentMode == InputMode.keyboard)) {
+      _animationController?.reverse();
     }
   }
 
@@ -513,24 +527,36 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
     // traversal finds the cards the moment keyboard mode activates (which
     // rebuilds this widget via the inherited dependency below).
     final isKeyboardMode = InputModeTracker.isKeyboardMode(context);
-    final showFocus = _isFocused && isKeyboardMode;
+    // Mouse hover on desktop and desktop web reuses the focus chrome (border,
+    // glow, lift) so pointer users get the same defined feedback as keyboard
+    // users. Touch handhelds and TVs never build any of it.
+    final pointerHover =
+        !isKeyboardMode &&
+        PlatformDetector.hasPointerUI() &&
+        (widget.onSelect != null || widget.onLongPress != null);
+    final showFocus = (_isFocused && isKeyboardMode) || (pointerHover && _isHovered);
 
     Widget inner;
-    if (!isKeyboardMode) {
+    if (!isKeyboardMode && !pointerHover) {
       inner = widget.child;
     } else {
       final duration = FocusTheme.getAnimationDuration(context);
-      final controller = _ensureAnimationController();
-      if (controller.duration != duration) {
-        controller.duration = duration;
+      if (isKeyboardMode) {
+        final controller = _ensureAnimationController();
+        if (controller.duration != duration) controller.duration = duration;
+      } else {
+        // Pointer mode: the ticker is only created on first hover.
+        final controller = _animationController;
+        if (controller != null && controller.duration != duration) controller.duration = duration;
       }
 
       final shouldScale = showFocus && !widget.disableScale;
+      final Animation<double> animation = _animationController ?? kAlwaysDismissedAnimation;
       // Keep the card subtree outside the scale builder. Rebuilding media-card
       // semantics on every animation tick is substantially more expensive than
       // changing the paint transform alone on dense TV grids.
       inner = AnimatedBuilder(
-        animation: _scaleAnimation!,
+        animation: animation,
         child: buildFocusChrome(
           context,
           showFocus: showFocus,
@@ -539,12 +565,26 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
           borderRadii: widget.borderRadii,
           focusColor: widget.focusColor,
           useBackgroundFocus: widget.useBackgroundFocus,
-          useFocusGlow: widget.useFocusGlow,
+          useFocusGlow: widget.useFocusGlow || (pointerHover && !widget.useBackgroundFocus && !widget.delegateFocusBorder),
           delegateFocusBorder: widget.delegateFocusBorder,
           child: widget.child,
         ),
-        builder: (context, child) => _PaintScale(scale: shouldScale ? _scaleAnimation!.value : 1.0, child: child!),
+        builder: (context, child) {
+          final double scale;
+          if (!shouldScale) {
+            scale = 1.0;
+          } else if (pointerHover) {
+            scale = 1 + (FocusTheme.hoverScale - 1) * Curves.easeOutCubic.transform(animation.value);
+          } else {
+            scale = _scaleAnimation!.value;
+          }
+          return _PaintScale(scale: scale, child: child!);
+        },
       );
+
+      if (pointerHover) {
+        inner = MouseRegion(onEnter: (_) => _setHovered(true), onExit: (_) => _setHovered(false), child: inner);
+      }
     }
 
     Widget result = Focus(

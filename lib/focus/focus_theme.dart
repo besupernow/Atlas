@@ -9,6 +9,10 @@ class FocusTheme {
   static const double focusScale = 1.02;
   static const double fullCardFocusScale = 1.03;
 
+  /// Mouse hover on cards and tiles (desktop + web): a touch more lift than
+  /// keyboard focus so the pointer target reads clearly.
+  static const double hoverScale = 1.045;
+
   /// Round 40px player controls: the card scale is imperceptible on a
   /// control that small, so the focused disc grows enough to be seen move.
   static const double playerControlFocusScale = 1.12;

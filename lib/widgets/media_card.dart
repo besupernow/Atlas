@@ -1655,7 +1655,7 @@ class _CardTapRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!PlatformDetector.isDesktopOS()) {
+    if (!PlatformDetector.hasPointerUI()) {
       return GestureDetector(
         excludeFromSemantics: true,
         behavior: HitTestBehavior.opaque,
@@ -1671,6 +1671,9 @@ class _CardTapRegion extends StatelessWidget {
       excludeFromSemantics: true,
       mouseCursor: SystemMouseCursors.click,
       canRequestFocus: false,
+      // The focus wrapper above draws the hover (border, shadow, lift);
+      // a grey ink wash over the poster would fight it.
+      hoverColor: Colors.transparent,
       onTap: onTap,
       onTapDown: onTapDown,
       onLongPress: onLongPress,

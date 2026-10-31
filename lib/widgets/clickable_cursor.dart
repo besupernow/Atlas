@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../utils/platform_detector.dart';
@@ -14,7 +13,7 @@ class ClickableCursor extends StatelessWidget {
     // Cursor feedback only matters where a pointer exists: skip the
     // MouseRegion on TV and touch handhelds — one exists per card and they
     // add up on low-end devices.
-    if (!kIsWeb && !PlatformDetector.isDesktopOS()) return child;
+    if (!PlatformDetector.hasPointerUI()) return child;
     return MouseRegion(cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer, child: child);
   }
 }

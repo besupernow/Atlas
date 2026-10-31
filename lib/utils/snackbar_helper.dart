@@ -24,7 +24,7 @@ SnackBar _buildSnackBar(
   required Duration duration,
   bool? dismissible,
 }) {
-  final isDesktop = PlatformDetector.isDesktopOS();
+  final isDesktop = PlatformDetector.hasPointerUI();
   final tapToDismiss = dismissible ?? isDesktop;
   final body = tapToDismiss
       ? MouseRegion(

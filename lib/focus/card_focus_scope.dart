@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/device_performance.dart';
 import 'focus_theme.dart';
 
 /// Exposes the focus state of an enclosing focus wrapper to a descendant
@@ -56,9 +57,24 @@ class CardFocusBorder extends StatelessWidget {
     final showFocus = CardFocusScope.maybeOf(context);
     if (showFocus == null) return child;
 
+    final radius = borderRadii ?? BorderRadius.circular(borderRadius);
     return AnimatedContainer(
       duration: FocusTheme.getAnimationDuration(context),
       curve: Curves.easeOutCubic,
+      // Lifted look for the highlighted card: a soft drop shadow under the
+      // poster. Skipped on the reduced tier (blurred shadows are expensive).
+      decoration: DevicePerformance.isReduced
+          ? null
+          : BoxDecoration(
+              borderRadius: radius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: showFocus ? 0.45 : 0),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
       foregroundDecoration: FocusTheme.focusDecoration(
         context,
         isFocused: showFocus,
