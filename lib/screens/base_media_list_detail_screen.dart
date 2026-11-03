@@ -8,7 +8,6 @@ import '../providers/download_provider.dart';
 import '../providers/multi_server_provider.dart';
 import '../utils/provider_extensions.dart';
 import '../services/media_list_playback_launcher.dart';
-import '../widgets/loading_indicator_box.dart';
 import '../utils/app_logger.dart';
 import '../utils/error_message_utils.dart';
 import '../utils/snackbar_helper.dart';
@@ -16,6 +15,7 @@ import '../mixins/refreshable.dart';
 import '../mixins/item_updatable.dart';
 import '../i18n/strings.g.dart';
 import 'libraries/content_state_builder.dart';
+import '../widgets/skeleton_card_grid.dart';
 
 /// Abstract base class for screens displaying media lists (collections/playlists)
 /// Provides common state management and playback functionality
@@ -124,10 +124,10 @@ abstract class BaseMediaListDetailScreen<T extends StatefulWidget> extends State
   /// next remove or move still addresses this entry.
   static MediaItem _keepPlaylistEntry(MediaItem previous, MediaItem updated) => switch ((previous, updated)) {
     (PlexMediaItem(:final playlistItemId?), final PlexMediaItem refreshed) when refreshed.playlistItemId == null =>
-      refreshed.copyWith(playlistItemId: playlistItemId),
+        refreshed.copyWith(playlistItemId: playlistItemId),
     (JellyfinMediaItem(:final playlistItemId?), final JellyfinMediaItem refreshed)
-        when refreshed.playlistItemId == null =>
-      refreshed.copyWith(playlistItemId: playlistItemId),
+    when refreshed.playlistItemId == null =>
+        refreshed.copyWith(playlistItemId: playlistItemId),
     _ => updated,
   };
 
@@ -144,7 +144,7 @@ abstract class BaseMediaListDetailScreen<T extends StatefulWidget> extends State
     }
 
     if (items.isEmpty && isLoading) {
-      return [LoadingIndicatorBox.sliver];
+      return [const SkeletonCardGrid()];
     }
 
     if (items.isEmpty) {

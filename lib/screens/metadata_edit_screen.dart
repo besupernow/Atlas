@@ -32,7 +32,22 @@ import 'settings/settings_utils.dart';
 class MetadataEditScreen extends StatefulWidget {
   final MediaItem metadata;
 
-  const MetadataEditScreen({super.key, required this.metadata});
+  /// Screen title; defaults to the generic metadata editor title.
+  final String? title;
+
+  /// Only show these sections (e.g. `{'artwork'}` for Edit images).
+  final Set<String>? onlySections;
+
+  /// Hide these sections (e.g. `{'artwork'}` for Edit metadata).
+  final Set<String> hiddenSections;
+
+  const MetadataEditScreen({
+    super.key,
+    required this.metadata,
+    this.title,
+    this.onlySections,
+    this.hiddenSections = const {},
+  });
 
   @override
   State<MetadataEditScreen> createState() => _MetadataEditScreenState();
@@ -110,14 +125,14 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
     final serverId = metadata.serverId;
     final addedByField = <String, List<String>>{
       for (final field
-          in adapter
-              .schemaFor(draft)
-              .expand((section) => section.fields)
-              .where((field) => field.type == MetadataEditFieldType.stringList))
+      in adapter
+          .schemaFor(draft)
+          .expand((section) => section.fields)
+          .where((field) => field.type == MetadataEditFieldType.stringList))
         if (metadataStringList(
-              draft.values[field.id],
-            ).where((tag) => !metadataStringList(draft.originalValues[field.id]).contains(tag)).toList()
-            case final added when added.isNotEmpty)
+          draft.values[field.id],
+        ).where((tag) => !metadataStringList(draft.originalValues[field.id]).contains(tag)).toList()
+        case final added when added.isNotEmpty)
           field.id: added,
     };
     bool success = false;
@@ -204,11 +219,11 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
         .fetchTagSuggestions(draft, field)
         .then(
           (serverTags) => RecentTagsService.mergeSuggestions(
-            recent: recent,
-            serverTags: serverTags,
-            existing: metadataStringList(draft.values[field.id]),
-          ),
-        )
+        recent: recent,
+        serverTags: serverTags,
+        existing: metadataStringList(draft.values[field.id]),
+      ),
+    )
         .catchError((_) => recent);
     final result = await showScopedDialog<List<String>>(
       context: context,
@@ -297,23 +312,29 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return FocusedScrollScaffold(title: Text(t.metadataEdit.screenTitle), slivers: [LoadingIndicatorBox.sliver]);
+      return FocusedScrollScaffold(title: Text(widget.title ?? t.metadataEdit.screenTitle), slivers: [LoadingIndicatorBox.sliver]);
     }
 
     final adapter = _adapter;
     final draft = _draft;
     if (adapter == null || draft == null) {
       return FocusedScrollScaffold(
-        title: Text(t.metadataEdit.screenTitle),
+        title: Text(widget.title ?? t.metadataEdit.screenTitle),
         slivers: [SliverFillRemaining(child: Center(child: Text(t.metadataEdit.metadataUpdateFailed)))],
       );
     }
 
-    final sections = adapter.schemaFor(draft).where((section) => section.fields.isNotEmpty).toList();
+    final onlySections = widget.onlySections;
+    final sections = adapter
+        .schemaFor(draft)
+        .where((section) => section.fields.isNotEmpty)
+        .where((section) => onlySections == null || onlySections.contains(section.id))
+        .where((section) => !widget.hiddenSections.contains(section.id))
+        .toList();
     return PopScope(
       canPop: !_isCommitting,
       child: FocusedScrollScaffold(
-        title: Text(t.metadataEdit.screenTitle),
+        title: Text(widget.title ?? t.metadataEdit.screenTitle),
         focusableAppBarActions: true,
         actions: [
           if (_isCommitting)

@@ -48,6 +48,9 @@ import 'collection_picker_dialog.dart';
 import '../screens/plex_match_screen.dart';
 import '../screens/media_detail_screen.dart';
 import '../screens/metadata_edit_screen.dart';
+import '../screens/identify_screen.dart';
+import '../services/jellyfin_client.dart';
+import 'metadata_refresh_dialog.dart';
 import '../screens/music/album_detail_screen.dart';
 import '../screens/music/artist_detail_screen.dart';
 import '../utils/smart_deletion_handler.dart';
@@ -112,18 +115,18 @@ class _MenuContext {
   /// A downloads folder's entries act on local downloads, so none of the
   /// server-side gates apply.
   const _MenuContext.downloadsFolder(MediaItem this.mediaItem)
-    : playlist = null,
-      mediaClient = null,
-      catalogSources = null,
-      isAdmin = false,
-      canTranscode = false,
-      itemServerOnline = false,
-      canRemoveFromContinueWatching = false,
-      canEditMetadata = false,
-      showWatchlistEntry = false,
-      watchlistRemoveOffered = false,
-      canDeleteFromServer = false,
-      isDownloadsFolder = true;
+      : playlist = null,
+        mediaClient = null,
+        catalogSources = null,
+        isAdmin = false,
+        canTranscode = false,
+        itemServerOnline = false,
+        canRemoveFromContinueWatching = false,
+        canEditMetadata = false,
+        showWatchlistEntry = false,
+        watchlistRemoveOffered = false,
+        canDeleteFromServer = false,
+        isDownloadsFolder = true;
 
   bool get isPlaylist => playlist != null;
   MediaKind? get mediaKind => mediaItem?.kind;
@@ -380,21 +383,34 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// Backend detection comes first so a menu on a backend without the
   /// capability neither probes nor touches offline state — the read would
   /// otherwise be a new dependency for every screen that shows a movie row.
-  Future<bool?> _resolveDeletePermission({
+  bool? _resolveDeletePermission({
     required MediaServerClient? client,
     required MediaItem? item,
     required bool serverOnline,
-  }) async {
+    required bool isAdmin,
+  }) {
     final permissionClient = client is MediaDeletionPermissionClient ? client as MediaDeletionPermissionClient : null;
     if (item == null || permissionClient == null) return null;
     if (!serverOnline || context.read<OfflineModeProvider>().isOffline) return false;
-    try {
-      return await permissionClient.fetchDeletePermission(item);
-    } catch (e, st) {
-      appLogger.w('Delete permission probe failed', error: e, stackTrace: st);
-      return false;
-    }
+    // Never wait on the network to open the menu. A remembered answer is used
+    // as-is; otherwise the probe runs in the background for the next open and
+    // admins (who can delete on a normal Jellyfin setup) see Delete right
+    // away. If the server says no, the delete itself reports it.
+    final key = '${item.serverId}/${item.id}';
+    if (_deletePermissionCache.containsKey(key)) return _deletePermissionCache[key];
+    unawaited(
+      permissionClient
+          .fetchDeletePermission(item)
+          .then((value) => _deletePermissionCache[key] = value)
+          .catchError((Object e, StackTrace st) {
+        appLogger.w('Delete permission probe failed', error: e, stackTrace: st);
+        return null;
+      }),
+    );
+    return isAdmin ? true : null;
   }
+
+  static final Map<String, bool?> _deletePermissionCache = {};
 
   void _showContextMenu(BuildContext context) async {
     if (_isContextMenuOpen) return;
@@ -402,13 +418,9 @@ class MediaContextMenuState extends State<MediaContextMenu> {
 
     final previousFocus = FocusManager.instance.primaryFocus;
 
-    final menu = await _resolveMenuContext(context);
-    if (!mounted || !context.mounted) {
-      // The awaited probe outlived the widget; the try/finally that normally
-      // clears this flag only starts once the menu is on screen.
-      _isContextMenuOpen = false;
-      return;
-    }
+    // Synchronous on purpose: nothing may sit between the click and the
+    // menu's first frame (no network, no awaited future).
+    final menu = _resolveMenuContext(context);
 
     final menuActions = menu.isDownloadsFolder
         ? _buildDownloadsFolderMenuActions(menu.mediaItem!)
@@ -472,7 +484,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
 
   /// Resolve everything the entry list depends on. The deletion probe is the
   /// one awaited step, so callers re-check `mounted` on return.
-  Future<_MenuContext> _resolveMenuContext(BuildContext context) async {
+  _MenuContext _resolveMenuContext(BuildContext context) {
     final mediaItem = _mediaItem;
     final playlist = _playlist;
     final mediaKind = mediaItem?.kind;
@@ -545,20 +557,21 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // for the round trip, and only on a backend that answers it.
     final isDeletableKind =
         mediaKind == MediaKind.episode ||
-        mediaKind == MediaKind.movie ||
-        mediaKind == MediaKind.show ||
-        mediaKind == MediaKind.season;
+            mediaKind == MediaKind.movie ||
+            mediaKind == MediaKind.show ||
+            mediaKind == MediaKind.season;
     final canDeleteFromServer =
         isDeletableKind &&
-        isMediaDeletionAllowed(
-          itemBackend: itemBackend,
-          resolvedItemPermission: await _resolveDeletePermission(
-            client: mediaClient,
-            item: mediaItem,
-            serverOnline: itemServerOnline,
-          ),
-          isAdminActionAllowed: isAdmin,
-        );
+            isMediaDeletionAllowed(
+              itemBackend: itemBackend,
+              resolvedItemPermission: _resolveDeletePermission(
+                client: mediaClient,
+                item: mediaItem,
+                serverOnline: itemServerOnline,
+                isAdmin: isAdmin,
+              ),
+              isAdminActionAllowed: isAdmin,
+            );
     return _MenuContext(
       mediaItem: mediaItem,
       playlist: playlist,
@@ -620,7 +633,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     final isMovieOrEpisode = mediaKind == MediaKind.movie || mediaKind == MediaKind.episode;
     final isPartiallyWatched = mediaItem.isPartiallyWatched;
     final hasActiveProgress = isMovieOrEpisode && mediaItem.hasActiveProgress;
-    final isVideoKind = mediaItem.isVideoContent;
     final isUnmatched = _isUnmatched(mediaItem);
 
     // Go to Series (for episodes and seasons) — hide if already on that series' detail screen
@@ -649,16 +661,15 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           icon: Symbols.close_rounded,
           label: t.mediaMenu.removeFromContinueWatching,
         ),
-      if (widget.isInContinueWatching && isVideoKind)
-        _MenuAction(value: 'details', icon: Symbols.info_rounded, label: t.mediaMenu.viewDetails),
-      if (isVideoKind) _MenuAction(value: 'rate', icon: Symbols.star_rounded, label: t.mediaMenu.rate),
-      // Edit Metadata — admin-only and backend-capability gated.
+      // Edit Metadata / Edit images — admin-only and backend-capability gated.
       if (menu.canEditMetadata)
         _MenuAction(value: 'edit_metadata', icon: Symbols.edit_rounded, label: t.metadataEdit.editMetadata),
-      // Quick Tag — same admin/capability gate as Edit Metadata, restricted to
-      // the kinds whose schema carries a 'label' field on both backends.
-      if (menu.canEditMetadata && isMovieOrShow)
-        _MenuAction(value: 'quick_tag', icon: Symbols.label_rounded, label: t.metadataEdit.quickTag),
+      if (menu.canEditMetadata) _MenuAction(value: 'edit_images', icon: Symbols.image_rounded, label: 'Edit images'),
+      // Identify / Refresh metadata — Jellyfin admin tools (Jellyfin web's menu).
+      if (menu.canEditMetadata && menu.mediaClient is JellyfinClient && IdentifyScreen.supports(mediaItem))
+        _MenuAction(value: 'identify', icon: Symbols.manage_search_rounded, label: 'Identify'),
+      if (menu.isAdmin && menu.mediaClient is JellyfinClient && menu.itemServerOnline)
+        _MenuAction(value: 'refresh_metadata', icon: Symbols.refresh_rounded, label: 'Refresh metadata'),
       // Match / Unmatch — Plex-only (MediaBrowser servers don't expose match agents).
       if (menu.isPlex && menu.isAdmin && isMovieOrShow) ...[
         _MenuAction(
@@ -727,31 +738,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   List<_MenuAction> _mediaSourceMenuActions(_MenuContext menu, MediaItem mediaItem) {
     final mediaKind = mediaItem.kind;
     final isMovieOrEpisode = mediaKind == MediaKind.movie || mediaKind == MediaKind.episode;
-    // Play Version (for episodes and movies). Hidden when there's
-    // nothing to choose: a single source on a backend that can't
-    // transcode (Jellyfin v1, or Plex installs without a working
-    // transcoder) would just bounce straight to playback with default
-    // settings, which is what the regular Play action already does.
-    // A row's version list, when present, is complete (the
-    // [MediaItem.mediaVersions] contract), so the count is known up
-    // front. Also hidden while the item's server is
-    // unreachable: at most one version exists locally and plain Play
-    // already targets it, so the picker would be a no-op detour
-    // offering versions that can't play (issue #1440).
-    final hasVersionChoice = (mediaItem.mediaVersions ?? const []).length > 1;
     return [
-      if (isMovieOrEpisode && (hasVersionChoice || menu.canTranscode) && menu.itemServerOnline)
-        _MenuAction(value: 'play_version', icon: Symbols.video_file_rounded, label: t.mediaMenu.playVersion),
-      // File Info — every file-backed leaf kind (movies, episodes, tracks,
-      // clips). Backend-neutral: both PlexClient and JellyfinClient implement
-      // [MediaServerClient.getFileInfo], reading codec/stream metadata from
-      // `Media`/`MediaSources` respectively. Container kinds are excluded by
-      // [MediaKind.hasFileInfo] because neither backend attaches media sources
-      // to them — a show/season/album/artist entry would only ever produce the
-      // "not available" snackbar. Hidden when the item has no backend marker
-      // so we don't fan out to an arbitrary client.
-      if (menu.itemBackend != null && mediaKind.hasFileInfo)
-        _MenuAction(value: 'fileinfo', icon: Symbols.info_rounded, label: t.mediaMenu.fileInfo),
       if (PlatformDetector.supportsExternalPlayers() && isMovieOrEpisode)
         _MenuAction(
           value: 'play_external',
@@ -771,7 +758,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // skip entirely.
     final canDownload =
         !PlatformDetector.isAppleTV() &&
-        (mediaItem.isVideoContent || mediaKind == MediaKind.album || mediaKind == MediaKind.track);
+            (mediaItem.isVideoContent || mediaKind == MediaKind.album || mediaKind == MediaKind.track);
     final downloadProvider = canDownload ? Provider.of<DownloadProvider>(context, listen: false) : null;
     return [
       if (downloadProvider != null)
@@ -813,13 +800,13 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// Route the picked entry to its handler. Split like the builders: a
   /// playlist/collection menu only ever offers list entries.
   Future<void> _dispatchMenuSelection(
-    BuildContext context,
-    String? selected,
-    _MenuContext menu,
-    _MenuOutcome outcome, {
-    required Offset position,
-    required bool openedFromKeyboard,
-  }) async {
+      BuildContext context,
+      String? selected,
+      _MenuContext menu,
+      _MenuOutcome outcome, {
+        required Offset position,
+        required bool openedFromKeyboard,
+      }) async {
     // Caller-supplied extra entries dispatch straight to their callback.
     if (selected != null && selected.startsWith('extra_')) {
       final index = int.tryParse(selected.substring('extra_'.length));
@@ -877,13 +864,13 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   }
 
   Future<void> _dispatchItemSelection(
-    BuildContext context,
-    String? selected,
-    _MenuContext menu,
-    _MenuOutcome outcome, {
-    required Offset position,
-    required bool openedFromKeyboard,
-  }) async {
+      BuildContext context,
+      String? selected,
+      _MenuContext menu,
+      _MenuOutcome outcome, {
+        required Offset position,
+        required bool openedFromKeyboard,
+      }) async {
     final mediaItem = menu.mediaItem!;
     switch (selected) {
       case 'play_from_beginning':
@@ -911,7 +898,43 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         break;
       case 'edit_metadata':
         outcome.didNavigate = true;
-        if (context.mounted) await _pushAndRefresh(context, mediaItem, MetadataEditScreen(metadata: mediaItem));
+        if (context.mounted) {
+          await _pushAndRefresh(
+            context,
+            mediaItem,
+            MetadataEditScreen(metadata: mediaItem, hiddenSections: const {'artwork'}),
+          );
+        }
+        break;
+      case 'edit_images':
+        outcome.didNavigate = true;
+        if (context.mounted) {
+          await _pushAndRefresh(
+            context,
+            mediaItem,
+            MetadataEditScreen(metadata: mediaItem, title: 'Edit images', onlySections: const {'artwork'}),
+          );
+        }
+        break;
+      case 'identify':
+        final identifyClient = _tryGetMediaClientForItem();
+        if (identifyClient is! JellyfinClient) break;
+        outcome.didNavigate = true;
+        if (context.mounted) {
+          await _pushAndRefresh(context, mediaItem, IdentifyScreen(client: identifyClient, item: mediaItem));
+        }
+        break;
+      case 'refresh_metadata':
+        final refreshClient = _tryGetMediaClientForItem();
+        if (refreshClient is! JellyfinClient || !context.mounted) break;
+        if (await showMetadataRefreshDialog(context, client: refreshClient, item: mediaItem)) {
+          // Give the server a head start before re-reading the item.
+          unawaited(
+            Future<void>.delayed(const Duration(seconds: 4), () {
+              if (mounted) _notifyRefresh(mediaItem);
+            }),
+          );
+        }
         break;
       case 'quick_tag':
         if (context.mounted) await _showQuickTagDialog(context, mediaItem);
@@ -1063,7 +1086,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   Future<void> _navigateToSeries(BuildContext context, MediaItem item) => _navigateToRelated(
     context,
     item.kind == MediaKind.season ? item.parentId : item.grandparentId,
-    (context, series) async {
+        (context, series) async {
       final target = mediaDetailNavigationTargetFor(item, metadataOverride: series);
       await Navigator.push(
         context,
@@ -1097,14 +1120,14 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// capable sources a chooser opens and the picked source toggles by its
   /// own (by now resolved) membership, mirroring the detail screen.
   Future<void> _handleWatchlistToggle(
-    BuildContext context,
-    MediaItem item,
-    CatalogSourcesProvider catalogSources,
-    MediaServerClient? client, {
-    required bool removeOffered,
-    required Offset? position,
-    required bool openedFromKeyboard,
-  }) async {
+      BuildContext context,
+      MediaItem item,
+      CatalogSourcesProvider catalogSources,
+      MediaServerClient? client, {
+        required bool removeOffered,
+        required Offset? position,
+        required bool openedFromKeyboard,
+      }) async {
     List<WatchlistCandidate> candidates;
     try {
       candidates = await catalogSources.watchlistCandidatesFor(item, client: client);
@@ -1201,11 +1224,11 @@ class MediaContextMenuState extends State<MediaContextMenu> {
 
   /// Fetch and navigate to a related item (series, album, or artist).
   Future<void> _navigateToRelated(
-    BuildContext context,
-    String? id,
-    Future<void> Function(BuildContext context, MediaItem item) navigate,
-    String errorPrefix,
-  ) async {
+      BuildContext context,
+      String? id,
+      Future<void> Function(BuildContext context, MediaItem item) navigate,
+      String errorPrefix,
+      ) async {
     if (id == null) return;
 
     final client = _getMediaClientForItem();
@@ -1306,11 +1329,11 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           .fetchTagSuggestions(draft, labelField)
           .then(
             (serverTags) => RecentTagsService.mergeSuggestions(
-              recent: recent,
-              serverTags: serverTags,
-              existing: metadataStringList(draft.values['label']),
-            ),
-          )
+          recent: recent,
+          serverTags: serverTags,
+          existing: metadataStringList(draft.values['label']),
+        ),
+      )
           .catchError((_) => recent);
 
       await loadingDialog.dismiss();
@@ -1479,10 +1502,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         eagerSyncId: (_) => null,
         add: () => client.addToPlaylist(playlistId: result, items: [item]),
         messages: (
-          created: t.playlists.created,
-          createError: t.playlists.errorCreating,
-          added: t.playlists.itemAdded,
-          addError: t.playlists.errorAdding,
+        created: t.playlists.created,
+        createError: t.playlists.errorCreating,
+        added: t.playlists.itemAdded,
+        addError: t.playlists.errorAdding,
         ),
         notifyChanged: () => LibraryRefreshNotifier().notifyPlaylistsChanged(),
       );
@@ -1550,9 +1573,9 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         client: client,
         result: result,
         createPrompt: (
-          title: t.common.createNew,
-          label: t.collections.collectionName,
-          hint: t.collections.enterCollectionName,
+        title: t.common.createNew,
+        label: t.collections.collectionName,
+        hint: t.collections.enterCollectionName,
         ),
         create: (name) =>
             client.createCollection(libraryId: resolvedLibraryId, title: name, items: [item], itemKind: itemKind),
@@ -1560,10 +1583,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         eagerSyncId: (id) => id,
         add: () => client.addToCollection(collectionId: result, items: [item]),
         messages: (
-          created: t.collections.created,
-          createError: t.collections.errorAddingToCollection,
-          added: t.collections.addedToCollection,
-          addError: t.collections.errorAddingToCollection,
+        created: t.collections.created,
+        createError: t.collections.errorAddingToCollection,
+        added: t.collections.addedToCollection,
+        addError: t.collections.errorAddingToCollection,
         ),
         notifyChanged: () => LibraryRefreshNotifier().notifyCollectionsChanged(),
       );
@@ -1581,19 +1604,19 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// [eagerSyncId] maps a freshly created container to the id to eager-sync, or
   /// `null` to skip it.
   Future<void> _addItemToContainer<T extends Object>(
-    BuildContext context, {
-    required String kind,
-    required MediaItem item,
-    required MediaServerClient client,
-    required String result,
-    required ({String title, String label, String hint}) createPrompt,
-    required Future<T?> Function(String name) create,
-    required String Function(T created) createdLog,
-    required String? Function(T created) eagerSyncId,
-    required Future<bool> Function() add,
-    required ({String created, String createError, String added, String addError}) messages,
-    required VoidCallback notifyChanged,
-  }) async {
+      BuildContext context, {
+        required String kind,
+        required MediaItem item,
+        required MediaServerClient client,
+        required String result,
+        required ({String title, String label, String hint}) createPrompt,
+        required Future<T?> Function(String name) create,
+        required String Function(T created) createdLog,
+        required String? Function(T created) eagerSyncId,
+        required Future<bool> Function() add,
+        required ({String created, String createError, String added, String addError}) messages,
+        required VoidCallback notifyChanged,
+      }) async {
     if (result == '_create_new') {
       final name = await showTextInputDialog(
         context,

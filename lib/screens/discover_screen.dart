@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:plezy/widgets/app_icon.dart';
+import '../widgets/skeleton_hub_rows.dart';
 import '../widgets/server_activities_button.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -34,7 +35,6 @@ import '../providers/watch_state_store.dart';
 import '../widgets/hub_section.dart';
 import '../widgets/app_menu.dart';
 import '../widgets/clickable_cursor.dart';
-import '../widgets/loading_indicator_box.dart';
 import '../widgets/profile_switching_overlay.dart';
 import 'profile/profile_switch_screen.dart';
 import 'profile/profile_teardown.dart';
@@ -740,11 +740,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   }
 
   List<AppMenuEntry<String>> _userMenuItems(
-    BuildContext context, {
-    required Profile? activeProfile,
-    required List<Profile> profiles,
-    required ActiveProfileProvider activeProvider,
-  }) {
+      BuildContext context, {
+        required Profile? activeProfile,
+        required List<Profile> profiles,
+        required ActiveProfileProvider activeProvider,
+      }) {
     final theme = Theme.of(context);
     final switchable = profiles.where((p) => p.id != activeProfile?.id).toList();
 
@@ -896,7 +896,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     );
                   },
                 ),
-                if (_isLoading) LoadingIndicatorBox.sliver,
+                if (_isLoading) const SliverToBoxAdapter(child: SkeletonHubRows()),
                 if (_errorMessage != null) SliverErrorState(message: _errorMessage!, onRetry: _discover.load),
                 if (!_isLoading && _errorMessage == null) ...[
                   if (continueWatchingHub != null)
@@ -1180,44 +1180,44 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
                                 return isActive
                                     ? ValueListenableBuilder<double>(
-                                        valueListenable: _indicatorProgress,
-                                        builder: (context, progress, child) {
-                                          final maxWidth = dotSize * 3;
-                                          final fillWidth = dotSize + ((maxWidth - dotSize) * progress);
-                                          final onSurface = Theme.of(context).colorScheme.onSurface;
-                                          return Container(
-                                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                                            width: maxWidth,
-                                            height: dotSize,
-                                            decoration: BoxDecoration(
-                                              color: onSurface.withValues(alpha: 0.4),
-                                              borderRadius: BorderRadius.circular(dotSize / 2),
-                                            ),
-                                            child: Align(
-                                              alignment: .centerLeft,
-                                              child: Container(
-                                                width: fillWidth,
-                                                height: dotSize,
-                                                decoration: BoxDecoration(
-                                                  color: onSurface,
-                                                  borderRadius: BorderRadius.circular(dotSize / 2),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      )
-                                    : AnimatedContainer(
-                                        duration: tokens(context).slow,
-                                        curve: Curves.easeInOut,
-                                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                                        width: dotSize,
-                                        height: dotSize,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                                          borderRadius: BorderRadius.circular(dotSize / 2),
+                                  valueListenable: _indicatorProgress,
+                                  builder: (context, progress, child) {
+                                    final maxWidth = dotSize * 3;
+                                    final fillWidth = dotSize + ((maxWidth - dotSize) * progress);
+                                    final onSurface = Theme.of(context).colorScheme.onSurface;
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                                      width: maxWidth,
+                                      height: dotSize,
+                                      decoration: BoxDecoration(
+                                        color: onSurface.withValues(alpha: 0.4),
+                                        borderRadius: BorderRadius.circular(dotSize / 2),
+                                      ),
+                                      child: Align(
+                                        alignment: .centerLeft,
+                                        child: Container(
+                                          width: fillWidth,
+                                          height: dotSize,
+                                          decoration: BoxDecoration(
+                                            color: onSurface,
+                                            borderRadius: BorderRadius.circular(dotSize / 2),
+                                          ),
                                         ),
-                                      );
+                                      ),
+                                    );
+                                  },
+                                )
+                                    : AnimatedContainer(
+                                  duration: tokens(context).slow,
+                                  curve: Curves.easeInOut,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  width: dotSize,
+                                  height: dotSize,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                    borderRadius: BorderRadius.circular(dotSize / 2),
+                                  ),
+                                );
                               }),
                             );
                           },

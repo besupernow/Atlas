@@ -39,6 +39,7 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
         title: t.metadataEdit.basicInfo,
         fields: metadataBasicFields(kind, studioType: MetadataEditFieldType.stringList),
       ),
+      if (_detailFields(kind).isNotEmpty) MetadataEditSection(id: 'details', title: 'Details', fields: _detailFields(kind)),
       if (_tagFields(kind).isNotEmpty)
         MetadataEditSection(id: 'tags', title: t.metadataEdit.tags, fields: _tagFields(kind)),
       MetadataEditSection(id: 'artwork', title: t.metadataEdit.artwork, fields: _artworkFields(kind)),
@@ -84,6 +85,27 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
     if (_listFieldChanged(draft, 'genre')) dto['Genres'] = metadataStringList(draft.values['genre']);
     if (_listFieldChanged(draft, 'country')) dto['ProductionLocations'] = metadataStringList(draft.values['country']);
     if (_listFieldChanged(draft, 'label')) dto['Tags'] = metadataStringList(draft.values['label']);
+
+    // Atlas: details section (rating, status, end date, external IDs, lock).
+    if (draft.fieldChanged('communityRating')) {
+      final text = (draft.value<String>('communityRating') ?? '').trim();
+      dto['CommunityRating'] = text.isEmpty ? null : double.tryParse(text);
+    }
+    _setChangedString(dto, draft, 'seriesStatus', 'Status');
+    if (draft.fieldChanged('endDate')) {
+      dto['EndDate'] = _jellyfinDate(draft.value<String>('endDate') ?? '', raw['EndDate']);
+    }
+    final providerIds = dto['ProviderIds'] as Map<String, String>;
+    for (final (fieldId, providerKey) in _providerIdFields) {
+      if (!draft.fieldChanged(fieldId)) continue;
+      final value = (draft.value<String>(fieldId) ?? '').trim();
+      if (value.isEmpty) {
+        providerIds.remove(providerKey);
+      } else {
+        providerIds[providerKey] = value;
+      }
+    }
+    if (draft.fieldChanged('lockData')) dto['LockData'] = draft.value<String>('lockData') == 'true';
 
     var peopleChanged = false;
     var people = _mapList(dto['People']);
@@ -141,17 +163,17 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
     return images
         .whereType<Map<String, dynamic>>()
         .map((image) {
-          final url = image['Url'] as String? ?? '';
-          final thumb = image['ThumbnailUrl'] as String?;
-          return MetadataArtworkOption(
-            id: url,
-            thumbnailPath: (thumb == null || thumb.isEmpty) ? url : thumb,
-            sourceUrl: url,
-            provider: image['ProviderName'] as String?,
-            width: image['Width'] as int?,
-            height: image['Height'] as int?,
-          );
-        })
+      final url = image['Url'] as String? ?? '';
+      final thumb = image['ThumbnailUrl'] as String?;
+      return MetadataArtworkOption(
+        id: url,
+        thumbnailPath: (thumb == null || thumb.isEmpty) ? url : thumb,
+        sourceUrl: url,
+        provider: image['ProviderName'] as String?,
+        width: image['Width'] as int?,
+        height: image['Height'] as int?,
+      );
+    })
         .where((image) => image.sourceUrl.isNotEmpty)
         .toList();
   }
@@ -165,11 +187,11 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
 
   @override
   Future<bool> uploadArtwork(
-    MetadataEditDraft draft,
-    MetadataEditField field,
-    List<int> bytes, {
-    String? fileName,
-  }) async {
+      MetadataEditDraft draft,
+      MetadataEditField field,
+      List<int> bytes, {
+        String? fileName,
+      }) async {
     final imageType = field.artwork?.key;
     if (imageType == null || bytes.isEmpty) return false;
     return client.uploadItemImage(
@@ -205,7 +227,66 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
     values['producer'] = _peopleByType(raw['People'], 'Producer');
     values['country'] = metadataStringList(raw['ProductionLocations']);
     values['label'] = _namedStringList(raw, 'Tags', 'TagItems');
+    values['communityRating'] = (raw['CommunityRating'] as num?)?.toString() ?? '';
+    values['seriesStatus'] = raw['Status'] as String? ?? '';
+    values['endDate'] = jellyfinIsoToYmd(raw['EndDate'] as String?) ?? '';
+    final providerIds = _stringMap(raw['ProviderIds']);
+    for (final (fieldId, providerKey) in _providerIdFields) {
+      values[fieldId] = providerIds[providerKey] ?? '';
+    }
+    values['lockData'] = raw['LockData'] == true ? 'true' : 'false';
   }
+
+  /// (field id, Jellyfin ProviderIds key) for the external ID fields.
+  static const _providerIdFields = [('imdbId', 'Imdb'), ('tmdbId', 'Tmdb'), ('tvdbId', 'Tvdb')];
+
+  List<MetadataEditField> _detailFields(MediaKind kind) {
+    MetadataEditField text(String id, String label) =>
+        MetadataEditField(id: id, label: label, type: MetadataEditFieldType.text);
+    final isShow = kind == MediaKind.show;
+    final hasIds = kind == MediaKind.movie || kind == MediaKind.show || kind == MediaKind.episode;
+    if (kind == MediaKind.season) {
+      return const [
+        MetadataEditField(
+          id: 'lockData',
+          label: 'Metadata lock',
+          type: MetadataEditFieldType.choice,
+          options: _lockOptions,
+        ),
+      ];
+    }
+    return [
+      text('communityRating', 'Community rating'),
+      if (isShow)
+        const MetadataEditField(
+          id: 'seriesStatus',
+          label: 'Status',
+          type: MetadataEditFieldType.choice,
+          options: [
+            MetadataEditOption(value: '', label: 'Not set'),
+            MetadataEditOption(value: 'Continuing', label: 'Continuing'),
+            MetadataEditOption(value: 'Ended', label: 'Ended'),
+          ],
+        ),
+      if (isShow) const MetadataEditField(id: 'endDate', label: 'End date', type: MetadataEditFieldType.date),
+      if (hasIds) ...[
+        text('imdbId', 'IMDb ID'),
+        text('tmdbId', kind == MediaKind.movie ? 'TMDB movie ID' : 'TMDB series ID'),
+        text('tvdbId', 'TVDB ID'),
+      ],
+      const MetadataEditField(
+        id: 'lockData',
+        label: 'Metadata lock',
+        type: MetadataEditFieldType.choice,
+        options: _lockOptions,
+      ),
+    ];
+  }
+
+  static const _lockOptions = [
+    MetadataEditOption(value: 'false', label: 'Unlocked: refreshes may update this item'),
+    MetadataEditOption(value: 'true', label: 'Locked: refreshes never change this item'),
+  ];
 
   void _writeArtworkValues(Map<String, Object?> values, MediaItem item) {
     values['artwork:Primary'] = item.thumbPath;
@@ -308,11 +389,11 @@ List<Map<String, dynamic>> _toNamePairs(Object? names) =>
     metadataStringList(names).map((name) => <String, dynamic>{'Name': name}).toList();
 
 Map<String, dynamic> _preserveNamedMap(
-  List<Map<String, dynamic>> existing,
-  Set<int> used,
-  String name, {
-  String? type,
-}) {
+    List<Map<String, dynamic>> existing,
+    Set<int> used,
+    String name, {
+      String? type,
+    }) {
   final trimmed = name.trim();
   final lowerName = trimmed.toLowerCase();
   for (var i = 0; i < existing.length; i++) {

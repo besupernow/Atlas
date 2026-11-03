@@ -46,13 +46,13 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   }
 
   Future<Map<String, dynamic>> getRemoteImages(
-    String itemId, {
-    required String imageType,
-    int startIndex = 0,
-    int limit = 60,
-    String? providerName,
-    bool includeAllLanguages = false,
-  }) async {
+      String itemId, {
+        required String imageType,
+        int startIndex = 0,
+        int limit = 60,
+        String? providerName,
+        bool includeAllLanguages = false,
+      }) async {
     final response = await _http.get(
       '/Items/${_segment(itemId)}/RemoteImages',
       queryParameters: {
@@ -87,15 +87,94 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   /// The `Content-Type` still names the *image* type, which is how the server
   /// decides the on-disk extension.
   Future<bool> uploadItemImage(
-    String itemId, {
-    required String imageType,
-    required List<int> bytes,
-    required String contentType,
-  }) async {
+      String itemId, {
+        required String imageType,
+        required List<int> bytes,
+        required String contentType,
+      }) async {
     final response = await _http.post(
       '/Items/${_segment(itemId)}/Images/${_segment(imageType)}',
       body: base64Encode(bytes),
       headers: {'Content-Type': contentType},
+    );
+    throwIfHttpError(response);
+    await _deleteMetadataEditCache(itemId);
+    return response.statusCode >= 200 && response.statusCode < 300;
+  }
+
+  /// Queue a metadata refresh for [itemId] and everything under it
+  /// (seasons and episodes of a series). Mirrors Jellyfin web's
+  /// "Refresh metadata" dialog. Returns once the server accepted the job;
+  /// the refresh itself runs in the background on the server.
+  ///
+  /// [metadataMode]/[imageMode]: `Default` scans for new and updated files,
+  /// `FullRefresh` re-downloads from the metadata providers.
+  Future<bool> refreshItemMetadata(
+      String itemId, {
+        required String metadataMode,
+        required String imageMode,
+        required bool replaceAllMetadata,
+        required bool replaceAllImages,
+      }) async {
+    final response = await _http.post(
+      '/Items/${_segment(itemId)}/Refresh',
+      queryParameters: {
+        'Recursive': true,
+        'MetadataRefreshMode': metadataMode,
+        'ImageRefreshMode': imageMode,
+        'ReplaceAllMetadata': replaceAllMetadata,
+        'ReplaceAllImages': replaceAllImages,
+        'RegenerateTrickplay': false,
+      },
+    );
+    throwIfHttpError(response);
+    await _deleteMetadataEditCache(itemId);
+    return response.statusCode >= 200 && response.statusCode < 300;
+  }
+
+  /// Ask the metadata providers for matches (Jellyfin web's "Identify").
+  /// [searchType] is `Movie` or `Series`. Each result is the raw
+  /// `RemoteSearchResult` (Name, ProductionYear, ImageUrl, ProviderIds,
+  /// SearchProviderName, Overview), passed back unchanged to
+  /// [applyRemoteSearchResult].
+  Future<List<Map<String, dynamic>>> remoteSearch(
+      String itemId, {
+        required String searchType,
+        String? name,
+        int? year,
+        Map<String, String> providerIds = const {},
+      }) async {
+    final response = await _http.post(
+      '/Items/RemoteSearch/${_segment(searchType)}',
+      body: {
+        'SearchInfo': {
+          if (name != null && name.trim().isNotEmpty) 'Name': name.trim(),
+          'Year': ?year,
+          'ProviderIds': providerIds,
+        },
+        'ItemId': itemId,
+        'IncludeDisabledProviders': true,
+      },
+      timeout: const Duration(seconds: 60),
+    );
+    throwIfHttpError(response);
+    final data = response.data;
+    if (data is! List) return const [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Re-identify [itemId] as [result] and pull fresh metadata (and, when
+  /// [replaceAllImages], fresh artwork) for it.
+  Future<bool> applyRemoteSearchResult(
+      String itemId,
+      Map<String, dynamic> result, {
+        bool replaceAllImages = true,
+      }) async {
+    final response = await _http.post(
+      '/Items/RemoteSearch/Apply/${_segment(itemId)}',
+      queryParameters: {'ReplaceAllImages': replaceAllImages},
+      body: result,
+      timeout: const Duration(seconds: 60),
     );
     throwIfHttpError(response);
     await _deleteMetadataEditCache(itemId);

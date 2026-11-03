@@ -1,4 +1,5 @@
 import '../media/media_browser_dialect.dart';
+import '../utils/blurhash.dart';
 import '../media/ids.dart';
 import '../media/media_hub.dart';
 import '../media/media_item.dart';
@@ -28,18 +29,18 @@ Map<String, dynamic>? jellyfinFirstVideoStream(Object? streams) {
 }
 
 MediaVersion jellyfinMediaSourceToVersion(
-  Map<String, dynamic> source, {
-  required String versionId,
-  required String partId,
-  String? streamPath,
-  List<MediaStream> streams = const [],
-  bool includePartDuration = false,
-  bool requireParsedVideoStreamForDimensions = false,
-  String? name,
-}) {
+    Map<String, dynamic> source, {
+      required String versionId,
+      required String partId,
+      String? streamPath,
+      List<MediaStream> streams = const [],
+      bool includePartDuration = false,
+      bool requireParsedVideoStreamForDimensions = false,
+      String? name,
+    }) {
   final rawVideo = jellyfinFirstVideoStream(source['MediaStreams']);
   final parsedVideo = streams.firstWhere(
-    (stream) => stream.kind == MediaStreamKind.video,
+        (stream) => stream.kind == MediaStreamKind.video,
     orElse: () => const MediaStream(id: '', kind: MediaStreamKind.unknown),
   );
   final hasParsedVideo = parsedVideo.kind == MediaStreamKind.video;
@@ -188,14 +189,16 @@ class JellyfinMappers {
   /// backend badge/label. Jellyfin and Emby DTOs are field-identical, so the
   /// mapping itself is shared.
   static MediaItem? mediaItem(
-    Map<String, dynamic> item, {
-    required ServerId serverId,
-    String? serverName,
-    required JellyfinImageAbsolutizer? absolutizer,
-    MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
-  }) {
+      Map<String, dynamic> item, {
+        required ServerId serverId,
+        String? serverName,
+        required JellyfinImageAbsolutizer? absolutizer,
+        MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
+      }) {
     final id = item['Id'] as String?;
     if (id == null || id.isEmpty) return null;
+    // Instant blurred placeholders for this item's artwork (and its parents').
+    BlurHashRegistry.registerJellyfin(item['ImageBlurHashes']);
     final type = item['Type'] as String?;
     // Untyped rows that Jellyfin still flags as folders (defensive — typed
     // Folder/CollectionFolder rows resolve via fromString) classify as
@@ -237,12 +240,12 @@ class JellyfinMappers {
       // Video rows never carry the Album* fields, so the extra fallbacks are
       // inert for them.
       parentId:
-          item['SeasonId'] as String? ??
+      item['SeasonId'] as String? ??
           item['AlbumId'] as String? ??
           (kind == MediaKind.album ? _firstAlbumArtistId(item) : null) ??
           item['ParentId'] as String?,
       parentTitle:
-          item['SeasonName'] as String? ??
+      item['SeasonName'] as String? ??
           item['Album'] as String? ??
           (kind == MediaKind.album ? item['AlbumArtist'] as String? : null),
       parentThumbPath: _imagePath(item, 'SeasonId', 'SeasonPrimaryImageTag', 'Primary') ?? albumPrimaryImage,
@@ -250,7 +253,7 @@ class JellyfinMappers {
       index: item['IndexNumber'] as int?,
       grandparentId: item['SeriesId'] as String? ?? (kind == MediaKind.track ? _firstAlbumArtistId(item) : null),
       grandparentTitle:
-          item['SeriesName'] as String? ?? (kind == MediaKind.track ? item['AlbumArtist'] as String? : null),
+      item['SeriesName'] as String? ?? (kind == MediaKind.track ? item['AlbumArtist'] as String? : null),
       grandparentThumbPath: _seriesPrimaryImage(item),
       grandparentArtPath: grandparentBackdropPaths.firstOrNull,
       grandparentBackdropPaths: grandparentBackdropPaths.isEmpty ? null : grandparentBackdropPaths,
@@ -308,11 +311,11 @@ class JellyfinMappers {
   /// Returns `null` when the view is missing `Id` — same rationale as
   /// [mediaItem].
   static MediaLibrary? library(
-    Map<String, dynamic> view, {
-    required ServerId serverId,
-    String? serverName,
-    MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
-  }) {
+      Map<String, dynamic> view, {
+        required ServerId serverId,
+        String? serverName,
+        MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
+      }) {
     final id = view['Id'] as String?;
     if (id == null || id.isEmpty) return null;
     final collectionType = view['CollectionType'] as String?;
@@ -599,11 +602,11 @@ class JellyfinMappers {
   }
 
   static bool _jellyfinStreamSelected(
-    MediaStreamKind kind,
-    JellyfinStreamFields stream, {
-    int? defaultAudioStreamIndex,
-    int? defaultSubtitleStreamIndex,
-  }) {
+      MediaStreamKind kind,
+      JellyfinStreamFields stream, {
+        int? defaultAudioStreamIndex,
+        int? defaultSubtitleStreamIndex,
+      }) {
     return switch (kind) {
       MediaStreamKind.audio when defaultAudioStreamIndex != null => stream.index == defaultAudioStreamIndex,
       MediaStreamKind.subtitle when defaultSubtitleStreamIndex != null => stream.index == defaultSubtitleStreamIndex,

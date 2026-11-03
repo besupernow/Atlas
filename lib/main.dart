@@ -13,6 +13,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'services/atlas_gate/atlas_gate.dart';
 
+import 'guest/guest_share_app.dart';
 import 'widgets/web_theme_color.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:provider/provider.dart';
@@ -152,6 +153,18 @@ void _registerTvosPlatformPlugins() {
 
 void main() {
   final binding = PlezyWidgetsBinding.ensureInitialized();
+  // Web: right-click opens the app's own context menu (cards, rows), not the
+  // browser's. Text fields still get Flutter's copy/paste menu.
+  if (kIsWeb) unawaited(BrowserContextMenu.disableContextMenu());
+  // Web: a public share link (`/web/?share=CODE`) runs guest mode only:
+  // no sign-in, no device gate, none of the app's startup work.
+  if (kIsWeb) {
+    final shareCode = Uri.base.queryParameters['share'];
+    if (shareCode != null && shareCode.isNotEmpty) {
+      runApp(GuestShareApp(code: shareCode));
+      return;
+    }
+  }
   if (agentControlEnabled) AgentControlService.instance.register();
   AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.dartMain);
   // Keep the accessibility tree available to Maestro and other UI automation
@@ -227,9 +240,9 @@ Future<StartupThemeResolution> _resolveStartupTheme() async {
     ThemeProvider.isDarkFor(palette, WidgetsBinding.instance.platformDispatcher.platformBrightness),
   );
   return (
-    themeMode: ThemeProvider.materialThemeModeFor(palette),
-    lightTheme: ThemeProvider.lightThemeFor(palette),
-    darkTheme: ThemeProvider.darkThemeFor(palette),
+  themeMode: ThemeProvider.materialThemeModeFor(palette),
+  lightTheme: ThemeProvider.lightThemeFor(palette),
+  darkTheme: ThemeProvider.darkThemeFor(palette),
   );
 }
 
@@ -259,10 +272,10 @@ const Duration _optionalPhaseTimeout = Duration(seconds: 10);
 /// all degradable; before #1732 any one of them could veto the whole boot —
 /// by throwing, or by never completing.
 Future<void> _optionalGatePhase(
-  StartupPhase phase,
-  Future<void> Function() step, {
-  Duration timeout = _optionalPhaseTimeout,
-}) async {
+    StartupPhase phase,
+    Future<void> Function() step, {
+      Duration timeout = _optionalPhaseTimeout,
+    }) async {
   // Keep a handler on the original future. `timeout` abandons the work rather
   // than cancelling it, so a late failure would otherwise land as an unhandled
   // async error long after the gate moved on.
@@ -500,10 +513,10 @@ Future<SentryId> _captureStartupFailure(StartupFailureRecord record) {
 /// would destroy the salvage.
 @visibleForTesting
 Future<StartupRepairResult> repairStartupStorage(
-  BuildContext context,
-  StartupFailureRecord record,
-  Object error,
-) async {
+    BuildContext context,
+    StartupFailureRecord record,
+    Object error,
+    ) async {
   final cause = StartupPhaseException.unwrap(error);
   final unreadableKey = cause is UnreadableSensitivePreferenceException ? cause.key : null;
   final reopenSafe = cause is! CorruptPreferenceStoreException || cause.reopenSafe;
@@ -580,12 +593,12 @@ String repairConsentMessage({required bool oneCredential, required bool signInsS
 /// that matters.
 @visibleForTesting
 Future<void> showRepairOutcomeDialog(
-  BuildContext context,
-  PrefsRepairOutcome outcome, {
-  // Test seam: the widget-test binding's fake-async zone never completes a
-  // `dart:io` future, so a real delete cannot be driven from a widget test.
-  Future<void> Function(String path) deleteBackup = PrefsRecovery.deleteBackup,
-}) {
+    BuildContext context,
+    PrefsRepairOutcome outcome, {
+      // Test seam: the widget-test binding's fake-async zone never completes a
+      // `dart:io` future, so a real delete cannot be driven from a widget test.
+      Future<void> Function(String path) deleteBackup = PrefsRecovery.deleteBackup,
+    }) {
   final backupPath = outcome.backupPath;
   // Outside the builder: a `StatefulBuilder` re-runs its closure on every
   // rebuild, so state declared inside it would reset the moment the rebuild it
@@ -976,9 +989,9 @@ Future<_StartupDependencies> _initializeStartup(SettingsService settings) async 
     // three have a working sync fallback, so a detection failure is not fatal.
     await _optionalGatePhase(StartupPhase.deviceCapabilities, () async {
       await (
-        TvDetectionService.getInstance(forceTv: settings.read(SettingsService.forceTvMode)),
-        DevicePerformance.getInstance(override: settings.read(SettingsService.visualEffects)),
-        VideoDecodeCapabilities.getInstance(),
+      TvDetectionService.getInstance(forceTv: settings.read(SettingsService.forceTvMode)),
+      DevicePerformance.getInstance(override: settings.read(SettingsService.visualEffects)),
+      VideoDecodeCapabilities.getInstance(),
       ).wait;
     });
 
@@ -992,7 +1005,7 @@ Future<_StartupDependencies> _initializeStartup(SettingsService settings) async 
     AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.databaseOpenStarted);
     final databaseBootstrap = await _gatePhase(
       StartupPhase.database,
-      () => openAppDatabaseWithDownloadRecovery(
+          () => openAppDatabaseWithDownloadRecovery(
         openDatabase: () => AppDatabase.open(isTvos: PlatformDetector.isAppleTV()),
         recoverNativeDownloads: DownloadManagerService.discardInterruptedNativeDownloadsAfterStorageFailure,
         storageFullMessage: t.downloads.storageFull,
@@ -1033,7 +1046,7 @@ void _startNonessentialInitialization(SettingsService settings) {
 
   bestEffort(
     'Date formatting',
-    () => initializeDateFormatting(settings.read(SettingsService.appLocale).intlLocaleName, null),
+        () => initializeDateFormatting(settings.read(SettingsService.appLocale).intlLocaleName, null),
   );
   bestEffort('Download storage', () async {
     if (kIsWeb) return;
@@ -1098,7 +1111,7 @@ Future<void> _logEnvironmentDiagnostics() async {
   }
   appLogger.i(
     'Plezy v${packageInfo.version}+${packageInfo.buildNumber}$commitSuffix$renderer'
-    ' [effects: ${DevicePerformance.describeSync()}]',
+        ' [effects: ${DevicePerformance.describeSync()}]',
   );
   appLogger.i('Display: ${DevicePerformance.describeDisplay()}');
   appLogger.i('Video decoders: ${VideoDecodeCapabilities.describeSync()}');
@@ -1232,50 +1245,50 @@ void _registerShaderLicenses() {
     yield const LicenseEntryWithLineBreaks(
       ['Anime4K'],
       'MIT License\n'
-      '\n'
-      'Copyright (c) 2019-2021 bloc97\n'
-      'All rights reserved.\n'
-      '\n'
-      'Permission is hereby granted, free of charge, to any person obtaining a copy '
-      'of this software and associated documentation files (the "Software"), to deal '
-      'in the Software without restriction, including without limitation the rights '
-      'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell '
-      'copies of the Software, and to permit persons to whom the Software is '
-      'furnished to do so, subject to the following conditions:\n'
-      '\n'
-      'The above copyright notice and this permission notice shall be included in all '
-      'copies or substantial portions of the Software.\n'
-      '\n'
-      'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR '
-      'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, '
-      'FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE '
-      'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER '
-      'LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, '
-      'OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE '
-      'SOFTWARE.',
+          '\n'
+          'Copyright (c) 2019-2021 bloc97\n'
+          'All rights reserved.\n'
+          '\n'
+          'Permission is hereby granted, free of charge, to any person obtaining a copy '
+          'of this software and associated documentation files (the "Software"), to deal '
+          'in the Software without restriction, including without limitation the rights '
+          'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell '
+          'copies of the Software, and to permit persons to whom the Software is '
+          'furnished to do so, subject to the following conditions:\n'
+          '\n'
+          'The above copyright notice and this permission notice shall be included in all '
+          'copies or substantial portions of the Software.\n'
+          '\n'
+          'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR '
+          'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, '
+          'FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE '
+          'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER '
+          'LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, '
+          'OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE '
+          'SOFTWARE.',
     );
     yield const LicenseEntryWithLineBreaks(
       ['NVIDIA Image Scaling (NVScaler)'],
       'The MIT License (MIT)\n'
-      '\n'
-      'Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.\n'
-      '\n'
-      'Permission is hereby granted, free of charge, to any person obtaining a copy of '
-      'this software and associated documentation files (the "Software"), to deal in '
-      'the Software without restriction, including without limitation the rights to '
-      'use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of '
-      'the Software, and to permit persons to whom the Software is furnished to do so, '
-      'subject to the following conditions:\n'
-      '\n'
-      'The above copyright notice and this permission notice shall be included in all '
-      'copies or substantial portions of the Software.\n'
-      '\n'
-      'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR '
-      'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS '
-      'FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR '
-      'COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER '
-      'IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN '
-      'CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
+          '\n'
+          'Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.\n'
+          '\n'
+          'Permission is hereby granted, free of charge, to any person obtaining a copy of '
+          'this software and associated documentation files (the "Software"), to deal in '
+          'the Software without restriction, including without limitation the rights to '
+          'use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of '
+          'the Software, and to permit persons to whom the Software is furnished to do so, '
+          'subject to the following conditions:\n'
+          '\n'
+          'The above copyright notice and this permission notice shall be included in all '
+          'copies or substantial portions of the Software.\n'
+          '\n'
+          'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR '
+          'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS '
+          'FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR '
+          'COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER '
+          'IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN '
+          'CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
     );
   });
 }
@@ -1417,7 +1430,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     // Keep the awaitable assigned synchronously, but do not let recovery's
     // Drift/native work compete with SetupScreen's first frame.
     _downloadManager.recoveryFuture = WidgetsBinding.instance.endOfFrame.then(
-      (_) => _downloadManager.recoverInterruptedDownloads(),
+          (_) => _downloadManager.recoverInterruptedDownloads(),
     );
 
     _offlineWatchSyncService = OfflineWatchSyncService(database: _appDatabase, serverManager: _serverManager);
@@ -1570,7 +1583,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       _lastEvictionRss = rss;
       appLogger.w(
         'RSS high (${rss >> 20}MB > ${threshold >> 20}MB), evicting image caches '
-        '(cache ${cache.currentSizeBytes >> 20}MB/${cache.currentSize} images, ${cache.liveImageCount} live)',
+            '(cache ${cache.currentSizeBytes >> 20}MB/${cache.currentSize} images, ${cache.liveImageCount} live)',
       );
       _evictImageCaches();
     });
@@ -1631,10 +1644,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   /// gating the cooldown: `true` for user-initiated drains, `false` for
   /// background probes like a connectivity reconnect.
   Future<void> _autoDeleteAndSync(
-    DownloadProvider downloadProvider, {
-    List<String>? targetKeys,
-    bool force = false,
-  }) async {
+      DownloadProvider downloadProvider, {
+        List<String>? targetKeys,
+        bool force = false,
+      }) async {
     // Exit teardown awaits the pass in flight before closing the database; a
     // pass started after that would query a closed database (#3012).
     if (_shutdownFuture != null) return;
@@ -1687,7 +1700,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        // App came back to foreground - trigger sync check
+      // App came back to foreground - trigger sync check
         _offlineWatchSyncService.onAppResumed();
         unawaited(TrackerCoordinator.instance.flushWriteQueue());
         // Re-arm the per-server library push channels torn down on pause
@@ -1715,8 +1728,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         }
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        // Backgrounded: drop the library push sockets — they are
-        // foreground-only, and the stale-resume refresh covers the gap.
+      // Backgrounded: drop the library push sockets — they are
+      // foreground-only, and the stale-resume refresh covers the gap.
         _libraryEventService.suspend();
         // Database is session-scoped and must survive suspend/resume.
         // Closing here would kill the Drift isolate channel while services
@@ -1739,7 +1752,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         }
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
-        // Transitional states - don't trigger session events
+      // Transitional states - don't trigger session events
         break;
     }
   }
@@ -2536,10 +2549,10 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
                   Center(
                     child: _serverStatus.isEmpty
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
-                          )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
+                    )
                         : _buildServerStatusList(context),
                   ),
                 ],
@@ -2562,10 +2575,10 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
             child: Center(
               child: _serverStatus.isEmpty
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
-                    )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
+              )
                   : _buildServerStatusList(context),
             ),
           ),

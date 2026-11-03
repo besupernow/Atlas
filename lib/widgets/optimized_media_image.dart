@@ -9,6 +9,7 @@ import 'package:plezy/widgets/app_icon.dart';
 import '../media/media_server_client.dart';
 import '../services/device_performance.dart';
 import '../utils/app_logger.dart';
+import '../utils/blurhash.dart';
 import '../utils/media_image_helper.dart';
 import '../utils/obfuscation_utils.dart';
 import '../utils/tone_mapped_logo_image.dart';
@@ -139,21 +140,21 @@ class OptimizedMediaImage extends StatelessWidget {
     String? localFilePath,
     Animation<double>? artworkDim,
   }) : this._(
-         key: key,
-         client: client,
-         imagePath: imagePath,
-         width: width,
-         height: height,
-         fit: fit,
-         placeholder: placeholder,
-         errorWidget: errorWidget,
-         fadeInDuration: fadeInDuration,
-         alignment: alignment,
-         fallbackIcon: fallbackIcon ?? Symbols.movie_rounded,
-         imageType: ImageType.poster,
-         localFilePath: localFilePath,
-         artworkDim: artworkDim,
-       );
+    key: key,
+    client: client,
+    imagePath: imagePath,
+    width: width,
+    height: height,
+    fit: fit,
+    placeholder: placeholder,
+    errorWidget: errorWidget,
+    fadeInDuration: fadeInDuration,
+    alignment: alignment,
+    fallbackIcon: fallbackIcon ?? Symbols.movie_rounded,
+    imageType: ImageType.poster,
+    localFilePath: localFilePath,
+    artworkDim: artworkDim,
+  );
 
   /// Named constructor for episode thumbnails.
   const OptimizedMediaImage.thumb({
@@ -173,23 +174,23 @@ class OptimizedMediaImage extends StatelessWidget {
     bool logoToneRemapMixed = true,
     Animation<double>? artworkDim,
   }) : this._(
-         key: key,
-         client: client,
-         imagePath: imagePath,
-         width: width,
-         height: height,
-         fit: fit,
-         placeholder: placeholder,
-         errorWidget: errorWidget,
-         fadeInDuration: fadeInDuration,
-         alignment: alignment,
-         fallbackIcon: fallbackIcon ?? Symbols.video_library_rounded,
-         imageType: ImageType.thumb,
-         localFilePath: localFilePath,
-         logoToneTarget: logoToneTarget,
-         logoToneRemapMixed: logoToneRemapMixed,
-         artworkDim: artworkDim,
-       );
+    key: key,
+    client: client,
+    imagePath: imagePath,
+    width: width,
+    height: height,
+    fit: fit,
+    placeholder: placeholder,
+    errorWidget: errorWidget,
+    fadeInDuration: fadeInDuration,
+    alignment: alignment,
+    fallbackIcon: fallbackIcon ?? Symbols.video_library_rounded,
+    imageType: ImageType.thumb,
+    localFilePath: localFilePath,
+    logoToneTarget: logoToneTarget,
+    logoToneRemapMixed: logoToneRemapMixed,
+    artworkDim: artworkDim,
+  );
 
   /// Whether both width and height are explicitly set to finite positive values,
   /// meaning we can skip the LayoutBuilder.
@@ -261,7 +262,7 @@ class OptimizedMediaImage extends StatelessWidget {
 
     return _withArtworkDim(
       artworkDim,
-      (tint) => Image(
+          (tint) => Image(
         image: provider,
         width: width,
         height: height,
@@ -339,7 +340,7 @@ class OptimizedMediaImage extends StatelessWidget {
     if (DevicePerformance.isReduced) {
       return _withArtworkDim(
         artworkDim,
-        (tint) => Image(
+            (tint) => Image(
           image: resizedProvider,
           width: width,
           height: height,
@@ -395,25 +396,29 @@ class OptimizedMediaImage extends StatelessWidget {
     final baseIconColor = iconColor ?? theme.onSurfaceVariant;
     return _withArtworkDim(
       artworkDim,
-      (tint) => Container(
+          (tint) => Container(
         width: fillParent ? null : width,
         height: fillParent ? null : height,
         color: tint == null ? baseSurfaceColor : Color.alphaBlend(tint, baseSurfaceColor),
         child: icon == null
             ? null
             : Center(
-                child: AppIcon(
-                  icon,
-                  fill: 1,
-                  size: 40,
-                  color: tint == null ? baseIconColor : Color.alphaBlend(tint, baseIconColor),
-                ),
-              ),
+          child: AppIcon(
+            icon,
+            fill: 1,
+            size: 40,
+            color: tint == null ? baseIconColor : Color.alphaBlend(tint, baseIconColor),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildPlaceholder(BuildContext context, String imageUrl) {
+    // The server's BlurHash beats any generic placeholder: the page shows the
+    // artwork's real colors before a single image request finishes.
+    final blur = _blurHashPlaceholder();
+    if (blur != null) return blur;
     final customPlaceholder = placeholder?.call(context, imageUrl);
     if (customPlaceholder == null) {
       return _surfacePlaceholder(context, icon: fallbackIcon, iconColor: Colors.white54);
@@ -421,7 +426,7 @@ class OptimizedMediaImage extends StatelessWidget {
     if (artworkDim == null) return customPlaceholder;
     return _withArtworkDim(
       artworkDim,
-      (tint) => Stack(
+          (tint) => Stack(
         fit: StackFit.passthrough,
         children: [
           customPlaceholder,
@@ -430,6 +435,32 @@ class OptimizedMediaImage extends StatelessWidget {
               child: IgnorePointer(child: ColoredBox(color: tint)),
             ),
         ],
+      ),
+    );
+  }
+
+  /// The server's BlurHash for this artwork, painted while the real image
+  /// loads. Logos are transparent cut-outs, so a blur of one is just a smudge.
+  Widget? _blurHashPlaceholder() {
+    if (imageType == ImageType.logo || imageType == ImageType.heroLogo) return null;
+    final hash = BlurHashRegistry.forImagePath(imagePath);
+    if (hash == null) return null;
+    return _withArtworkDim(
+      artworkDim,
+          (tint) => LayoutBuilder(
+        builder: (context, box) => Image(
+          image: BlurHashImage(hash),
+          width: width ?? (box.hasBoundedWidth ? box.maxWidth : null),
+          height: height ?? (box.hasBoundedHeight ? box.maxHeight : null),
+          fit: BoxFit.cover,
+          alignment: alignment,
+          filterQuality: FilterQuality.low,
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+          color: tint,
+          colorBlendMode: tint == null ? null : BlendMode.srcATop,
+          errorBuilder: (context, _, _) => const SizedBox.shrink(),
+        ),
       ),
     );
   }
@@ -519,26 +550,26 @@ class ClearLogoImage extends StatelessWidget {
       child: path == null || path.isEmpty
           ? fallbackBuilder(context)
           : Align(
-              alignment: alignment,
-              child: OptimizedMediaImage(
-                client: client,
-                imagePath: path,
-                width: width,
-                height: height,
-                fit: BoxFit.contain,
-                alignment: alignment,
-                imageType: ImageType.heroLogo,
-                fadeInDuration: fadeInDuration,
-                logoToneTarget: logoToneTarget,
-                // Clear logos render on heroes where a mark's color is part of
-                // its identity: mixed-tone marks stay untouched.
-                logoToneRemapMixed: false,
-                placeholder: (context, _) => const SizedBox.shrink(),
-                // Replaces the image under Align's loose constraints, so it can
-                // take the whole title slot rather than the logo's.
-                errorWidget: (context, _, _) => SizedBox.expand(child: fallbackBuilder(context)),
-              ),
-            ),
+        alignment: alignment,
+        child: OptimizedMediaImage(
+          client: client,
+          imagePath: path,
+          width: width,
+          height: height,
+          fit: BoxFit.contain,
+          alignment: alignment,
+          imageType: ImageType.heroLogo,
+          fadeInDuration: fadeInDuration,
+          logoToneTarget: logoToneTarget,
+          // Clear logos render on heroes where a mark's color is part of
+          // its identity: mixed-tone marks stay untouched.
+          logoToneRemapMixed: false,
+          placeholder: (context, _) => const SizedBox.shrink(),
+          // Replaces the image under Align's loose constraints, so it can
+          // take the whole title slot rather than the logo's.
+          errorWidget: (context, _, _) => SizedBox.expand(child: fallbackBuilder(context)),
+        ),
+      ),
     );
   }
 }
@@ -615,7 +646,7 @@ class _FadeInNetworkImageState extends State<_FadeInNetworkImage> with SingleTic
   Widget build(BuildContext context) {
     return _withArtworkDim(
       widget.artworkDim,
-      (tint) => Image(
+          (tint) => Image(
         image: widget.image,
         width: widget.width,
         height: widget.height,
@@ -736,8 +767,8 @@ class _ResolvedLocalFileState extends State<ResolvedLocalFile> {
           .fileExists(candidate)
           .then(
             (exists) => _complete(path, candidate, exists),
-            onError: (Object _, StackTrace _) => _complete(path, candidate, false),
-          );
+        onError: (Object _, StackTrace _) => _complete(path, candidate, false),
+      );
     } catch (_) {
       _complete(path, candidate, false);
     }

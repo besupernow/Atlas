@@ -14,6 +14,8 @@ import '../profiles/active_profile_provider.dart';
 import '../profiles/profile.dart';
 import '../services/deep_links/deep_link.dart';
 import '../services/deep_links/item_links.dart';
+import '../services/atlas_share/atlas_share_api.dart';
+import '../services/jellyfin_client.dart';
 import '../utils/app_logger.dart';
 import '../utils/dialogs.dart';
 import '../utils/platform_detector.dart';
@@ -66,6 +68,131 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
   PlayLink? _link;
   bool _asProfile = false;
 
+  // "Share publicly?" (Atlas+ guest links): options, then the created link.
+  bool _publicOptions = false;
+  int _hours = 24;
+  bool _singleUse = false;
+  bool _creating = false;
+  String? _publicError;
+  AtlasShareLink? _publicLink;
+
+  bool get _canSharePublicly =>
+      widget.client is JellyfinClient && (widget.item.kind == MediaKind.movie || widget.item.kind == MediaKind.episode);
+
+  Future<void> _createPublicLink() async {
+    final client = widget.client;
+    if (client is! JellyfinClient) return;
+    setState(() {
+      _creating = true;
+      _publicError = null;
+    });
+    try {
+      final link = await AtlasShareApi.create(
+        jellyfinToken: client.connection.accessToken,
+        itemId: widget.item.id,
+        hours: _hours,
+        singleUse: _singleUse,
+      );
+      if (mounted) setState(() => _publicLink = link);
+    } on AtlasShareException catch (e) {
+      if (mounted) setState(() => _publicError = e.message);
+    } on TimeoutException {
+      if (mounted) setState(() => _publicError = "The share service didn't answer. Try again in a moment.");
+    } catch (e) {
+      appLogger.w('Public share link failed', error: e);
+      // Usually a network or browser error: say what it was so it can be fixed.
+      final detail = e.toString().replaceFirst('ClientException: ', '');
+      if (mounted) {
+        setState(
+              () => _publicError =
+          "Couldn't reach the share service: ${detail.length > 140 ? '${detail.substring(0, 140)}…' : detail}",
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  String _expiryText(BuildContext context, DateTime at) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final time = TimeOfDay.fromDateTime(at).format(context);
+    final today = DateTime.now();
+    final sameDay = at.year == today.year && at.month == today.month && at.day == today.day;
+    return sameDay ? 'today at $time' : '${days[at.weekday - 1]} at $time';
+  }
+
+  Widget _buildPublicOptions(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    Widget useTile(bool singleUse, String title, String subtitle) {
+      final selected = _singleUse == singleUse;
+      return FocusableListTile(
+        leading: Icon(
+          selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+        ),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        onTap: _creating ? null : () => setState(() => _singleUse = singleUse),
+      );
+    }
+
+    return AlertDialog(
+      scrollable: true,
+      title: const Text('Share publicly'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Anyone with the link can watch ${widget.item.title ?? 'this'} in their browser without an account. '
+                  'It plays only this title, and closing the player ends their visit.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            Text('Available for', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final hours in kShareDurationsHours)
+                  ChoiceChip(
+                    label: Text(shareDurationLabel(hours)),
+                    selected: _hours == hours,
+                    onSelected: _creating ? null : (_) => setState(() => _hours = hours),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text('When the link is opened', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            useTile(false, 'Keep working until it expires', 'Open it as many times as needed.'),
+            useTile(true, 'Expire after the first open', 'Good for sending to one person.'),
+            if (_publicError != null) ...[
+              const SizedBox(height: 12),
+              Text(_publicError!, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        DialogActionButton(
+          onPressed: _creating ? null : () => setState(() => _publicOptions = false),
+          label: t.common.back,
+        ),
+        DialogActionButton(
+          autofocus: true,
+          isPrimary: true,
+          onPressed: _creating ? null : _createPublicLink,
+          label: _creating ? 'Creating…' : 'Create link',
+        ),
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +217,18 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final publicLink = _publicLink;
+    if (publicLink != null) {
+      return _LinkDialog(
+        title: 'Public link',
+        link: publicLink.url,
+        hint:
+        'Anyone with this link can watch without an account until ${_expiryText(context, publicLink.expiresAt)}. '
+            '${publicLink.singleUse ? 'It stops working once it has been opened.' : 'It works as many times as needed until then.'}',
+      );
+    }
+    if (_publicOptions) return _buildPublicOptions(context);
+
     final link = _link;
     final profile = widget.profile;
     final shown = link != null && profile != null && _asProfile
@@ -102,14 +241,28 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
         MediaKind.episode => t.deepLinks.episodeHint,
         _ => t.deepLinks.movieHint,
       },
-      option: profile == null
+      option: profile == null && !_canSharePublicly
           ? null
-          : FocusableSwitchListTile(
+          : Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (profile != null)
+            FocusableSwitchListTile(
               value: _asProfile,
               onChanged: (value) => setState(() => _asProfile = value),
               title: Text(t.deepLinks.openAsProfile(name: profile.displayName)),
               contentPadding: EdgeInsets.zero,
             ),
+          if (_canSharePublicly) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _publicOptions = true),
+              icon: const Icon(Icons.public_rounded),
+              label: const Text('Share publicly?'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -133,7 +286,10 @@ class ProfileLinkDialog extends StatelessWidget {
 /// tag or pasted into a home automation. Copy is offered wherever there is a
 /// clipboard; tvOS has none.
 class _LinkDialog extends StatelessWidget {
-  const _LinkDialog({required this.link, required this.hint, this.option});
+  const _LinkDialog({required this.link, required this.hint, this.option, this.title});
+
+  /// Dialog title; defaults to the deep-link title.
+  final String? title;
 
   /// Null while the link is resolving.
   final String? link;
@@ -171,15 +327,15 @@ class _LinkDialog extends StatelessWidget {
           child: link == null
               ? const Center(child: CircularProgressIndicator())
               : ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  child: QrImageView(data: link, size: qrSize, version: QrVersions.auto, backgroundColor: Colors.white),
-                ),
+            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            child: QrImageView(data: link, size: qrSize, version: QrVersions.auto, backgroundColor: Colors.white),
+          ),
         ),
         const SizedBox(height: 20),
         if (wide)
-          // One line whatever the link: the hidden line fixes the height and
-          // the link scales down inside it rather than wrap, which would
-          // strand a few characters.
+        // One line whatever the link: the hidden line fixes the height and
+        // the link scales down inside it rather than wrap, which would
+        // strand a few characters.
           SizedBox(
             width: double.infinity,
             child: Stack(
@@ -211,7 +367,7 @@ class _LinkDialog extends StatelessWidget {
     );
     return AlertDialog(
       scrollable: true,
-      title: Text(t.deepLinks.dialogTitle),
+      title: Text(title ?? t.deepLinks.dialogTitle),
       content: wide ? SizedBox(width: 560, child: content) : content,
       actions: [
         if (!PlatformDetector.isAppleTV())
