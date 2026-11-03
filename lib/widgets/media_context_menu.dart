@@ -695,7 +695,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
       if (mediaKind == MediaKind.show || mediaKind == MediaKind.season)
         _MenuAction(value: 'shuffle_play', icon: Symbols.shuffle_rounded, label: t.mediaMenu.shufflePlay),
       if (canLinkItem(mediaItem))
-        _MenuAction(value: 'show_link', icon: Symbols.link_rounded, label: t.deepLinks.showLink),
+        _MenuAction(value: 'show_link', icon: Symbols.share_rounded, label: t.deepLinks.showLink),
       ..._mediaSourceMenuActions(menu, mediaItem),
       ..._libraryMenuActions(context, menu, mediaItem),
     ];

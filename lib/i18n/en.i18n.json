@@ -2551,7 +2551,7 @@
     "unsupportedItem": "This link can't be played.",
     "noLiveTv": "No Live TV server is available for this link.",
     "channelNotFound": "Couldn't find channel \"${channel}\".",
-    "showLink": "Show link",
+    "showLink": "Share",
     "showProfileLink": "Show profile link",
     "dialogTitle": "Link",
     "showHint": "Opening this link plays the next episode. Add &mode=shuffle to play the show on shuffle.",
