@@ -133,7 +133,11 @@ val prepareMpvFfmpegDevelopment = tasks.register("prepareMpvFfmpegDevelopment") 
       staging.mkdirs()
       try {
         providers.exec {
-          commandLine("curl", "-sfL", mpvFfmpegSourceUrl, "-o", sourceArchive.absolutePath)
+          commandLine(
+            "curl", "-sfL",
+            "--retry", "5", "--retry-all-errors", "--retry-delay", "10",
+            mpvFfmpegSourceUrl, "-o", sourceArchive.absolutePath,
+          )
         }.result.get().assertNormalExitValue()
       } catch (error: Exception) {
         throw GradleException("Failed to download FFmpeg $mpvFfmpegVersion headers", error)
