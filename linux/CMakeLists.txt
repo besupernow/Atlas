@@ -5,10 +5,10 @@ project(runner LANGUAGES CXX)
 # registered by the runner subdirectory.
 include(CTest)
 
-set(BINARY_NAME "plezy")
+set(BINARY_NAME "atlas")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.edde746.plezy")
+set(APPLICATION_ID "com.besupernow.atlas")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -98,6 +98,13 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+
+# flutter_secure_storage_linux bundles an old nlohmann/json.hpp that newer
+# clang flags with -Wdeprecated-literal-operator, and -Werror turns that into
+# a build failure. Silence only that warning, only for that plugin.
+if(TARGET flutter_secure_storage_linux_plugin)
+    target_compile_options(flutter_secure_storage_linux_plugin PRIVATE -Wno-deprecated-literal-operator)
+endif()
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
