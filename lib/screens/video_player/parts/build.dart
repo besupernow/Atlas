@@ -243,13 +243,13 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                     try {
                       authority = context
                           .select<WatchTogetherProvider, ({bool canControlPlayback, bool canNavigateMediaItems})>((wt) {
-                            final adapter = _wtAdapter;
-                            final following = adapter != null && wt.follows(adapter);
-                            return (
-                              canControlPlayback: !following || wt.canControl,
-                              canNavigateMediaItems: !following || wt.isHost,
-                            );
-                          });
+                        final adapter = _wtAdapter;
+                        final following = adapter != null && wt.follows(adapter);
+                        return (
+                        canControlPlayback: !following || wt.canControl,
+                        canNavigateMediaItems: !following || wt.isHost,
+                        );
+                      });
                     } catch (_) {
                       // Watch Together is optional outside the main app shell.
                     }
@@ -317,6 +317,7 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                         onBack: _handleBackButton,
                         onReachedEnd: ({skipAutoPlayCountdown = false}) =>
                             _onVideoCompleted(true, skipAutoPlayCountdown: skipAutoPlayCountdown),
+                        onCreditsStarted: () => _presentPlayNextEarly(fromCredits: true),
                         canControl: authority.canControlPlayback,
                         canNavigateMediaItems: authority.canNavigateMediaItems,
                         hasFirstFrame: _firstFrame.uiReady,
@@ -350,6 +351,7 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                 visible: _episode.showPlayNextDialog,
                 nextEpisode: _episode.next,
                 autoPlayCountdown: _episode.autoPlayCountdown,
+                cancelLabel: _episode.playNextEarly && _episode.playNextEarlyFromCredits ? 'Watch credits' : null,
                 cancelFocusNode: _playNextCancelFocusNode,
                 confirmFocusNode: _playNextConfirmFocusNode,
                 chromeController: _chromeController,

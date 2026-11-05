@@ -202,12 +202,10 @@ class _GuestLanding extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        session.sharedBy == null ? 'SHARED ON ATLAS+' : '${session.sharedBy!.toUpperCase()} SHARED THIS',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.w800,
-                          color: theme.colorScheme.primary,
-                        ),
+                        session.sharedBy == null
+                            ? 'Shared with you on Atlas+'
+                            : '${session.sharedBy} shared this with you',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
                       ),
                       const SizedBox(height: 12),
                       if (item.logoUrl != null)
@@ -242,8 +240,10 @@ class _GuestLanding extends StatelessWidget {
                         autofocus: true,
                         onPressed: onWatch,
                         style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           textStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         icon: const Icon(Symbols.play_arrow_rounded, fill: 1),
@@ -252,7 +252,11 @@ class _GuestLanding extends StatelessWidget {
                       const SizedBox(height: 14),
                       Text(_expiresText(), style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60)),
                       const SizedBox(height: 4),
-                      TextButton(onPressed: onSignIn, child: const Text('Have Atlas+? Sign in instead')),
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                        onPressed: onSignIn,
+                        child: const Text('Have Atlas+? Sign in instead'),
+                      ),
                     ],
                   ),
                 ),

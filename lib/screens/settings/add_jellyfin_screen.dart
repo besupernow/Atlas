@@ -1,16 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../services/atlas_gate/atlas_gate.dart';
-import '../atlas_access_screen.dart';
+import '../atlas_wall_screen.dart';
+import '../../widgets/atlas_backdrop.dart';
 
 import '../../connection/connection.dart';
-import '../../widgets/atlas_wall_view.dart';
 
 import '../../connection/connection_registry.dart';
 import '../../exceptions/media_server_exceptions.dart';
@@ -60,7 +61,86 @@ Future<String> resolveJellyfinClientVersion({Future<PackageInfo> Function()? pac
   return fallbackVersion;
 }
 
-const String _atlasServerUrl = 'https://atlas.besupernow.com';
+const String kAtlasServerUrl = 'https://atlas.besupernow.com';
+
+/// Auth service with this install's client/device identity. Shared by the
+/// login form and the Atlas+ wall.
+Future<JellyfinConnectionAuthService> buildJellyfinAuthService(MediaBrowserDialect dialect) async {
+  final clientVersion = await resolveJellyfinClientVersion();
+  final identity = await DeviceIdentityService.resolve();
+  return JellyfinConnectionAuthService(
+    clientName: jellyfinClientName(identity),
+    clientVersion: clientVersion,
+    deviceName: jellyfinDeviceName(identity),
+    dialect: dialect,
+  );
+}
+
+/// Shared persistence path for password and Quick Connect sign-ins:
+/// atomically provision the optional first-run profile, connection, and
+/// ownership row, then bind. Returns an error message, or null on success.
+/// Does not navigate.
+Future<String?> persistJellyfinSignIn(
+    BuildContext context,
+    JellyfinConnection connection, {
+      Profile? targetProfile,
+    }) async {
+  final activeProvider = context.read<ActiveProfileProvider>();
+  await activeProvider.initialize();
+  if (!context.mounted) return null;
+  var boundProfile = targetProfile ?? activeProvider.active;
+  if (shouldPromptForJellyfinProfileSelection(
+    targetProfile: targetProfile,
+    activeProfile: activeProvider.active,
+    hasProfiles: activeProvider.profiles.isNotEmpty,
+  )) {
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const ProfileSwitchScreen(requireSelection: true)));
+    if (!context.mounted) return null;
+    boundProfile = activeProvider.active;
+    if (boundProfile == null) return t.messages.noProfilesAvailable;
+  }
+
+  Profile? firstRunProfile;
+  if (shouldCreateLocalJellyfinProfile(
+    targetProfile: targetProfile,
+    activeProfile: boundProfile,
+    hasProfiles: activeProvider.profiles.isNotEmpty,
+  )) {
+    final now = DateTime.now();
+    firstRunProfile = Profile.local(
+      id: 'local-${const Uuid().v4()}',
+      displayName: connection.userName.isNotEmpty ? connection.userName : connection.serverName,
+      sortOrder: now.millisecondsSinceEpoch,
+      createdAt: now,
+    );
+    boundProfile = firstRunProfile;
+  }
+
+  final bindProfile = boundProfile;
+  if (bindProfile == null) return t.messages.noProfilesAvailable;
+
+  await persistAndBindConnection(
+    context: context,
+    connection: connection,
+    bindToProfile: ProfileConnection(
+      profileId: bindProfile.id,
+      connectionId: connection.id,
+      userToken: connection.accessToken,
+      userIdentifier: connection.userId,
+      tokenAcquiredAt: DateTime.now(),
+    ),
+    firstRunProfile: firstRunProfile,
+  );
+
+  if (!context.mounted) return null;
+  if (bindProfile.id == activeProvider.activeId) {
+    await context.read<ActiveProfileBinder>().rebindIfActive(bindProfile.id);
+  }
+  return null;
+}
 
 @visibleForTesting
 bool shouldCreateLocalJellyfinProfile({
@@ -136,21 +216,15 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   bool _quickConnectEnabled = false;
   int _localDiscoveryAttemptId = 0;
 
-  // Atlas+ closed-server wall (device not approved yet).
-  bool _gateWall = false;
-  bool _gateRequestSent = false;
-  bool _wallLoopRunning = false;
-  AtlasGateStatus _gateStatus = const AtlasGateStatus(state: 'unknown');
-  Timer? _gatePoll;
-
-
   @override
   void initState() {
     super.initState();
     _isDiscoveringLocalServers = false;
-    _urlController.text = _atlasServerUrl;
+    _urlController.text = kAtlasServerUrl;
+    // The device gate is decided before this screen ever shows (SetupScreen
+    // routes unapproved devices to AtlasWallScreen). This is only the login.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_gateThenProbe());
+      if (mounted) unawaited(_probe());
     });
   }
 
@@ -159,7 +233,6 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     // Short-circuit any in-flight Quick Connect poll so it doesn't try to
     // setState after the widget is gone.
     endQuickConnectFlow();
-    _gatePoll?.cancel();
     _urlFocus.dispose();
     _findServerFocus.dispose();
     _changeServerFocus.dispose();
@@ -188,20 +261,20 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           .where((c) => c.dialect == widget.dialect)
           .map(
             (c) => DiscoveredJellyfinServer(
-              address: c.baseUrl,
-              id: c.serverMachineId,
-              name: c.serverName,
-              dialect: c.dialect,
-            ),
-          );
+          address: c.baseUrl,
+          id: c.serverMachineId,
+          name: c.serverName,
+          dialect: c.dialect,
+        ),
+      );
 
       final factory = widget._localDiscoveryFactory;
       final lanServers = factory != null
           ? await factory()
           : await JellyfinLanDiscoveryService().discover(
-              dialect: widget.dialect,
-              responseWindow: const Duration(milliseconds: 1300),
-            );
+        dialect: widget.dialect,
+        responseWindow: const Duration(milliseconds: 1300),
+      );
       if (!mounted || attemptId != _localDiscoveryAttemptId) return;
 
       // Deduplicate by machine ID
@@ -224,7 +297,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     for (final server in servers) {
       _discoveredServerFocusNodes.putIfAbsent(
         server.id,
-        () => FocusNode(debugLabel: 'AddJellyfin:Discovered:${server.id}'),
+            () => FocusNode(debugLabel: 'AddJellyfin:Discovered:${server.id}'),
       );
     }
   }
@@ -243,97 +316,6 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     });
     await _probe();
   }
-  /// Atlas+ is a closed server. An unapproved device gets the wall: a Quick
-  /// Connect code (and a QR on TV) that an approved device can approve, plus
-  /// request access / invite code. The normal form returns once it is in.
-  Future<void> _gateThenProbe() async {
-    final status = await AtlasGate.status();
-    if (!mounted) return;
-    if (status.needsWall) _enterWall(status);
-    await _probe();
-    if (_gateWall) unawaited(_wallQuickConnectLoop());
-  }
-
-  void _enterWall(AtlasGateStatus status) {
-    setState(() {
-      _gateWall = true;
-      _gateStatus = status;
-      _gateRequestSent = status.state == 'pending';
-    });
-    _gatePoll?.cancel();
-    _gatePoll = Timer.periodic(const Duration(seconds: 4), (_) async {
-      final s = await AtlasGate.status();
-      if (!mounted || !_gateWall) return;
-      // Approved through a request: drop the wall. If it was approved through
-      // Quick Connect, that flow finishes the sign-in on its own, so leave it.
-      if (s.approved && _gateRequestSent) {
-        _leaveWall();
-      } else if (s.state == 'denied' || s.state == 'banned') {
-        setState(() {
-          _gateStatus = s;
-          _gateRequestSent = false;
-        });
-      }
-    });
-  }
-
-  void _leaveWall() {
-    _gatePoll?.cancel();
-    if (!mounted) return;
-    cancelQuickConnect();
-    setState(() {
-      _gateWall = false;
-      _gateRequestSent = false;
-    });
-    requestFocusAfterFrame(_usernameFocus);
-  }
-
-  /// Keeps a live Quick Connect code on the wall, fetching a fresh one when it
-  /// expires.
-  Future<void> _wallQuickConnectLoop() async {
-    if (_wallLoopRunning) return;
-    _wallLoopRunning = true;
-    try {
-      while (mounted && _gateWall && _serverInfo != null && _quickConnectEnabled) {
-        await _startQuickConnect();
-        if (!mounted || !_gateWall) break;
-        await Future<void>.delayed(Duration(seconds: errorText != null ? 8 : 1));
-      }
-    } finally {
-      _wallLoopRunning = false;
-    }
-  }
-
-  Future<void> _openAccessScreen(AtlasAccessMode mode) async {
-    final result = await Navigator.of(
-      context,
-    ).push<AtlasAccessResult>(MaterialPageRoute(builder: (_) => AtlasAccessScreen(mode: mode)));
-    if (!mounted) return;
-    if (result == AtlasAccessResult.approved) {
-      _leaveWall();
-    } else if (result == AtlasAccessResult.requested) {
-      setState(() {
-        _gateRequestSent = true;
-        _gateStatus = const AtlasGateStatus(state: 'pending');
-      });
-    }
-  }
-
-  String? get _wallNotice {
-    switch (_gateStatus.state) {
-      case 'denied':
-        return "Your last request wasn't approved.";
-      case 'banned':
-        return "Access can't be requested from this device.";
-      case 'expired':
-        return 'Your guest pass has ended.';
-      case 'revoked':
-        return 'This device was removed from Atlas+. Approve it from another device, or use your recovery code.';
-      default:
-        return null;
-    }
-  }
-
   Future<void> _probe() async {
     final input = JellyfinEndpointDiscovery.buildUserInputCandidates(_enteredUrls(), dialect: widget.dialect);
     if (input.probeBaseUrls.isEmpty) {
@@ -341,7 +323,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
       return;
     }
     final autoStartQuickConnect = await runAsync<bool>(
-      () async {
+          () async {
         final auth = await _buildAuthService();
         final endpoint = await auth.raceEndpoints(
           input.probeBaseUrls,
@@ -367,7 +349,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
         return autoStart;
       },
       errorMapper: (e) =>
-          e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
+      e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
     );
     // Sequenced after the probe's runAsync so busy stays set straight through
     // /QuickConnect/Initiate. Started from inside the probe body, the probe's
@@ -385,16 +367,17 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
       await _probe();
       return;
     }
+    // Defensive: the device got revoked (or the gate came back online) after
+    // startup. Never show the wall from here, hand off to the wall screen.
     final gate = await AtlasGate.status();
     if (!mounted) return;
     if (gate.needsWall) {
-      _enterWall(gate);
-      unawaited(_wallQuickConnectLoop());
+      openAtlasWall(context, gate);
       return;
     }
 
     await runAsync<void>(
-      () async {
+          () async {
         final auth = await _buildAuthService();
         final storage = await StorageService.getInstance();
         final deviceId = await storage.getOrCreateClientIdentifier();
@@ -409,6 +392,9 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
         );
 
         if (!mounted) return;
+        // Tells the OS / browser password manager the sign-in worked, so it
+        // offers to save (or update) the username and password.
+        TextInput.finishAutofillContext();
         await _persistAndExit(connection);
       },
       errorMapper: (e) {
@@ -426,7 +412,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     if (!widget.dialect.supportsQuickConnect || !(info.dialect ?? widget.dialect).supportsQuickConnect) return;
     final attemptId = beginQuickConnectAttempt();
     await runAsync<void>(
-      () async {
+          () async {
         final auth = await _buildAuthService();
         final storage = await StorageService.getInstance();
         final deviceId = await storage.getOrCreateClientIdentifier();
@@ -493,161 +479,110 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
 
   List<String> _enteredUrls() => JellyfinEndpointDiscovery.parseUserEnteredUrls(_urlController.text);
 
-  /// Shared persistence path for both username/password and Quick Connect:
-  /// atomically provision the optional first-run profile, connection, and
-  /// ownership row, then bind and pop only after durable success.
   Future<void> _persistAndExit(JellyfinConnection connection) async {
     if (!mounted) return;
-    final activeProvider = context.read<ActiveProfileProvider>();
-    await activeProvider.initialize();
+    final error = await persistJellyfinSignIn(context, connection, targetProfile: widget.targetProfile);
     if (!mounted) return;
-    final targetProfile = widget.targetProfile;
-    var boundProfile = targetProfile ?? activeProvider.active;
-    if (shouldPromptForJellyfinProfileSelection(
-      targetProfile: targetProfile,
-      activeProfile: activeProvider.active,
-      hasProfiles: activeProvider.profiles.isNotEmpty,
-    )) {
-      await Navigator.of(
-        context,
-        rootNavigator: true,
-      ).push<bool>(MaterialPageRoute(builder: (_) => const ProfileSwitchScreen(requireSelection: true)));
-      if (!mounted) return;
-      boundProfile = activeProvider.active;
-      if (boundProfile == null) {
-        setErrorText(t.messages.noProfilesAvailable);
-        return;
-      }
-    }
-
-    Profile? firstRunProfile;
-    if (shouldCreateLocalJellyfinProfile(
-      targetProfile: targetProfile,
-      activeProfile: boundProfile,
-      hasProfiles: activeProvider.profiles.isNotEmpty,
-    )) {
-      final now = DateTime.now();
-      firstRunProfile = Profile.local(
-        id: 'local-${const Uuid().v4()}',
-        displayName: connection.userName.isNotEmpty ? connection.userName : connection.serverName,
-        sortOrder: now.millisecondsSinceEpoch,
-        createdAt: now,
-      );
-      boundProfile = firstRunProfile;
-    }
-
-    final bindProfile = boundProfile;
-    if (bindProfile == null) {
-      setErrorText(t.messages.noProfilesAvailable);
+    if (error != null) {
+      setErrorText(error);
       return;
     }
-
-    await persistAndBindConnection(
-      context: context,
-      connection: connection,
-      bindToProfile: ProfileConnection(
-        profileId: bindProfile.id,
-        connectionId: connection.id,
-        userToken: connection.accessToken,
-        userIdentifier: connection.userId,
-        tokenAcquiredAt: DateTime.now(),
-      ),
-      firstRunProfile: firstRunProfile,
-    );
-
-    final boundToActive = bindProfile.id == activeProvider.activeId;
-    if (!mounted) return;
-    if (boundToActive) {
-      await context.read<ActiveProfileBinder>().rebindIfActive(bindProfile.id);
-    }
-
-    if (!mounted) return;
     Navigator.of(context).pop(true);
   }
 
   Future<JellyfinConnectionAuthService> _buildAuthService() async {
     final authServiceFactory = widget._authServiceFactory;
     if (authServiceFactory != null) return await authServiceFactory();
-    final clientVersion = await resolveJellyfinClientVersion();
-    final identity = await DeviceIdentityService.resolve();
-    return JellyfinConnectionAuthService(
-      clientName: jellyfinClientName(identity),
-      clientVersion: clientVersion,
-      deviceName: jellyfinDeviceName(identity),
-      dialect: widget.dialect,
-    );
+    return buildJellyfinAuthService(widget.dialect);
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (_gateWall) {
-      return PopScope(
-        canPop: widget.targetProfile != null,
-        child: Scaffold(
-          body: SafeArea(
-            child: AtlasWallView(
-              code: quickConnectCode,
-              isTv: PlatformDetector.isTV(),
-              pending: _gateRequestSent,
-              lockdown: _gateStatus.lockdown,
-              notice: _wallNotice,
-              error: quickConnectCode == null ? errorText : null,
-              onRequestAccess: () => _openAccessScreen(AtlasAccessMode.request),
-              onHaveCode: () => _openAccessScreen(AtlasAccessMode.code),
-              onRetry: _serverInfo == null || errorText != null ? () => unawaited(_gateThenProbe()) : null,
-              onBack: widget.targetProfile != null ? () => Navigator.of(context).maybePop() : null,
-            ),
-          ),
-        ),
-      );
-    }
     return PopScope(
       canPop: widget.targetProfile != null, // no back out of the login screen
       child: Scaffold(
-        body: SafeArea(
-          child: widget.dialect.supportsQuickConnect && quickConnectCode != null
-              ? Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: QuickConnectCodePanel(
-                code: quickConnectCode!,
-                cancelFocusNode: _cancelQuickConnectFocus,
-                onCancel: cancelQuickConnect,
-                errorText: errorText,
-              ),
-            ),
-          )
-              : Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _buildBodyChildren(theme),
+        body: AtlasBackdrop(
+          child: SafeArea(
+            child: Stack(
+              children: [
+                const Positioned(left: 32, top: 24, child: AtlasWordmark(height: 28)),
+                Positioned.fill(
+                  child: widget.dialect.supportsQuickConnect && quickConnectCode != null
+                      ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: QuickConnectCodePanel(
+                        code: quickConnectCode!,
+                        cancelFocusNode: _cancelQuickConnectFocus,
+                        onCancel: cancelQuickConnect,
+                        errorText: errorText,
+                      ),
+                    ),
+                  )
+                      : Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        // AutofillGroup ties username + password together so iOS /
+                        // Android autofill and browser password managers treat them as
+                        // one login form (on web Flutter emits a real <form>).
+                        child: AutofillGroup(
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: _buildBodyChildren(theme),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
+
+  ButtonStyle _primaryButtonStyle(ThemeData theme) => FilledButton.styleFrom(
+    backgroundColor: theme.colorScheme.onSurface,
+    foregroundColor: theme.colorScheme.surface,
+    padding: const EdgeInsets.symmetric(vertical: 18),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+  );
+
+  ButtonStyle _secondaryButtonStyle(ThemeData theme) => FilledButton.styleFrom(
+    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+    foregroundColor: theme.colorScheme.onSurface,
+    padding: const EdgeInsets.symmetric(vertical: 18),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+  );
 
   List<Widget> _buildBodyChildren(ThemeData theme) {
     return [
       Text(
-        'Welcome to Atlas',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+        'Sign in',
+        style: theme.textTheme.headlineMedium?.copyWith(
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
+          height: 1.1,
+        ),
       ),
-      const SizedBox(height: 32),
+      const SizedBox(height: 8),
+      Text(
+        'Use your Atlas+ username and password.',
+        style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.66)),
+      ),
+      const SizedBox(height: 28),
       if (_serverInfo == null) ...[
         // Still reaching the server, or it failed (error shows below).
         if (busy)
@@ -658,7 +593,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
             useBackgroundFocus: true,
             autofocus: true,
             onPressed: _probe,
-            child: FilledButton(onPressed: _probe, child: const Text('Retry')),
+            child: FilledButton(style: _primaryButtonStyle(theme), onPressed: _probe, child: const Text('Retry')),
           ),
       ] else ...[
         FocusableTextFormField(
@@ -666,6 +601,8 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           focusNode: _usernameFocus,
           autocorrect: false,
           enableSuggestions: false,
+          autofillHints: const [AutofillHints.username],
+          keyboardType: TextInputType.text,
           enabled: !busy,
           textInputAction: TextInputAction.next,
           onFieldSubmitted: busy ? null : (_) => _passwordFocus.requestFocus(),
@@ -680,6 +617,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           controller: _passwordController,
           focusNode: _passwordFocus,
           obscureText: true,
+          autofillHints: const [AutofillHints.password],
           enabled: !busy,
           textInputAction: TextInputAction.done,
           onFieldSubmitted: busy ? null : (_) => _signIn(),
@@ -693,10 +631,10 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           focusNode: _signInFocus,
           useBackgroundFocus: true,
           onPressed: busy ? null : _signIn,
-          child: FilledButton.icon(
+          child: FilledButton(
+            style: _primaryButtonStyle(theme),
             onPressed: busy ? null : _signIn,
-            icon: busy ? const LoadingIndicatorBox() : const AppIcon(Symbols.login_rounded, fill: 1),
-            label: Text(t.addServer.signIn),
+            child: busy ? const LoadingIndicatorBox(size: 20) : Text(t.addServer.signIn),
           ),
         ),
         if (widget.dialect.supportsQuickConnect && _quickConnectEnabled) ...[
@@ -705,10 +643,10 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
             focusNode: _quickConnectFocus,
             useBackgroundFocus: true,
             onPressed: busy ? null : _startQuickConnect,
-            child: OutlinedButton.icon(
+            child: FilledButton(
+              style: _secondaryButtonStyle(theme),
               onPressed: busy ? null : _startQuickConnect,
-              icon: const AppIcon(Symbols.tap_and_play_rounded, fill: 1),
-              label: Text(t.auth.useQuickConnect),
+              child: Text(t.auth.useQuickConnect),
             ),
           ),
         ],

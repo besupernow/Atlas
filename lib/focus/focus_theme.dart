@@ -22,8 +22,10 @@ class FocusTheme {
   static const double focusGlowOuterBlurRadius = 34;
   static const double focusGlowSpreadRadius = 1.5;
 
+  /// White (the theme's text colour) rather than the accent: the plain
+  /// bright outline streaming apps use, which reads on any artwork.
   static Color getFocusBorderColor(BuildContext context) {
-    return Theme.of(context).colorScheme.primary;
+    return Theme.of(context).colorScheme.onSurface;
   }
 
   static Duration getAnimationDuration(BuildContext context) {
@@ -49,13 +51,13 @@ class FocusTheme {
   /// [radii] overrides [borderRadius] when per-corner radii are needed
   /// (M3E grouped cards: large outer / small inner corners).
   static BoxDecoration focusDecoration(
-    BuildContext context, {
-    required bool isFocused,
-    double borderRadius = defaultBorderRadius,
-    BorderRadius? radii,
-    double borderStrokeAlign = BorderSide.strokeAlignInside,
-    Color? color,
-  }) {
+      BuildContext context, {
+        required bool isFocused,
+        double borderRadius = defaultBorderRadius,
+        BorderRadius? radii,
+        double borderStrokeAlign = BorderSide.strokeAlignInside,
+        Color? color,
+      }) {
     final focusColor = color ?? getFocusBorderColor(context);
 
     return BoxDecoration(
@@ -108,11 +110,11 @@ class FocusTheme {
   /// convention used by [TrackRow], the navigation rail, and the music player
   /// surfaces. Prefer this for any new mono-themed surface.
   static BoxDecoration textFillFocusDecoration(
-    BuildContext context, {
-    required bool isFocused,
-    double borderRadius = defaultBorderRadius,
-    BorderRadius? radii,
-  }) {
+      BuildContext context, {
+        required bool isFocused,
+        double borderRadius = defaultBorderRadius,
+        BorderRadius? radii,
+      }) {
     return BoxDecoration(
       borderRadius: radii ?? BorderRadius.circular(borderRadius),
       color: isFocused ? tokens(context).text.withValues(alpha: 0.12) : Colors.transparent,

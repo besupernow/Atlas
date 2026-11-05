@@ -427,9 +427,9 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
       if (diagnosticsEnabled) {
         _logFocusableWrapper(
           'node=${node.debugLabel} result=$result reason=$reason key=(${describeKeyEvent(event)}) '
-          'onNav(up=${widget.onNavigateUp != null},down=${widget.onNavigateDown != null},'
-          'left=${widget.onNavigateLeft != null},right=${widget.onNavigateRight != null}) '
-          'onSelect=${widget.onSelect != null} onBack=${widget.onBack != null}',
+              'onNav(up=${widget.onNavigateUp != null},down=${widget.onNavigateDown != null},'
+              'left=${widget.onNavigateLeft != null},right=${widget.onNavigateRight != null}) '
+              'onSelect=${widget.onSelect != null} onBack=${widget.onBack != null}',
         );
       }
       return result;
@@ -527,13 +527,13 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
     // traversal finds the cards the moment keyboard mode activates (which
     // rebuilds this widget via the inherited dependency below).
     final isKeyboardMode = InputModeTracker.isKeyboardMode(context);
-    // Mouse hover on desktop and desktop web reuses the focus chrome (border,
-    // glow, lift) so pointer users get the same defined feedback as keyboard
+    // Mouse hover on desktop and desktop web reuses the focus chrome (border
+    // and lift) so pointer users get the same defined feedback as keyboard
     // users. Touch handhelds and TVs never build any of it.
     final pointerHover =
         !isKeyboardMode &&
-        PlatformDetector.hasPointerUI() &&
-        (widget.onSelect != null || widget.onLongPress != null);
+            PlatformDetector.hasPointerUI() &&
+            (widget.onSelect != null || widget.onLongPress != null);
     final showFocus = (_isFocused && isKeyboardMode) || (pointerHover && _isHovered);
 
     Widget inner;
@@ -565,7 +565,8 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
           borderRadii: widget.borderRadii,
           focusColor: widget.focusColor,
           useBackgroundFocus: widget.useBackgroundFocus,
-          useFocusGlow: widget.useFocusGlow || (pointerHover && !widget.useBackgroundFocus && !widget.delegateFocusBorder),
+          // Hover gets the outline and lift, never the glow.
+          useFocusGlow: widget.useFocusGlow && !pointerHover,
           delegateFocusBorder: widget.delegateFocusBorder,
           child: widget.child,
         ),

@@ -36,6 +36,7 @@ import 'mixins/mounted_set_state_mixin.dart';
 import 'theme/mono_theme.dart';
 import 'profiles/plex_home_service.dart';
 import 'screens/auth_screen.dart';
+import 'screens/atlas_wall_screen.dart';
 import 'screens/profile/pin_entry_dialog.dart';
 import 'screens/profile/profile_switch_screen.dart';
 import 'services/storage_service.dart';
@@ -2215,6 +2216,14 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
 
     _setStatus(t.common.checkingNetwork);
 
+    // Device gate first. Asked in parallel with the bootstrap below so it adds
+    // no time on a normal launch; capped so a dead network can't hold the
+    // splash. Unreachable means "let the proxy decide" (offline mode still
+    // works, and the proxy refuses sign-in for unapproved devices anyway).
+    final gateFuture = AtlasGate.status()
+        .timeout(const Duration(seconds: 4), onTimeout: () => const AtlasGateStatus.unreachable())
+        .catchError((Object _) => const AtlasGateStatus.unreachable());
+
     final storage = await StorageService.getInstance();
     final registry = ServerRegistry(storage);
 
@@ -2288,6 +2297,19 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
       if (mounted) {
         unawaited(Navigator.pushReplacement(context, fadeRoute(const AuthScreen())));
       }
+      return;
+    }
+
+    // Routing:
+    //   not approved            -> wall (even with saved credentials: a
+    //                              revoked device must not reach home)
+    //   approved, no credentials -> login
+    //   approved, credentials    -> home (below)
+    final gate = await gateFuture;
+    if (!mounted) return;
+    if (gate.needsWall) {
+      appLogger.i('Setup: device not approved by the gate (${gate.state}); showing the wall');
+      unawaited(Navigator.pushReplacement(context, fadeRoute(AtlasWallScreen(initialStatus: gate))));
       return;
     }
 

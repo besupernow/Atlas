@@ -66,6 +66,16 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       return;
     }
 
+    // The early Play Next card (shown over the credits) is already up: let
+    // its countdown finish the job. Latch so no second prompt stacks, and
+    // stop treating it as early so a paused-at-EOF player doesn't hold it.
+    if (_episode.showPlayNextDialog && _episode.playNextEarly) {
+      _logVideoCompleted('earlyPromptVisible');
+      if (!_episode.completionLatch.triggered) _episode.completionLatch.latch();
+      _setPlayerState(() => _episode.playNextEarly = false);
+      return;
+    }
+
     var navigationAction = completionNavigationAction(
       hasNext: _episode.next != null,
       adjacentStatus: _episode.nextStatus,
@@ -128,6 +138,7 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
 
       _logVideoCompleted(serverStopped ? 'action=presentNext prompt serverStopped' : 'action=presentNext prompt');
       _setPlayerState(() {
+        _episode.playNextEarly = false;
         _episode.showPlayNextDialog = true;
         _episode.autoPlayCountdown.value = autoPlayEnabled ? countdownSeconds : -1;
       });
@@ -160,7 +171,7 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     final state = player?.state;
     appLogger.i(
       'Video completed: $branch '
-      '(position=${state?.position.inMilliseconds}ms duration=${state?.duration.inMilliseconds}ms)',
+          '(position=${state?.position.inMilliseconds}ms duration=${state?.duration.inMilliseconds}ms)',
     );
   }
 
@@ -176,6 +187,9 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       // answer the prompt, and advancing would start the next episode behind
       // the viewer's back; the countdown holds until they return.
       if (_playNextPromptBackgrounded()) return;
+      // Early card over the credits: a paused video pauses the countdown
+      // too, so pausing to read the credits doesn't skip them anyway.
+      if (_episode.playNextEarly && player?.state.playing == false) return;
       final nextCountdown = _episode.autoPlayCountdown.value - 1;
       _episode.autoPlayCountdown.value = nextCountdown;
       if (nextCountdown <= 0) {
@@ -183,6 +197,90 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
         _playNext();
       }
     });
+  }
+
+  /// Credits started (or the episode is in its last few seconds with no
+  /// credits marker): bring the Play Next card up now with its countdown
+  /// running over the end of the episode, instead of waiting for the file to
+  /// finish. Returns true when the card is taking over, so the controls drop
+  /// their own credits skip button.
+  bool _presentPlayNextEarly({required bool fromCredits}) {
+    if (!mounted || widget.isLive || !_canNavigateMediaItems()) return false;
+    if (_episode.next == null) return false;
+    if (_episode.isLoadingNext || _episode.showPlayNextDialog || _showStillWatchingPrompt) return false;
+    if (_episode.completionLatch.triggered) return false;
+    if (_transitionGate.transition != PlaybackTransition.idle) return false;
+    // "Stop after this episode" means the credits play out.
+    if (SleepTimerService().isEndOfVideoMode) return false;
+    // PiP advances on its own at the end; a server-stopped session waits for
+    // a person at the end.
+    if (PipService().isPipActive.value) return false;
+    if (_progressTracker?.stoppedByServer ?? false) return false;
+    final key = _currentMetadata?.globalKey;
+    if (key == null || _episode.earlyPromptItemKey == key) return false;
+    _episode.earlyPromptItemKey = key;
+    unawaited(_showEarlyPlayNextPrompt(fromCredits: fromCredits));
+    return true;
+  }
+
+  Future<void> _showEarlyPlayNextPrompt({required bool fromCredits}) async {
+    final isKeyboardMode = PlatformDetector.isTV() && InputModeTracker.isKeyboardMode(context, listen: false);
+    final settings = await SettingsService.getInstance();
+    if (!mounted || _episode.isLoadingNext || _episode.showPlayNextDialog || _showStillWatchingPrompt) return;
+    if (_episode.next == null || _episode.completionLatch.triggered) return;
+
+    final autoPlayEnabled = settings.read(SettingsService.autoPlayNextEpisode);
+    final countdownSeconds = settings.read(SettingsService.playNextCountdown);
+    appLogger.i('Play Next shown early (${fromCredits ? 'credits' : 'end of episode'}), autoplay=$autoPlayEnabled');
+
+    // Same as at the end: a zero countdown goes straight to the next episode.
+    if (autoPlayEnabled && countdownSeconds == 0) {
+      unawaited(_playNext());
+      return;
+    }
+
+    _setPlayerState(() {
+      _episode.showPlayNextDialog = true;
+      _episode.playNextEarly = true;
+      _episode.playNextEarlyFromCredits = fromCredits;
+      _episode.earlyPromptStartMs = player?.state.position.inMilliseconds ?? 0;
+      _episode.autoPlayCountdown.value = autoPlayEnabled ? countdownSeconds : -1;
+    });
+
+    if (isKeyboardMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _playNextConfirmFocusNode.requestFocus();
+      });
+    }
+
+    if (autoPlayEnabled) _startAutoPlayTimer();
+  }
+
+  /// Position tick hook for the early card: shows it in the last few seconds
+  /// when nothing (no credits marker) brought it up sooner, and takes it down
+  /// when the viewer seeks back out of the end of the episode.
+  void _checkEarlyPlayNext(Duration position, Duration duration, {required int countdownSeconds}) {
+    final posMs = position.inMilliseconds;
+    final durMs = duration.inMilliseconds;
+    if (durMs <= 0) return;
+
+    if (_episode.showPlayNextDialog && _episode.playNextEarly) {
+      if (posMs < _episode.earlyPromptStartMs - 3000) {
+        // Seeked back into the episode: drop the card, and allow it again
+        // once they reach the end.
+        _cancelAutoPlay();
+        _episode.earlyPromptItemKey = null;
+      }
+      return;
+    }
+
+    // Fallback lead: the countdown length, so it reaches zero about as the
+    // episode ends. Short items (trailers, extras) don't get it.
+    if (countdownSeconds <= 0 || durMs < 10 * 60 * 1000) return;
+    final remainingMs = durMs - posMs;
+    if (remainingMs > 1500 && remainingMs <= (countdownSeconds + 1) * 1000 && player?.state.playing == true) {
+      _presentPlayNextEarly(fromCredits: false);
+    }
   }
 
   /// Whether the Play Next prompt is out of the viewer's sight: the app is in
@@ -195,10 +293,10 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     final state = WidgetsBinding.instance.lifecycleState;
     final backgrounded =
         state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.paused ||
-        // A car reports its background transition as inactive (see
-        // didChangeAppLifecycleState).
-        (isAutomotive && state == AppLifecycleState.inactive);
+            state == AppLifecycleState.paused ||
+            // A car reports its background transition as inactive (see
+            // didChangeAppLifecycleState).
+            (isAutomotive && state == AppLifecycleState.inactive);
     return backgrounded &&
         shouldPauseVideoForBackground(
           isHandheld: PlatformDetector.isMobile(context),
@@ -246,6 +344,7 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     if (countdown) _episode.playNextTransientRetryCount++;
 
     _setPlayerState(() {
+      _episode.playNextEarly = false;
       _episode.showPlayNextDialog = true;
       // Deliberately not [SettingsService.playNextCountdown]: this countdown
       // spaces transient-failure retries (see completion_latch.dart), so a
@@ -290,6 +389,7 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
 
     final remaining = countdown == 0 ? 1 : countdown;
     _setPlayerState(() {
+      _episode.playNextEarly = false;
       _episode.showPlayNextDialog = true;
       _episode.autoPlayCountdown.value = remaining;
     });
@@ -307,12 +407,15 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     if (_shuttingDown) return;
     _episode.autoPlayTimer?.cancel();
     _unfocusPlayNextPrompt();
-    _progressTracker?.resumeAfterStoppedReport();
+    // The early card comes up while the episode is still playing and
+    // reporting; there's no stopped report to undo.
+    if (!_episode.playNextEarly) _progressTracker?.resumeAfterStoppedReport();
     // Keep the latch set while playback is still parked at EOF, so duplicate
     // completed signals cannot re-open this prompt. It is re-armed once playback
     // seeks back clear of the end region (see the position listener) or new media loads.
     _setPlayerState(() {
       _episode.showPlayNextDialog = false;
+      _episode.playNextEarly = false;
     });
   }
 

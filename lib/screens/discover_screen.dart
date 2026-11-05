@@ -1545,25 +1545,24 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           listenable: _heroFocusNode,
           builder: (context, _) {
             final showFocus = isTv && _heroFocusNode.hasFocus && InputModeTracker.isKeyboardMode(context);
-            final colorScheme = Theme.of(context).colorScheme;
-            final backgroundColor = showFocus ? colorScheme.primary : Colors.white;
-            final foregroundColor = showFocus ? colorScheme.onPrimary : Colors.black;
+            // TV: grey until focused, then solid white (the usual TV button).
+            // Elsewhere it's the white primary button.
+            final dimmed = isTv && !showFocus;
+            final backgroundColor = dimmed ? Colors.white.withValues(alpha: 0.18) : Colors.white;
+            final foregroundColor = dimmed ? Colors.white : Colors.black;
             return InkWell(
               onTap: () {
                 appLogger.d('Playing: ${heroItem.title}');
                 navigateToVideoPlayer(context, metadata: heroItem);
               },
-              borderRadius: BorderRadius.all(Radius.circular(isTv ? 32 : 24)),
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOutCubic,
                 padding: .symmetric(horizontal: isTv ? 34 : 24, vertical: isTv ? 16 : 12),
                 decoration: BoxDecoration(
                   color: backgroundColor,
-                  borderRadius: BorderRadius.all(Radius.circular(isTv ? 32 : 24)),
-                  boxShadow: showFocus
-                      ? [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.35), blurRadius: 28, spreadRadius: 4)]
-                      : null,
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
                 ),
                 child: Row(
                   mainAxisSize: .min,

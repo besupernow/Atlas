@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../focus/focusable_button.dart';
 import '../i18n/strings.g.dart';
 import '../media/ids.dart';
 import '../media/media_item.dart';
@@ -159,10 +160,17 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
               runSpacing: 8,
               children: [
                 for (final hours in kShareDurationsHours)
-                  ChoiceChip(
-                    label: Text(shareDurationLabel(hours)),
-                    selected: _hours == hours,
-                    onSelected: _creating ? null : (_) => setState(() => _hours = hours),
+                // FocusableButton gives the chips the same D-pad focus ring
+                // as everything else (a bare chip's focus tint is invisible
+                // on a TV).
+                  FocusableButton(
+                    onPressed: _creating ? null : () => setState(() => _hours = hours),
+                    child: ChoiceChip(
+                      label: Text(shareDurationLabel(hours)),
+                      selected: _hours == hours,
+                      showCheckmark: false,
+                      onSelected: _creating ? null : (_) => setState(() => _hours = hours),
+                    ),
                   ),
               ],
             ),

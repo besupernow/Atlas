@@ -1,11 +1,8 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 
-import '../services/device_performance.dart';
-
-/// Shared look for the Atlas+ access flow: a dark gradient with two soft
-/// colour glows behind the content. Pure decoration, no interaction.
+/// Background for the Atlas+ access flow (wall, request access, invite code).
+/// A flat dark page with a faint lift at the top, like the sign-in screens of
+/// the big streaming apps. No glows, no glass.
 class AtlasBackdrop extends StatelessWidget {
   final Widget child;
 
@@ -15,46 +12,50 @@ class AtlasBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final base = scheme.surface;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.alphaBlend(scheme.primary.withValues(alpha: 0.10), base),
-                base,
-                Color.alphaBlend(scheme.tertiary.withValues(alpha: 0.08), base),
-              ],
-            ),
-          ),
-        ),
-        Positioned(top: -160, left: -120, child: _glow(scheme.primary.withValues(alpha: 0.22), 460)),
-        Positioned(bottom: -200, right: -140, child: _glow(scheme.tertiary.withValues(alpha: 0.16), 520)),
-        child,
-      ],
-    );
-  }
-
-  Widget _glow(Color color, double size) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color.alphaBlend(scheme.onSurface.withValues(alpha: 0.05), base), base],
+          stops: const [0, 0.6],
         ),
       ),
+      child: child,
     );
   }
 }
 
-/// Frosted card used by the access flow. Falls back to a plain translucent
-/// surface on the reduced effects tier (web, weak TVs) because blur is the
-/// expensive part.
+/// Atlas+ logo: the glyph plus the name.
+class AtlasWordmark extends StatelessWidget {
+  final double height;
+
+  const AtlasWordmark({super.key, this.height = 32});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/brand/glyph-app.png', height: height, width: height, filterQuality: FilterQuality.medium),
+        SizedBox(width: height * 0.3),
+        Text(
+          'Atlas+',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontSize: height * 0.72,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+            height: 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Content block for the access flow. Kept for API compatibility: it used to
+/// be a frosted card, now it's just padding so forms sit straight on the page.
 class AtlasGlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -70,29 +71,11 @@ class AtlasGlassCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final blur = !DevicePerformance.isReduced;
-    final fill = (tint ?? scheme.surfaceContainerHigh).withValues(alpha: blur ? 0.55 : 0.82);
-    final card = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: scheme.onSurface.withValues(alpha: 0.08)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 40, offset: const Offset(0, 18))],
-      ),
-      child: child,
-    );
-    if (!blur) return card;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18), child: card),
-    );
-  }
+  Widget build(BuildContext context) => Padding(padding: padding, child: child);
 }
 
-/// Inline message box with readable contrast (replaces bare red text).
+/// Inline message: an icon and a line of text, in the error colour or a
+/// neutral one for notices.
 class AtlasBanner extends StatelessWidget {
   final String text;
   final bool isError;
@@ -111,44 +94,42 @@ class AtlasBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final accent = isError ? scheme.error : scheme.primary;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(isError ? Icons.error_outline_rounded : Icons.info_outline_rounded, size: 20, color: accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(text, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface, height: 1.35)),
-                if (onAction != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: GestureDetector(
-                      onTap: onAction,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Text(
-                          actionLabel,
-                          style: theme.textTheme.labelLarge?.copyWith(color: accent, fontWeight: FontWeight.w700),
+    final accent = isError ? scheme.error : scheme.onSurface.withValues(alpha: 0.85);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(isError ? Icons.error_outline_rounded : Icons.info_outline_rounded, size: 18, color: accent),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(text, style: theme.textTheme.bodyMedium?.copyWith(color: accent, height: 1.35)),
+              if (onAction != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: GestureDetector(
+                    onTap: onAction,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Text(
+                        actionLabel,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

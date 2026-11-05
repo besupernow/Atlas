@@ -310,11 +310,16 @@ class VideoPlayerPlayNextOverlay extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onPlayNext;
 
+  /// Label for the dismiss button; defaults to Cancel. "Watch credits" when
+  /// the card came up over the credits.
+  final String? cancelLabel;
+
   const VideoPlayerPlayNextOverlay({
     super.key,
     required this.visible,
     required this.nextEpisode,
     required this.autoPlayCountdown,
+    this.cancelLabel,
     required this.cancelFocusNode,
     required this.confirmFocusNode,
     required this.chromeController,
@@ -341,7 +346,7 @@ class VideoPlayerPlayNextOverlay extends StatelessWidget {
         _PlayNextEpisodeHeader(episode: episode),
         const SizedBox(height: 12),
         _VideoPlayerPromptActions(
-          cancelLabel: t.common.cancel,
+          cancelLabel: cancelLabel ?? t.common.cancel,
           cancelFocusNode: cancelFocusNode,
           onCancel: onCancel,
           confirmFocusNode: confirmFocusNode,

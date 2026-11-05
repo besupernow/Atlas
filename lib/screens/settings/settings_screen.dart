@@ -127,6 +127,9 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
   static const _kExportSettings = 'export_settings';
   static const _kImportSettings = 'import_settings';
   static const _kAccountPreferences = 'account_preferences';
+  static const _kDevicesAccess = 'devices_access';
+  static const _kServerDashboard = 'server_dashboard';
+  static const _kProfiles = 'profiles';
 
   KeyboardShortcutsService? _keyboardService;
   late final bool _keyboardShortcutsSupported = KeyboardShortcutsService.isPlatformSupported();
@@ -362,12 +365,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
       title: t.connections.sectionTitle,
       children: [
         SettingNavigationTile(
+          focusNode: _focusTracker.get(_kDevicesAccess),
           icon: Symbols.tap_and_play_rounded,
           title: 'Devices & access',
           subtitle: 'Approve a new device, create a guest pass, manage your devices',
           destinationBuilder: (context) => const AuthorizeDeviceScreen(),
         ),
-        if (_isJellyfinAdmin(context)) _buildServerDashboardTile(context),
+        // A TV has no browser to open the dashboard in.
+        if (!PlatformDetector.isTV() && _isJellyfinAdmin(context)) _buildServerDashboardTile(context),
         // Connections are managed per-profile (via the Profiles section
         // and each profile's detail screen). The shortcut here just opens
         // the picker scoped to the active profile so users can add a Plex
@@ -390,6 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
 
   Widget _buildServerDashboardTile(BuildContext context) {
     return SettingNavigationTile(
+      focusNode: _focusTracker.get(_kServerDashboard),
       icon: Symbols.admin_panel_settings_rounded,
       title: 'Server dashboard',
       subtitle: 'Jellyfin admin dashboard (Tailscale only)',
@@ -435,9 +441,10 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
     final subtitle = count <= 1
         ? t.profiles.summarySingle
         : (activeName != null
-              ? t.profiles.summaryMultipleWithActive(count: count, activeName: activeName)
-              : t.profiles.summaryMultiple(count: count));
+        ? t.profiles.summaryMultipleWithActive(count: count, activeName: activeName)
+        : t.profiles.summaryMultiple(count: count));
     return SettingNavigationTile(
+      focusNode: _focusTracker.get(_kProfiles),
       icon: Symbols.group_rounded,
       title: t.profiles.sectionTitle,
       subtitle: subtitle,
@@ -503,14 +510,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
         final (icon, color, summary) = switch (status) {
           _ when !status.probed => (Symbols.help_rounded, null, t.downloads.backgroundWarning.statusUnknown),
           _ when status.isBlocked => (
-            Symbols.battery_alert_rounded,
-            scheme.error,
-            t.downloads.backgroundWarning.statusBlocked,
+          Symbols.battery_alert_rounded,
+          scheme.error,
+          t.downloads.backgroundWarning.statusBlocked,
           ),
           _ when !status.isHealthy => (
-            Symbols.info_rounded,
-            scheme.tertiary,
-            t.downloads.backgroundWarning.statusDegraded,
+          Symbols.info_rounded,
+          scheme.tertiary,
+          t.downloads.backgroundWarning.statusDegraded,
           ),
           _ => (Symbols.check_circle_rounded, null, t.downloads.backgroundWarning.statusOk),
         };
@@ -715,12 +722,12 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           onTap: _isCheckingForUpdate
               ? null
               : () {
-                  if (hasUpdate) {
-                    _showUpdateDialog();
-                  } else {
-                    _checkForUpdates();
-                  }
-                },
+            if (hasUpdate) {
+              _showUpdateDialog();
+            } else {
+              _checkForUpdates();
+            }
+          },
         ),
         _buildAutoCheckUpdatesOnStartupTile(),
       ],

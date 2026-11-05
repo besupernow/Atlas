@@ -23,16 +23,16 @@ import 'device_performance.dart';
 import 'shortcut_action.dart';
 export 'base_shared_preferences_service.dart'
     show
-        Pref,
-        BoolPref,
-        IntPref,
-        DoublePref,
-        StringPref,
-        NullableStringPref,
-        StringListPref,
-        EnumPref,
-        NullableEnumPref,
-        JsonPref;
+    Pref,
+    BoolPref,
+    IntPref,
+    DoublePref,
+    StringPref,
+    NullableStringPref,
+    StringListPref,
+    EnumPref,
+    NullableEnumPref,
+    JsonPref;
 import '../models/audio_channel_limit.dart';
 import '../models/audio_quality_preset.dart';
 import '../models/transcode_quality_preset.dart';
@@ -321,7 +321,7 @@ class _AutomotiveUiScalePref extends Pref<double> {
 /// Migrates from the legacy `use_season_poster` boolean key.
 class _EpisodePosterModePref extends EnumPref<EpisodePosterMode> {
   const _EpisodePosterModePref()
-    : super('episode_poster_mode', values: EpisodePosterMode.values, defaultValue: EpisodePosterMode.episodeThumbnail);
+      : super('episode_poster_mode', values: EpisodePosterMode.values, defaultValue: EpisodePosterMode.episodeThumbnail);
 
   @override
   Future<void> removeFrom(BaseSharedPreferencesService svc, {void Function()? checkCurrent}) async {
@@ -355,7 +355,7 @@ class PlayerSettingScopePref extends EnumPref<PlayerSettingScope> {
   final List<Pref<Object?>> globals;
 
   const PlayerSettingScopePref(super.key, this.globals)
-    : super(values: PlayerSettingScope.values, defaultValue: PlayerSettingScope.global);
+      : super(values: PlayerSettingScope.values, defaultValue: PlayerSettingScope.global);
 
   @override
   Future<void> writeTo(BaseSharedPreferencesService svc, PlayerSettingScope value) async {
@@ -381,13 +381,13 @@ class LegacyBoolEnumPref<T extends Enum> extends EnumPref<T> {
   final T legacyFalse;
 
   const LegacyBoolEnumPref(
-    super.key, {
-    required this.legacyKey,
-    required super.values,
-    required T super.defaultValue,
-    required this.legacyTrue,
-    required this.legacyFalse,
-  });
+      super.key, {
+        required this.legacyKey,
+        required super.values,
+        required T super.defaultValue,
+        required this.legacyTrue,
+        required this.legacyFalse,
+      });
 
   T fromLegacy(bool value) => value ? legacyTrue : legacyFalse;
 
@@ -421,12 +421,12 @@ class LegacyBoolEnumPref<T extends Enum> extends EnumPref<T> {
 /// off → [SkipMarkerMode.button], which is what each used to mean.
 class _SkipMarkerModePref extends LegacyBoolEnumPref<SkipMarkerMode> {
   const _SkipMarkerModePref(super.key, {required super.legacyKey})
-    : super(
-        values: SkipMarkerMode.values,
-        defaultValue: SkipMarkerMode.button,
-        legacyTrue: SkipMarkerMode.auto,
-        legacyFalse: SkipMarkerMode.button,
-      );
+      : super(
+    values: SkipMarkerMode.values,
+    defaultValue: SkipMarkerMode.button,
+    legacyTrue: SkipMarkerMode.auto,
+    legacyFalse: SkipMarkerMode.button,
+  );
 }
 
 /// Stored as the locale enum name; null/empty falls back to the device locale.
@@ -656,7 +656,9 @@ class SettingsService extends BaseSharedPreferencesService {
   static const rewindOnResume = IntPref('rewind_on_resume');
   static const showHeroSection = BoolPref('show_hero_section', defaultValue: true);
   static const tvFullCardLayout = BoolPref('tv_full_card_layout', defaultValue: false);
-  static const focusGlow = BoolPref('focus_glow', defaultValue: true);
+  // Off by default: a coloured halo round the focused card is visual noise.
+  // The outline and lift already mark it.
+  static const focusGlow = BoolPref('focus_glow', defaultValue: false);
   static const useGlobalHubs = BoolPref('use_global_hubs', defaultValue: true);
   static const showServerNameOnHubs = BoolPref('show_server_name_on_hubs');
   static const groupLibrariesByServer = BoolPref('group_libraries_by_server', defaultValue: true);
@@ -1233,10 +1235,10 @@ class SettingsService extends BaseSharedPreferencesService {
   }
 
   Future<void> replaceCustomExternalPlayers(
-    List<ExternalPlayer> players, {
-    void Function()? checkCurrent,
-    bool resetOverride = false,
-  }) async {
+      List<ExternalPlayer> players, {
+        void Function()? checkCurrent,
+        bool resetOverride = false,
+      }) async {
     validateCustomExternalPlayers(players);
     checkCurrent?.call();
     final selected = read(selectedExternalPlayer);
@@ -1257,10 +1259,10 @@ class SettingsService extends BaseSharedPreferencesService {
   }
 
   Future<void> selectExternalPlayer(
-    ExternalPlayer player, {
-    void Function()? checkCurrent,
-    bool resetOverride = false,
-  }) async {
+      ExternalPlayer player, {
+        void Function()? checkCurrent,
+        bool resetOverride = false,
+      }) async {
     if (player.isCustom && !read(customExternalPlayers).any((p) => p.id == player.id)) {
       throw const FormatException('Unknown custom player');
     }

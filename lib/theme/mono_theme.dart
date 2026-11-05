@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'gapped_track_shape.dart';
 import 'mono_tokens.dart';
+import '../utils/platform_detector.dart';
 
 /// One of the six colours a [MonoPalette] holds. [id] is the key the custom
 /// theme persists the colour under.
@@ -260,11 +261,13 @@ class MonoPalette {
   int get hashCode => Object.hash(bg, surface, outline, text, textMuted, accent);
 }
 
-final Map<({MonoPalette palette, TargetPlatform platform}), ThemeData> _monoThemeCache = {};
+final Map<({MonoPalette palette, TargetPlatform platform, bool tv}), ThemeData> _monoThemeCache = {};
 
 ThemeData monoTheme(MonoPalette palette) {
   // ThemeData derives several defaults from defaultTargetPlatform.
-  final key = (palette: palette, platform: defaultTargetPlatform);
+  // TV is part of the key: TV detection can finish (or the force-TV setting
+  // flip) after the first theme was built.
+  final key = (palette: palette, platform: defaultTargetPlatform, tv: PlatformDetector.isTV());
   final cached = _monoThemeCache[key];
   if (cached != null) return cached;
 
@@ -346,7 +349,8 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     highlightColor: Colors.transparent,
     // Explicit mono-derived tile highlights: ListTile's native focus/hover
     // fill is the dpad focus visual inside M3E grouped-list cards.
-    focusColor: c.text.withValues(alpha: 0.12),
+    // TV: much stronger, a 12% tint disappears across a room.
+    focusColor: c.text.withValues(alpha: PlatformDetector.isTV() ? 0.20 : 0.12),
     hoverColor: c.text.withValues(alpha: 0.05),
     dividerColor: c.outline,
     scaffoldBackgroundColor: c.bg,
@@ -394,8 +398,11 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     ),
     dividerTheme: DividerThemeData(space: 0, thickness: 1, color: c.outline),
     listTileTheme: ListTileThemeData(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      // Full-size rows on TV (16px titles, more padding) for 10-foot reading.
+      dense: !PlatformDetector.isTV(),
+      contentPadding: PlatformDetector.isTV()
+          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 8)
+          : const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       iconColor: c.text,
       textColor: c.text,
     ),

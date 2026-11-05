@@ -35,11 +35,11 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
   void _clearCurrentMarker() {
     final hasMarkerState =
         _currentMarker != null ||
-        _skipButtonDismissed ||
-        _autoSkipTimer != null ||
-        _autoSkipActive.value ||
-        _autoSkipProgress.value != 0.0 ||
-        _skipButtonDismissTimer != null;
+            _skipButtonDismissed ||
+            _autoSkipTimer != null ||
+            _autoSkipActive.value ||
+            _autoSkipProgress.value != 0.0 ||
+            _skipButtonDismissTimer != null;
     if (!hasMarkerState) return;
 
     if (_currentMarker != null || _skipButtonDismissed) {
@@ -72,6 +72,22 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
 
     if (foundMarker == null) {
       _clearCurrentMarker();
+      return;
+    }
+
+    // Credits that run to the end with a next episode: the screen's Play
+    // Next card takes over (countdown over the credits, like the streaming
+    // apps), so no separate "Next episode" button or credits auto-skip.
+    final duration = widget.player.state.duration;
+    final creditsToEnd =
+        foundMarker.isCredits && duration > Duration.zero && (duration - foundMarker.endTime).inMilliseconds <= 1000;
+    if (creditsToEnd && widget.onNext != null && widget.canControl && (widget.onCreditsStarted?.call() ?? false)) {
+      _setControlsState(() {
+        _currentMarker = foundMarker;
+        _skipButtonDismissed = true;
+      });
+      _cancelAutoSkipTimer();
+      _cancelSkipButtonDismissTimer();
       return;
     }
 

@@ -1815,7 +1815,7 @@ class GuideTabState extends State<GuideTab>
 
   /// Compact (TV) "Now" pill, floating at the right end of the time header.
   /// Idle: outlined with a red dot. Focused: solid accent fill, like the
-  /// focused program card, with a soft glow.
+  /// focused program card.
   Widget _buildCompactNowPill(ThemeData theme) {
     return ListenableBuilder(
       listenable: _gridHorizontalController,
@@ -1843,9 +1843,6 @@ class GuideTabState extends State<GuideTab>
                         width: 1.5,
                       ),
                       borderRadius: BorderRadius.circular(999),
-                      boxShadow: focused
-                          ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.35), blurRadius: 14)]
-                          : null,
                     ),
                     child: Row(
                       mainAxisSize: .min,

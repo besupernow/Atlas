@@ -68,7 +68,9 @@ class _FocusableListTileState extends State<FocusableListTile> with FocusableTil
 
   @override
   Widget build(BuildContext context) {
-    final automotive = PlatformDetector.isAutomotive();
+    // Automotive and TV get full-size rows: dense 13px rows are unreadable
+    // from the driver's seat or the couch.
+    final automotive = PlatformDetector.isAutomotive() || PlatformDetector.isTV();
 
     return MouseRegion(
       cursor: widget.enabled && (widget.onTap != null || widget.onLongPress != null)
@@ -163,7 +165,9 @@ class _FocusableSwitchListTileState extends State<FocusableSwitchListTile>
 
   @override
   Widget build(BuildContext context) {
-    final automotive = PlatformDetector.isAutomotive();
+    // Automotive and TV get full-size rows: dense 13px rows are unreadable
+    // from the driver's seat or the couch.
+    final automotive = PlatformDetector.isAutomotive() || PlatformDetector.isTV();
     return ClickableCursor(
       enabled: widget.onChanged != null,
       child: SwitchListTile(
@@ -228,7 +232,9 @@ class _FocusableCheckboxListTileState extends State<FocusableCheckboxListTile>
 
   @override
   Widget build(BuildContext context) {
-    final automotive = PlatformDetector.isAutomotive();
+    // Automotive and TV get full-size rows: dense 13px rows are unreadable
+    // from the driver's seat or the couch.
+    final automotive = PlatformDetector.isAutomotive() || PlatformDetector.isTV();
     return ClickableCursor(
       enabled: widget.onChanged != null,
       child: CheckboxListTile(

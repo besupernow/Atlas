@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../utils/platform_detector.dart';
 import 'focused_scroll_scaffold.dart';
+import 'settings_section.dart' show kTvSettingsMaxWidth;
 
 /// Standard scaffold for settings pages made of ordinary list rows.
 class SettingsPage extends StatelessWidget {
@@ -33,11 +35,22 @@ class SettingsPage extends StatelessWidget {
     this.automaticallyImplyLeading = true,
     this.onBackPressed,
   }) : children = null,
-       padding = null;
+        padding = null;
 
   @override
   Widget build(BuildContext context) {
-    final pageSlivers = slivers ?? [_buildListSliver()];
+    var pageSlivers = slivers ?? [_buildListSliver()];
+    // TV: keep the page in a readable centred column instead of stretching
+    // rows (and their values) across the whole 16:9 screen. Each sliver is
+    // padded on its own so fill-remaining / pinned slivers keep working.
+    final width = MediaQuery.sizeOf(context).width;
+    if (PlatformDetector.isTV() && width > kTvSettingsMaxWidth + 64) {
+      final side = (width - kTvSettingsMaxWidth) / 2;
+      pageSlivers = [
+        for (final s in pageSlivers)
+          SliverPadding(padding: EdgeInsets.symmetric(horizontal: side), sliver: s),
+      ];
+    }
     return FocusedScrollScaffold(
       title: title,
       actions: actions,

@@ -9,7 +9,16 @@ import '../../connection/connection.dart';
 import '../../connection/connection_registry.dart';
 import '../../profiles/active_profile_provider.dart';
 import '../../profiles/profile_connection_registry.dart';
+import '../../focus/focusable_text_field.dart';
 import '../../services/atlas_gate/atlas_gate.dart';
+import '../../utils/dialogs.dart';
+import '../../utils/platform_detector.dart';
+import '../../widgets/atlas_backdrop.dart' show AtlasBanner;
+import '../../widgets/dialog_action_button.dart';
+import '../../widgets/expressive_button_group.dart';
+import '../../widgets/focusable_list_tile.dart';
+import '../../widgets/settings_page.dart';
+import '../../widgets/settings_section.dart';
 import '../atlas_access_screen.dart';
 
 /// Everything a trusted device can do for other devices:
@@ -253,14 +262,15 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
 
   Future<void> _revoke(Map<String, dynamic> device) async {
     final label = (device['label'] as String?) ?? 'this device';
-    final ok = await showDialog<bool>(
+    final ok = await showScopedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Remove $label?'),
         content: const Text('It will be signed out and will need to be approved again to come back.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+          // Cancel first and focused: OK on a remote shouldn't remove a device.
+          DialogActionButton(autofocus: true, onPressed: () => Navigator.pop(ctx, false), label: 'Cancel'),
+          DialogActionButton(isPrimary: true, onPressed: () => Navigator.pop(ctx, true), label: 'Remove'),
         ],
       ),
     );
@@ -275,14 +285,14 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
   }
 
   Future<void> _newRecoveryCode() async {
-    final ok = await showDialog<bool>(
+    final ok = await showScopedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Make a new recovery code?'),
         content: const Text('Your old recovery code will stop working.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Make new code')),
+          DialogActionButton(autofocus: true, onPressed: () => Navigator.pop(ctx, false), label: 'Cancel'),
+          DialogActionButton(isPrimary: true, onPressed: () => Navigator.pop(ctx, true), label: 'Make new code'),
         ],
       ),
     );
@@ -314,165 +324,181 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
 
   // ------------------------------------------------------------------ build
 
+  /// Non-interactive explanation row inside a group.
+  Widget _info(String text) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Text(text, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+    );
+  }
+
+  TextStyle? _guestCodeStyle(ThemeData theme) =>
+      theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 1);
+
+  Widget _field(Widget field) => Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 12), child: field);
+
+  InputDecoration _decoration(String label, IconData icon) => InputDecoration(
+    labelText: label,
+    prefixIcon: Icon(icon, size: 20),
+    border: const OutlineInputBorder(),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tv = PlatformDetector.isTV();
     final canInvite = _status?.canInvite ?? false;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Devices & access')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _sectionTitle('Add a device'),
-              const Text('On the other device, choose Quick Connect, then enter the code it shows here.'),
-              const SizedBox(height: 12),
-              TextField(
+    final preview = _previewCode != null;
+
+    return SettingsPage(
+      title: const Text('Devices & access'),
+      children: [
+        SettingsGroup(
+          title: 'Add a device',
+          children: [
+            _info('On the other device, choose Quick Connect (or scan its QR code), then enter the code it shows here.'),
+            _field(
+              FocusableTextField(
                 controller: _code,
+                // TV: arriving here shouldn't throw the keyboard over the page.
+                tvTextInputAutoOpenBehavior: TvTextInputAutoOpenBehavior.afterFirstFocus,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Quick Connect code', border: OutlineInputBorder()),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                textInputAction: TextInputAction.search,
+                decoration: _decoration('Quick Connect code', Icons.pin_rounded),
                 onChanged: (_) {
                   if (_previewCode != null) setState(() => _previewCode = null);
                 },
                 onSubmitted: (_) => _busy ? null : _find(),
               ),
-              const SizedBox(height: 12),
-              if (_previewCode == null)
-                FilledButton(onPressed: _busy ? null : _find, child: const Text('Find device'))
-              else
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_previewLabel ?? '', style: Theme.of(context).textTheme.titleMedium),
-                        if (_previewSameNetwork)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Row(
-                              children: [
-                                Icon(Icons.wifi_rounded, size: 16, color: scheme.primary),
-                                const SizedBox(width: 6),
-                                const Text('On the same network as you'),
-                              ],
-                            ),
-                          ),
-                        if (!_previewViaGate)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text('This device did not announce itself, so only its sign-in will be approved.'),
-                          ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton(
-                                autofocus: true,
-                                onPressed: _busy ? null : _approve,
-                                child: const Text('Approve'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: _busy ? null : () => setState(() => _previewCode = null),
-                              child: const Text('Not me'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+            ),
+            if (!preview)
+              FocusableListTile(
+                leading: _busy
+                    ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(Icons.search_rounded, color: scheme.primary),
+                title: const Text('Find device'),
+                onTap: _busy ? null : _find,
+              )
+            else ...[
+              ListTile(
+                leading: Icon(Icons.devices_rounded, color: scheme.primary),
+                title: Text(_previewLabel ?? '', style: theme.textTheme.titleMedium),
+                subtitle: Text(
+                  !_previewViaGate
+                      ? 'This device did not announce itself, so only its sign-in will be approved.'
+                      : _previewSameNetwork
+                      ? 'On the same network as you'
+                      : 'Wants to join Atlas+',
                 ),
-              if (_message != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(_message!, style: TextStyle(color: _messageIsError ? scheme.error : scheme.primary)),
-                ),
-              if (canInvite) ...[
-                _sectionTitle('Guest pass'),
-                const Text('Give someone temporary access, like for a movie night. It ends on its own.'),
-                const SizedBox(height: 12),
-                TextField(
+              ),
+              FocusableListTile(
+                autofocus: true,
+                leading: Icon(Icons.check_circle_rounded, color: scheme.primary),
+                title: const Text('Approve'),
+                onTap: _busy ? null : _approve,
+              ),
+              FocusableListTile(
+                leading: const Icon(Icons.close_rounded),
+                title: const Text('Not me'),
+                onTap: _busy ? null : () => setState(() => _previewCode = null),
+              ),
+            ],
+          ],
+        ),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: tv ? kTvSettingsMaxWidth : double.infinity),
+                child: AtlasBanner(text: _message!, isError: _messageIsError),
+              ),
+            ),
+          ),
+        if (canInvite)
+          SettingsGroup(
+            title: 'Guest pass',
+            children: [
+              _info('Give someone temporary access, like for a movie night. It ends on its own.'),
+              _field(
+                FocusableTextField(
                   controller: _guestName,
+                  tvTextInputAutoOpenBehavior: TvTextInputAutoOpenBehavior.afterFirstFocus,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: "Guest's name", border: OutlineInputBorder()),
+                  textInputAction: TextInputAction.done,
+                  decoration: _decoration("Guest's name", Icons.person_rounded),
                 ),
-                const SizedBox(height: 12),
-                SegmentedButton<int>(
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: ExpressiveButtonGroup<int>(
                   segments: const [
                     ButtonSegment(value: 24, label: Text('24 hours')),
                     ButtonSegment(value: 48, label: Text('48 hours')),
                     ButtonSegment(value: 168, label: Text('7 days')),
                   ],
-                  selected: {_guestHours},
-                  onSelectionChanged: (v) => setState(() => _guestHours = v.first),
+                  selected: _guestHours,
+                  onChanged: (v) => setState(() => _guestHours = v),
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton(onPressed: _busy ? null : _createGuestPass, child: const Text('Create pass')),
-                if (_guestCode != null)
-                  Card(
-                    margin: const EdgeInsets.only(top: 12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SelectableText(
-                            _guestCode!,
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'They enter it under "Have a code?" in Atlas within 24 hours. '
-                                'Access then lasts $_guestCodeHours hours.',
-                          ),
-                          TextButton.icon(
-                            onPressed: () => Clipboard.setData(ClipboardData(text: _guestCode!)),
-                            icon: const Icon(Icons.copy_rounded, size: 18),
-                            label: const Text('Copy code'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-              _sectionTitle('My devices'),
-              if (_devices.isEmpty) const Text('No devices to show.'),
-              for (final d in _devices)
+              ),
+              FocusableListTile(
+                leading: Icon(Icons.confirmation_number_rounded, color: scheme.primary),
+                title: const Text('Create pass'),
+                onTap: _busy ? null : _createGuestPass,
+              ),
+              if (_guestCode != null) ...[
                 ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.devices_rounded),
-                  title: Text((d['label'] as String?)?.isNotEmpty == true ? d['label'] as String : 'Device'),
-                  subtitle: Text(d['current'] == true ? 'This device' : 'Last seen ${_ago(d['lastSeen'] as num?)}'),
-                  trailing: d['current'] == true
-                      ? null
-                      : IconButton(
-                    tooltip: 'Remove',
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    onPressed: () => _revoke(d),
+                  // SelectableText grabs D-pad focus and traps it on TV.
+                  title: tv
+                      ? Text(_guestCode!, style: _guestCodeStyle(theme))
+                      : SelectableText(_guestCode!, style: _guestCodeStyle(theme)),
+                  subtitle: Text(
+                    'They enter it under "I have a code" in Atlas within 24 hours. '
+                        'Access then lasts $_guestCodeHours hours.',
                   ),
                 ),
-              if (_status?.name != null && _status?.role != 'guest') ...[
-                _sectionTitle('Recovery code'),
-                const Text(
-                  'Lets you get back in after deleting the app or switching phones, without asking anyone.',
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(onPressed: _newRecoveryCode, child: const Text('Make a new recovery code')),
+                if (!tv)
+                  FocusableListTile(
+                    leading: const Icon(Icons.copy_rounded),
+                    title: const Text('Copy code'),
+                    onTap: () => Clipboard.setData(ClipboardData(text: _guestCode!)),
+                  ),
               ],
-              const SizedBox(height: 24),
             ],
           ),
+        SettingsGroup(
+          title: 'My devices',
+          children: [
+            if (_devices.isEmpty) _info('No devices to show.'),
+            // The whole row is the target (select = remove): a trailing icon
+            // button inside a row is unreachable with a D-pad.
+            for (final d in _devices)
+              FocusableListTile(
+                leading: Icon(d['current'] == true ? Icons.smartphone_rounded : Icons.devices_rounded),
+                title: Text((d['label'] as String?)?.isNotEmpty == true ? d['label'] as String : 'Device'),
+                subtitle: Text(d['current'] == true ? 'This device' : 'Last seen ${_ago(d['lastSeen'] as num?)}'),
+                trailing: d['current'] == true ? null : Icon(Icons.delete_outline_rounded, color: scheme.error),
+                onTap: d['current'] == true ? null : () => _revoke(d),
+              ),
+          ],
         ),
-      ),
+        if (_status?.name != null && _status?.role != 'guest')
+          SettingsGroup(
+            title: 'Recovery code',
+            children: [
+              _info('Lets you get back in after deleting the app or switching phones, without asking anyone.'),
+              FocusableListTile(
+                leading: Icon(Icons.shield_rounded, color: scheme.primary),
+                title: const Text('Make a new recovery code'),
+                onTap: _newRecoveryCode,
+              ),
+            ],
+          ),
+        const SizedBox(height: 32),
+      ],
     );
   }
-
-  Widget _sectionTitle(String text) => Padding(
-    padding: const EdgeInsets.only(top: 28, bottom: 8),
-    child: Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-  );
 }

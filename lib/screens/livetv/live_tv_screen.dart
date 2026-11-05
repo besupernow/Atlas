@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../focus/focusable_button.dart';
 import '../../media/ids.dart';
 
 import 'package:flutter/foundation.dart';
@@ -83,6 +84,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   final _previewKey = GlobalKey<LiveTvPreviewState>();
   final _searchPillFocus = FocusNode(debugLabel: 'live_search_pill');
   final _favoritesPillFocus = FocusNode(debugLabel: 'live_favorites_pill');
+  final _recordingsRefreshFocus = FocusNode(debugLabel: 'recordings_refresh');
   LiveTvChannel? _previewChannel;
   Map<String, List<LiveTvProgram>> _guidePrograms = const {};
   bool _hasRecordings = false;
@@ -304,6 +306,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     _guideEmptyStateActionFocusNode.dispose();
     _searchPillFocus.dispose();
     _favoritesPillFocus.dispose();
+    _recordingsRefreshFocus.dispose();
     for (final n in _groupFocus) {
       n.dispose();
     }
@@ -833,23 +836,38 @@ class _LiveTvScreenState extends State<LiveTvScreen>
         builder: (_) => Scaffold(
           appBar: AppBar(
             title: Text(t.liveTv.recordings),
+            // Remote: Up from the first recording lands on Refresh; Down
+            // goes back into the list; Back closes the page from either.
             actions: [
               if (_canProcessRules)
-                IconButton(
-                  icon: const Icon(Symbols.bolt_rounded),
-                  tooltip: t.liveTv.processRecordingRules,
+                FocusableButton(
                   onPressed: _processRecordingRules,
+                  onNavigateRight: _recordingsRefreshFocus.requestFocus,
+                  onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
+                  onBack: () => Navigator.of(context).maybePop(),
+                  child: IconButton(
+                    icon: const Icon(Symbols.bolt_rounded),
+                    tooltip: t.liveTv.processRecordingRules,
+                    onPressed: _processRecordingRules,
+                  ),
                 ),
-              IconButton(
-                icon: const Icon(Symbols.refresh_rounded),
-                tooltip: t.common.refresh,
+              FocusableButton(
+                focusNode: _recordingsRefreshFocus,
                 onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
+                onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
+                onBack: () => Navigator.of(context).maybePop(),
+                child: IconButton(
+                  icon: const Icon(Symbols.refresh_rounded),
+                  tooltip: t.common.refresh,
+                  onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
+                ),
               ),
+              const SizedBox(width: 8),
             ],
           ),
           body: RecordingsTab(
             key: _recordingsTabKey,
-            onNavigateUp: () {},
+            onNavigateUp: _recordingsRefreshFocus.requestFocus,
             onBack: () => Navigator.of(context).maybePop(),
           ),
         ),
@@ -1454,10 +1472,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                 duration: const Duration(milliseconds: 140),
                 decoration: BoxDecoration(
                   color: isSel
-                      ? scheme.primary.withValues(alpha: 0.22)
+                      ? scheme.onSurface.withValues(alpha: 0.18)
                       : scheme.surfaceContainerHighest.withValues(alpha: small ? 0.3 : 0.45),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: focused ? scheme.primary : Colors.transparent, width: 2),
+                  border: Border.all(color: focused ? scheme.onSurface : Colors.transparent, width: 2),
                 ),
                 child: InkWell(
                   focusNode: nodes[i],
@@ -1469,8 +1487,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                       g ?? 'All',
                       style: TextStyle(
                         fontSize: small ? 12 : null,
-                        fontWeight: FontWeight.w600,
-                        color: isSel ? scheme.primary : null,
+                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
                   ),
@@ -1537,10 +1554,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
               duration: const Duration(milliseconds: 140),
               decoration: BoxDecoration(
                 color: selected
-                    ? scheme.primary.withValues(alpha: 0.22)
+                    ? scheme.onSurface.withValues(alpha: 0.18)
                     : scheme.surfaceContainerHighest.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: focused ? scheme.primary : Colors.transparent, width: 2),
+                border: Border.all(color: focused ? scheme.onSurface : Colors.transparent, width: 2),
               ),
               child: InkWell(
                 focusNode: node,
@@ -1553,7 +1570,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                   child: Row(
                     mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
                     children: [
-                      Icon(icon, size: 20, color: selected ? scheme.primary : null),
+                      Icon(icon, size: 20),
                       if (!iconOnly) const SizedBox(width: 8),
                       if (!iconOnly)
                         Flexible(
@@ -1562,8 +1579,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: selected ? scheme.primary : null,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                             ),
                           ),
                         ),
@@ -1636,10 +1652,15 @@ class _LiveTvScreenState extends State<LiveTvScreen>
           ),
           if (_showFavoritesOnly && _favoriteChannels.length > 1) ...[
             const SizedBox(width: 6),
-            IconButton(
-              tooltip: t.liveTv.reorderFavorites,
-              icon: const Icon(Symbols.swap_vert_rounded),
+            // Reachable with the D-pad (a bare IconButton in the pill row has
+            // no focus ring and is skipped by the pills' explicit navigation).
+            FocusableButton(
               onPressed: _showReorderFavorites,
+              child: IconButton(
+                tooltip: t.liveTv.reorderFavorites,
+                icon: const Icon(Symbols.swap_vert_rounded),
+                onPressed: _showReorderFavorites,
+              ),
             ),
           ],
         ],

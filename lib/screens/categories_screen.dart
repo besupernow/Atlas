@@ -308,26 +308,27 @@ class _CategoryPillState extends State<_CategoryPill> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final active = widget.selected || _focused;
+    // Focused: solid white with dark text. Selected: a light grey fill.
     final bg = _focused
-        ? scheme.primary.withValues(alpha: 0.28)
+        ? scheme.onSurface
         : widget.selected
-        ? scheme.primary.withValues(alpha: 0.16)
-        : scheme.onSurface.withValues(alpha: 0.05);
-    final fg = active ? scheme.primary : scheme.onSurface.withValues(alpha: 0.85);
+        ? scheme.onSurface.withValues(alpha: 0.16)
+        : scheme.onSurface.withValues(alpha: 0.06);
+    final fg = _focused
+        ? scheme.surface
+        : active
+        ? scheme.onSurface
+        : scheme.onSurface.withValues(alpha: 0.75);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _focused ? scheme.primary : Colors.transparent, width: 2),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           focusNode: widget.focusNode,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           onTap: widget.onTap,
           onFocusChange: (focused) {
             setState(() => _focused = focused);
@@ -385,21 +386,18 @@ class _CategoryTileState extends State<_CategoryTile> {
     final scheme = Theme.of(context).colorScheme;
     final active = widget.selected || _focused;
     final bg = _focused
-        ? scheme.primary.withValues(alpha: 0.22)
+        ? scheme.onSurface
         : widget.selected
-        ? scheme.primary.withValues(alpha: 0.12)
+        ? scheme.onSurface.withValues(alpha: 0.12)
         : scheme.surfaceContainerHighest.withValues(alpha: 0.35);
+    final fg = _focused ? scheme.surface : scheme.onSurface;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 140),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _focused ? scheme.primary : Colors.transparent, width: 1.5),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         focusNode: widget.focusNode,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
         onTap: widget.onTap,
         onFocusChange: (f) {
           setState(() => _focused = f);
@@ -417,11 +415,11 @@ class _CategoryTileState extends State<_CategoryTile> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active ? scheme.primary : null,
+                    color: fg,
                   ),
                 ),
               ),
-              if (widget.showChevron) const Icon(Icons.chevron_right_rounded),
+              if (widget.showChevron) Icon(Icons.chevron_right_rounded, color: fg),
             ],
           ),
         ),

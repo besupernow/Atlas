@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../focus/input_mode_tracker.dart';
 import '../theme/mono_tokens.dart';
 import '../utils/platform_detector.dart';
 import 'app_icon.dart';
@@ -12,8 +13,13 @@ import 'expressive_button_group.dart';
 /// `dense: true` and the `Focusable*ListTile`s default to it — and Flutter
 /// draws a dense [ListTile] title at 13. Match that so a settings page reads
 /// as one family instead of one size per row type.
-TextStyle? settingsOptionTitleStyle(BuildContext context) =>
-    Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 13);
+TextStyle? settingsOptionTitleStyle(BuildContext context) => Theme.of(
+  context,
+).textTheme.bodyLarge?.copyWith(fontSize: PlatformDetector.isTV() || PlatformDetector.isAutomotive() ? 16 : 13);
+
+/// Widest a settings column gets on a TV. Full-width rows on a 16:9 screen
+/// put the label and its value a whole room apart.
+const double kTvSettingsMaxWidth = 960;
 
 class SettingsSectionHeader extends StatelessWidget {
   final String title;
@@ -64,22 +70,23 @@ class SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = tokens(context);
-    return Column(
+    final tv = PlatformDetector.isTV();
+    final roomy = tv || PlatformDetector.isAutomotive();
+    final group = Column(
       crossAxisAlignment: .start,
       children: [
         if (title != null) SettingsSectionHeader(title!),
         Padding(
           padding: margin,
           child: ListTileTheme.merge(
-            visualDensity: PlatformDetector.isAutomotive() ? VisualDensity.standard : const VisualDensity(vertical: -3),
+            visualDensity: roomy ? VisualDensity.standard : const VisualDensity(vertical: -3),
             child: Column(
               children: [
                 for (var i = 0; i < children.length; i++) ...[
                   if (i > 0) SizedBox(height: t.groupGap),
-                  Material(
+                  _GroupItem(
                     color: t.surface,
-                    clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(borderRadius: groupItemRadii(context, i, children.length)),
+                    borderRadius: groupItemRadii(context, i, children.length),
                     child: children[i],
                   ),
                 ],
@@ -88,6 +95,60 @@ class SettingsGroup extends StatelessWidget {
           ),
         ),
       ],
+    );
+    if (!tv) return group;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kTvSettingsMaxWidth),
+        child: group,
+      ),
+    );
+  }
+}
+
+/// One card in a [SettingsGroup]. When anything inside it has D-pad /
+/// keyboard focus it gets an accent ring (and a slight lift on TV), so the
+/// focused row is obvious from across the room instead of a faint 12% tint.
+class _GroupItem extends StatefulWidget {
+  final Color color;
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  const _GroupItem({required this.color, required this.borderRadius, required this.child});
+
+  @override
+  State<_GroupItem> createState() => _GroupItemState();
+}
+
+class _GroupItemState extends State<_GroupItem> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboard = InputModeTracker.isKeyboardMode(context);
+    final ring = _focused && keyboard;
+    final tv = PlatformDetector.isTV();
+    final accent = Theme.of(context).colorScheme.onSurface;
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (f) {
+        if (f != _focused) setState(() => _focused = f);
+      },
+      child: AnimatedScale(
+        scale: ring && tv ? 1.02 : 1.0,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        child: Material(
+          color: widget.color,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: widget.borderRadius,
+            side: ring ? BorderSide(color: accent, width: tv ? 2.5 : 2) : BorderSide.none,
+          ),
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

@@ -21,25 +21,25 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
     // applies.
     bool stillWanted() =>
         mounted &&
-        _currentMetadata.globalKey == metadataAtStart.globalKey &&
-        scrubPreviewServes(mediaInfoAtStart, _currentMediaInfo);
+            _currentMetadata.globalKey == metadataAtStart.globalKey &&
+            scrubPreviewServes(mediaInfoAtStart, _currentMediaInfo);
     unawaited(
       _untilFirstFrameUi()
           .then((_) {
-            if (!stillWanted()) return null;
-            return mediaClient.createScrubPreviewSource(item: metadataAtStart, mediaSource: mediaInfoAtStart);
-          })
+        if (!stillWanted()) return null;
+        return mediaClient.createScrubPreviewSource(item: metadataAtStart, mediaSource: mediaInfoAtStart);
+      })
           .then((service) {
-            if (service == null) return;
-            if (stillWanted()) {
-              _setPlayerState(() => _scrubPreviewSource = service);
-            } else {
-              service.dispose();
-            }
-          })
+        if (service == null) return;
+        if (stillWanted()) {
+          _setPlayerState(() => _scrubPreviewSource = service);
+        } else {
+          service.dispose();
+        }
+      })
           .catchError((e, st) {
-            appLogger.w('Scrub preview load failed', error: e, stackTrace: st);
-          }),
+        appLogger.w('Scrub preview load failed', error: e, stackTrace: st);
+      }),
     );
   }
 
@@ -174,15 +174,15 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
           _eofRecovery
               .interceptEof(currentPlayer)
               .then((intercepted) {
-                if (intercepted || !mounted || _shuttingDown || player != currentPlayer) return;
-                // A stacked item's file ended with another to follow: the
-                // item goes on in the next file instead of completing.
-                if (_advanceStackedPart()) return;
-                _onVideoCompleted(true);
-              })
+            if (intercepted || !mounted || _shuttingDown || player != currentPlayer) return;
+            // A stacked item's file ended with another to follow: the
+            // item goes on in the next file instead of completing.
+            if (_advanceStackedPart()) return;
+            _onVideoCompleted(true);
+          })
               .catchError((Object error, StackTrace stackTrace) {
-                appLogger.e('EOF classification failed; completion not run', error: error, stackTrace: stackTrace);
-              }),
+            appLogger.e('EOF classification failed; completion not run', error: error, stackTrace: stackTrace);
+          }),
         );
       }),
     );
@@ -291,6 +291,13 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
           promptVisible: _episode.showPlayNextDialog,
           countdownActive: _episode.autoPlayTimer?.isActive == true,
         );
+        if (!widget.isLive) {
+          _checkEarlyPlayNext(
+            position,
+            duration,
+            countdownSeconds: settingsService.read(SettingsService.playNextCountdown),
+          );
+        }
       }),
     );
   }
@@ -832,9 +839,9 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
 
   bool _isAppleAudioSessionEvent(Object event) =>
       event is AudioInterruptionBeganEvent ||
-      event is AudioInterruptionEndedEvent ||
-      event is AudioRouteOldDeviceUnavailableEvent ||
-      event is AudioRouteNewDeviceAvailableEvent;
+          event is AudioInterruptionEndedEvent ||
+          event is AudioRouteOldDeviceUnavailableEvent ||
+          event is AudioRouteNewDeviceAvailableEvent;
 
   bool _isPlaybackMediaControlEvent(Object event) =>
       event is PlayEvent || event is PauseEvent || event is TogglePlayPauseEvent;
@@ -919,6 +926,6 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
     unawaited(_performSeekPlayback(pos));
   }
 
-  /// Intercept an EOF signal that fired far from the end of the media.
-  ///
+/// Intercept an EOF signal that fired far from the end of the media.
+///
 }

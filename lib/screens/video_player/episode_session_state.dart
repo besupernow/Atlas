@@ -36,6 +36,23 @@ class EpisodeSessionState {
 
   bool showPlayNextDialog = false;
 
+  /// The Play Next card came up before the episode ended (credits started,
+  /// or the last few seconds with no credits marker) and its countdown runs
+  /// over the still-playing video.
+  bool playNextEarly = false;
+
+  /// Whether that early card came from a credits marker ("Watch credits"
+  /// dismisses it) rather than the end-of-file fallback.
+  bool playNextEarlyFromCredits = false;
+
+  /// Playhead (ms) when the early card appeared; seeking well before it
+  /// takes the card down again.
+  int earlyPromptStartMs = 0;
+
+  /// globalKey of the item the early card was already offered for, so a
+  /// dismissed card doesn't keep coming back for the same episode.
+  String? earlyPromptItemKey;
+
   Timer? autoPlayTimer;
   final ValueNotifier<int> autoPlayCountdown = ValueNotifier<int>(5);
 

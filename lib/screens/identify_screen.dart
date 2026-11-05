@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../focus/focusable_button.dart';
+import '../focus/focusable_text_field.dart';
 import '../focus/focusable_wrapper.dart';
 import '../media/media_item.dart';
 import '../media/media_kind.dart';
 import '../services/jellyfin_client.dart';
 import '../utils/app_logger.dart';
 import '../utils/dialogs.dart';
+import '../utils/platform_detector.dart';
 import '../utils/snackbar_helper.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/dialog_action_button.dart';
@@ -140,9 +142,12 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
   Widget _field(TextEditingController c, String label, {bool number = false, bool autofocus = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
+      // Remote-aware field: D-pad moves between fields instead of getting
+      // stuck in the text, and landing on one doesn't throw the keyboard up.
+      child: FocusableTextField(
         controller: c,
         autofocus: autofocus,
+        tvTextInputAutoOpenBehavior: TvTextInputAutoOpenBehavior.afterFirstFocus,
         keyboardType: number ? TextInputType.number : TextInputType.text,
         inputFormatters: number ? [FilteringTextInputFormatter.digitsOnly] : null,
         textInputAction: TextInputAction.search,
@@ -182,7 +187,11 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
                       if (_path != null) ...[
                         const SizedBox(height: 12),
                         Text('Path', style: theme.textTheme.labelLarge),
-                        SelectableText(_path!, style: theme.textTheme.bodySmall),
+                        // SelectableText grabs D-pad focus and traps it on TV.
+                        if (PlatformDetector.isTV())
+                          Text(_path!, style: theme.textTheme.bodySmall)
+                        else
+                          SelectableText(_path!, style: theme.textTheme.bodySmall),
                       ],
                       const SizedBox(height: 16),
                       _field(_name, 'Name', autofocus: true),
