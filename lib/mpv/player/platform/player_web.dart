@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -496,6 +495,9 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
   @override
   Future<void> setVolume(double volume) async {
     _media.volume = (volume / 100.0).clamp(0.0, 1.0).toDouble();
+    // Browsers only allow autoplay for muted media, and volume 0 alone
+    // doesn't count as muted.
+    _media.muted = volume <= 0;
   }
 
   @override

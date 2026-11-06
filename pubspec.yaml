@@ -1,7 +1,7 @@
 name: plezy
 description: "A beautiful Plex and Jellyfin client for Flutter"
 publish_to: "none"
-version: 26.3.2
+version: 26.4.0
 
 environment:
   # Dart floor stays 3.12: freezed 3.x emits `final` constructor parameters,
@@ -163,6 +163,10 @@ flutter:
     - assets/licenses/SpatialAudioBridge.txt
     - assets/plezy.png
     - assets/brand/glyph-app.png
+    # Loading-screen wordmark: Chewy (Apache 2.0, Google Fonts), subset to
+    # "ATLAS+". Loaded at runtime (FontLoader), not as a `fonts:` family,
+    # because the web CI step strips that block.
+    - assets/fonts/AtlasWordmark.ttf
     - assets/plex_chevron.svg
     - assets/jellyfin_icon.svg
     - assets/emby_icon.svg

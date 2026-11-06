@@ -1524,8 +1524,8 @@ class Translations$themeEditor$en {
 	/// en: 'Unlock with Supporter'
 	String get locked => 'Unlock with Supporter';
 
-	/// en: 'Saved — unlocks with Supporter'
-	String get savedLocked => 'Saved — unlocks with Supporter';
+	/// en: 'Saved. Unlocks with Supporter'
+	String get savedLocked => 'Saved. Unlocks with Supporter';
 
 	/// en: 'Custom Theme'
 	String get title => 'Custom Theme';
@@ -2394,11 +2394,11 @@ class Translations$videoControls$en {
 	/// en: '${resolution}p ${bitrate} Mbps'
 	String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 
-	/// en: 'Transcoding unavailable — playing original quality'
-	String get transcodeUnavailableFallback => 'Transcoding unavailable — playing original quality';
+	/// en: 'Transcoding unavailable, playing original quality'
+	String get transcodeUnavailableFallback => 'Transcoding unavailable, playing original quality';
 
-	/// en: 'Selected subtitles could not be loaded — continuing without subtitles'
-	String get subtitleUnavailableFallback => 'Selected subtitles could not be loaded — continuing without subtitles';
+	/// en: 'Couldn't load those subtitles, playing without them'
+	String get subtitleUnavailableFallback => 'Couldn\'t load those subtitles, playing without them';
 
 	/// en: 'Picture-in-Picture mode'
 	String get pipButton => 'Picture-in-Picture mode';
@@ -2672,8 +2672,8 @@ class Translations$messages$en {
 	/// en: 'No items available'
 	String get noItemsAvailable => 'No items available';
 
-	/// en: 'Failed to create a play queue — no items'
-	String get failedToCreatePlayQueueNoItems => 'Failed to create a play queue — no items';
+	/// en: 'Couldn't start playback: nothing to play'
+	String get failedToCreatePlayQueueNoItems => 'Couldn\'t start playback: nothing to play';
 
 	/// en: 'Failed to ${action}: ${error}'
 	String failedPlayback({required Object action, required Object error}) => 'Failed to ${action}: ${error}';
@@ -2696,8 +2696,8 @@ class Translations$messages$en {
 	/// en: 'Stream unavailable'
 	String get serverBusyTitle => 'Stream unavailable';
 
-	/// en: 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file's storage may be offline. Try again in a moment — if it keeps happening, ask the server owner to check the server and the file's storage.'
-	String get serverBusyBody => 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file\'s storage may be offline. Try again in a moment — if it keeps happening, ask the server owner to check the server and the file\'s storage.';
+	/// en: 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file's storage may be offline. Try again in a moment. If it keeps happening, ask the server owner to check the server and the file's storage.'
+	String get serverBusyBody => 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file\'s storage may be offline. Try again in a moment. If it keeps happening, ask the server owner to check the server and the file\'s storage.';
 
 	/// en: 'Playback not allowed'
 	String get playbackNotAllowedTitle => 'Playback not allowed';
@@ -3011,8 +3011,8 @@ class Translations$profiles$en {
 	/// en: 'Delete profile'
 	String get deleteProfileButton => 'Delete profile';
 
-	/// en: 'No connections — add one to use this profile.'
-	String get noConnectionsHint => 'No connections — add one to use this profile.';
+	/// en: 'No connections yet. Add one to use this profile.'
+	String get noConnectionsHint => 'No connections yet. Add one to use this profile.';
 
 	/// en: 'No connections'
 	String get noConnections => 'No connections';
@@ -3164,8 +3164,8 @@ class Translations$accountPreferences$en {
 	/// en: 'Every account stores its own preferences. Pick the one to edit.'
 	String get pickAccount => 'Every account stores its own preferences. Pick the one to edit.';
 
-	/// en: 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.'
-	String get storedOnAccount => 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.';
+	/// en: 'These options are saved on the account itself, so every app signed in to it uses them, including Atlas+ on your other devices.'
+	String get storedOnAccount => 'These options are saved on the account itself, so every app signed in to it uses them, including Atlas+ on your other devices.';
 
 	/// en: 'No accounts to configure'
 	String get noAccounts => 'No accounts to configure';
@@ -3643,8 +3643,8 @@ class Translations$startup$en {
 	/// en: 'Something went wrong during startup. The details below identify what failed.'
 	String get failedBody => 'Something went wrong during startup. The details below identify what failed.';
 
-	/// en: 'Atlas+'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.'
-	String get failedBodyRepairable => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.';
+	/// en: 'Atlas+'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying won't help, choose Repair storage.'
+	String get failedBodyRepairable => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying won\'t help, choose Repair storage.';
 
 	/// en: 'Step'
 	String get phaseLabel => 'Step';
@@ -3691,8 +3691,8 @@ class Translations$startup$en {
 	/// en: 'Storage repaired'
 	String get repairSucceeded => 'Storage repaired';
 
-	/// en: 'Storage repaired — restart required'
-	String get repairNeedsRestart => 'Storage repaired — restart required';
+	/// en: 'Storage repaired. Restart required'
+	String get repairNeedsRestart => 'Storage repaired. Restart required';
 
 	/// en: 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.'
 	String get restartRequiredBody => 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.';
@@ -4897,8 +4897,8 @@ class Translations$downloads$en {
 	/// en: 'Downloads used by another sync rule or profile will be kept.'
 	String get deleteSyncRuleDownloadsDescription => 'Downloads used by another sync rule or profile will be kept.';
 
-	/// en: 'Sync rule created — keeping ${count} unwatched episodes'
-	String syncRuleCreated({required Object count}) => 'Sync rule created — keeping ${count} unwatched episodes';
+	/// en: 'Sync rule created, keeping ${count} unwatched episodes'
+	String syncRuleCreated({required Object count}) => 'Sync rule created, keeping ${count} unwatched episodes';
 
 	/// en: 'Sync rule updated'
 	String get syncRuleUpdated => 'Sync rule updated';
@@ -5134,8 +5134,8 @@ class Translations$videoSettings$en {
 	/// en: 'HDR'
 	String get hdr => 'HDR';
 
-	/// en: 'HDR isn't available here — this desktop compositor or video output can't carry it.'
-	String get hdrUnsupported => 'HDR isn\'t available here — this desktop compositor or video output can\'t carry it.';
+	/// en: 'HDR isn't available here. This desktop compositor or video output can't carry it.'
+	String get hdrUnsupported => 'HDR isn\'t available here. This desktop compositor or video output can\'t carry it.';
 
 	/// en: 'HDR Tone Mapping'
 	String get hdrToneMapping => 'HDR Tone Mapping';
@@ -5152,8 +5152,8 @@ class Translations$videoSettings$en {
 	/// en: 'Map to the display's peak brightness in the player, then tell the compositor the result.'
 	String get hdrToneMappingPlayerDescription => 'Map to the display\'s peak brightness in the player, then tell the compositor the result.';
 
-	/// en: 'Couldn't change HDR tone mapping — the previous mode is still active.'
-	String get hdrToneMappingFailed => 'Couldn\'t change HDR tone mapping — the previous mode is still active.';
+	/// en: 'Couldn't change HDR tone mapping. The previous mode is still active.'
+	String get hdrToneMappingFailed => 'Couldn\'t change HDR tone mapping. The previous mode is still active.';
 
 	/// en: 'Audio Output'
 	String get audioOutput => 'Audio Output';
@@ -6068,8 +6068,8 @@ class Translations$addServer$en {
 	/// en: 'The server response was not valid JSON'
 	String get responseNotJson => 'The server response was not valid JSON';
 
-	/// en: 'The response is missing an ID or server name — is this a ${product} server?'
-	String responseMissingIdentity({required Object product}) => 'The response is missing an ID or server name — is this a ${product} server?';
+	/// en: 'The response is missing an ID or server name. Is this a ${product} server?'
+	String responseMissingIdentity({required Object product}) => 'The response is missing an ID or server name. Is this a ${product} server?';
 
 	/// en: 'Could not reach the server: ${error}'
 	String probeFailed({required Object error}) => 'Could not reach the server: ${error}';
@@ -7982,8 +7982,8 @@ class Translations$services$simklReconnect$en {
 	/// en: 'Reconnect Simkl'
 	String get title => 'Reconnect Simkl';
 
-	/// en: 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.'
-	String get subtitle => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.';
+	/// en: 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+. Atlas+ never sees your password. Your watch history stays on Simkl.'
+	String get subtitle => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+. Atlas+ never sees your password. Your watch history stays on Simkl.';
 }
 
 // Path: services.deviceCode
@@ -8599,7 +8599,7 @@ extension on Translations {
 			'themeEditor.editCustom' => 'Edit custom theme',
 			'themeEditor.editCustomDescription' => 'Choose every color yourself',
 			'themeEditor.locked' => 'Unlock with Supporter',
-			'themeEditor.savedLocked' => 'Saved — unlocks with Supporter',
+			'themeEditor.savedLocked' => 'Saved. Unlocks with Supporter',
 			'themeEditor.title' => 'Custom Theme',
 			'themeEditor.startFrom' => 'Start from',
 			'themeEditor.startFromDescription' => 'Copy all colors from another theme',
@@ -8897,8 +8897,8 @@ extension on Translations {
 			'videoControls.qualityColumnHeader' => 'Quality',
 			'videoControls.qualityOriginal' => 'Original',
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
-			'videoControls.transcodeUnavailableFallback' => 'Transcoding unavailable — playing original quality',
-			'videoControls.subtitleUnavailableFallback' => 'Selected subtitles could not be loaded — continuing without subtitles',
+			'videoControls.transcodeUnavailableFallback' => 'Transcoding unavailable, playing original quality',
+			'videoControls.subtitleUnavailableFallback' => 'Couldn\'t load those subtitles, playing without them',
 			'videoControls.pipButton' => 'Picture-in-Picture mode',
 			'videoControls.aspectRatioButton' => 'Aspect ratio',
 			'videoControls.ambientLighting' => 'Ambient lighting',
@@ -8993,7 +8993,7 @@ extension on Translations {
 			'messages.noResultsFound' => 'No results found',
 			'messages.sleepTimerSet' => ({required Object label}) => 'Sleep timer set for ${label}',
 			'messages.noItemsAvailable' => 'No items available',
-			'messages.failedToCreatePlayQueueNoItems' => 'Failed to create a play queue — no items',
+			'messages.failedToCreatePlayQueueNoItems' => 'Couldn\'t start playback: nothing to play',
 			'messages.failedPlayback' => ({required Object action, required Object error}) => 'Failed to ${action}: ${error}',
 			'messages.switchingToCompatiblePlayer' => 'Switching to compatible player...',
 			'messages.serverLimitTitle' => 'Playback failed',
@@ -9001,7 +9001,7 @@ extension on Translations {
 			'messages.mediaUnreadableTitle' => 'File unavailable',
 			'messages.mediaUnreadableBody' => 'The server found this item but could not read its file (HTTP 404). The file was probably moved, deleted, or its storage is offline. Ask the server owner to check the file and rescan the library.',
 			'messages.serverBusyTitle' => 'Stream unavailable',
-			'messages.serverBusyBody' => 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file\'s storage may be offline. Try again in a moment — if it keeps happening, ask the server owner to check the server and the file\'s storage.',
+			'messages.serverBusyBody' => 'The server kept refusing to stream this file (HTTP 503). It may be restarting, busy, or the file\'s storage may be offline. Try again in a moment. If it keeps happening, ask the server owner to check the server and the file\'s storage.',
 			'messages.playbackNotAllowedTitle' => 'Playback not allowed',
 			'messages.playbackNotAllowedBody' => 'The server refused to stream this item (HTTP 403). Your account may not have permission to play it, or the server may only allow playback on its local network.',
 			'messages.logsUploaded' => 'Logs uploaded',
@@ -9094,7 +9094,7 @@ extension on Translations {
 			'profiles.connectionsLabel' => 'Connections',
 			'profiles.add' => 'Add',
 			'profiles.deleteProfileButton' => 'Delete profile',
-			'profiles.noConnectionsHint' => 'No connections — add one to use this profile.',
+			'profiles.noConnectionsHint' => 'No connections yet. Add one to use this profile.',
 			'profiles.noConnections' => 'No connections',
 			'profiles.plexHomeAccount' => 'Plex Home account',
 			'profiles.plexAccountChip' => ({required Object account}) => 'Plex account: ${account}',
@@ -9141,7 +9141,7 @@ extension on Translations {
 			'accountPreferences.hubSubtitleSingle' => ({required Object account}) => 'Audio, subtitle and library options saved on ${account}',
 			'accountPreferences.hubSubtitleMultiple' => ({required Object count}) => 'Audio, subtitle and library options saved on ${count} accounts',
 			'accountPreferences.pickAccount' => 'Every account stores its own preferences. Pick the one to edit.',
-			'accountPreferences.storedOnAccount' => 'These options are saved on the account itself, so every app signed in to it uses them — including Atlas+ on your other devices.',
+			'accountPreferences.storedOnAccount' => 'These options are saved on the account itself, so every app signed in to it uses them, including Atlas+ on your other devices.',
 			'accountPreferences.noAccounts' => 'No accounts to configure',
 			'accountPreferences.noAccountsHint' => 'Sign in to Plex, or connect a Jellyfin or Emby server, and the preferences stored on that account show up here.',
 			'accountPreferences.unavailable' => 'Can\'t reach this account',
@@ -9375,7 +9375,7 @@ extension on Translations {
 			'logs.uploadLogs' => 'Upload Logs',
 			'startup.failedTitle' => 'Atlas+ could not start',
 			'startup.failedBody' => 'Something went wrong during startup. The details below identify what failed.',
-			'startup.failedBodyRepairable' => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying will not help — choose Repair storage.',
+			'startup.failedBodyRepairable' => 'Atlas+\'s saved settings file is damaged and has to be rebuilt before Atlas+ can start. Retrying won\'t help, choose Repair storage.',
 			'startup.phaseLabel' => 'Step',
 			'startup.showDetails' => 'Show details',
 			'startup.hideDetails' => 'Hide details',
@@ -9391,7 +9391,7 @@ extension on Translations {
 			'startup.repairBodySessionsUncertain' => 'Trackers (MAL, AniList, Simkl, Trakt) and Seerr are stored separately and may or may not survive. Atlas+ will tell you exactly what it kept.',
 			'startup.repairConfirm' => 'Repair',
 			'startup.repairSucceeded' => 'Storage repaired',
-			'startup.repairNeedsRestart' => 'Storage repaired — restart required',
+			'startup.repairNeedsRestart' => 'Storage repaired. Restart required',
 			'startup.restartRequiredBody' => 'Your data was repaired, but Atlas+ has to start fresh before it can use it. Close Atlas+ and open it again.',
 			'startup.quitPlezy' => 'Quit Atlas+',
 			'startup.repairFailed' => 'Repair failed',
@@ -9931,7 +9931,7 @@ extension on Translations {
 			'downloads.removeListSyncRuleConfirm' => ({required Object title}) => 'Stop syncing "${title}"?',
 			'downloads.deleteSyncRuleDownloads' => 'Also delete associated downloads',
 			'downloads.deleteSyncRuleDownloadsDescription' => 'Downloads used by another sync rule or profile will be kept.',
-			'downloads.syncRuleCreated' => ({required Object count}) => 'Sync rule created — keeping ${count} unwatched episodes',
+			'downloads.syncRuleCreated' => ({required Object count}) => 'Sync rule created, keeping ${count} unwatched episodes',
 			'downloads.syncRuleUpdated' => 'Sync rule updated',
 			'downloads.syncRuleRemoved' => 'Sync rule removed',
 			'downloads.syncRuleAndDownloadsRemoved' => 'Sync rule and associated downloads removed',
@@ -10088,13 +10088,13 @@ extension on Translations {
 			'videoSettings.audioSync' => 'Audio Sync',
 			'videoSettings.subtitleSync' => 'Subtitle Sync',
 			'videoSettings.hdr' => 'HDR',
-			'videoSettings.hdrUnsupported' => 'HDR isn\'t available here — this desktop compositor or video output can\'t carry it.',
+			'videoSettings.hdrUnsupported' => 'HDR isn\'t available here. This desktop compositor or video output can\'t carry it.',
 			'videoSettings.hdrToneMapping' => 'HDR Tone Mapping',
 			'videoSettings.hdrToneMappingCompositor' => 'Compositor',
 			'videoSettings.hdrToneMappingCompositorDescription' => 'Pass the source\'s HDR metadata through and let the desktop compositor map it.',
 			'videoSettings.hdrToneMappingPlayer' => 'Player',
 			'videoSettings.hdrToneMappingPlayerDescription' => 'Map to the display\'s peak brightness in the player, then tell the compositor the result.',
-			'videoSettings.hdrToneMappingFailed' => 'Couldn\'t change HDR tone mapping — the previous mode is still active.',
+			'videoSettings.hdrToneMappingFailed' => 'Couldn\'t change HDR tone mapping. The previous mode is still active.',
 			'videoSettings.audioOutput' => 'Audio Output',
 			'videoSettings.performanceOverlay' => 'Performance Overlay',
 			'videoSettings.audioOutputDolbyAtmos' => 'Dolby Atmos',
@@ -10341,7 +10341,7 @@ extension on Translations {
 			'services.names.seerr' => 'Seerr',
 			'services.names.mdblist' => 'MDBList',
 			'services.simklReconnect.title' => 'Reconnect Simkl',
-			'services.simklReconnect.subtitle' => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+ — Atlas+ never sees your password. Your watch history stays on Simkl.',
+			'services.simklReconnect.subtitle' => 'Simkl is retiring the sign-in method this connection uses. Reconnecting opens simkl.com to approve Atlas+. Atlas+ never sees your password. Your watch history stays on Simkl.',
 			'services.deviceCode.title' => ({required Object service}) => 'Activate Atlas+ on ${service}',
 			'services.deviceCode.instructions' => 'Scan the QR code, or visit the address below and enter this code:',
 			'services.deviceCode.openToActivate' => ({required Object service}) => 'Open ${service} to activate',
@@ -10402,7 +10402,7 @@ extension on Translations {
 			'addServer.quickConnectPollRejected' => 'Quick Connect polling was rejected by the server',
 			'addServer.serverTimedOut' => 'The server did not respond in time',
 			'addServer.responseNotJson' => 'The server response was not valid JSON',
-			'addServer.responseMissingIdentity' => ({required Object product}) => 'The response is missing an ID or server name — is this a ${product} server?',
+			'addServer.responseMissingIdentity' => ({required Object product}) => 'The response is missing an ID or server name. Is this a ${product} server?',
 			'addServer.probeFailed' => ({required Object error}) => 'Could not reach the server: ${error}',
 			'addServer.enterAtLeastOneUrl' => ({required Object product}) => 'Enter at least one ${product} server URL',
 			'addServer.noReachableServer' => ({required Object product}) => 'No reachable ${product} server was found',

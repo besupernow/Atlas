@@ -8,7 +8,6 @@ import 'package:shared_preferences_foundation/shared_preferences_foundation.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material show ThemeMode;
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'services/atlas_gate/atlas_gate.dart';
@@ -37,6 +36,9 @@ import 'theme/mono_theme.dart';
 import 'profiles/plex_home_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/atlas_wall_screen.dart';
+import 'services/startup_intro/startup_timing.dart';
+import 'widgets/loading/atlas_loading_view.dart';
+import 'widgets/startup_intro_overlay.dart';
 import 'screens/profile/pin_entry_dialog.dart';
 import 'screens/profile/profile_switch_screen.dart';
 import 'services/storage_service.dart';
@@ -98,7 +100,6 @@ import 'utils/orientation_helper.dart';
 import 'utils/watch_state_notifier.dart';
 import 'i18n/app_locale_utils.dart';
 import 'i18n/strings.g.dart';
-import 'widgets/app_icon.dart';
 import 'focus/input_mode_tracker.dart';
 import 'focus/key_event_utils.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -153,6 +154,7 @@ void _registerTvosPlatformPlugins() {
 }
 
 void main() {
+  StartupTiming.markAppStart();
   final binding = PlezyWidgetsBinding.ensureInitialized();
   // Web: right-click opens the app's own context menu (cards, rows), not the
   // browser's. Text fields still get Flutter's copy/paste menu.
@@ -2020,7 +2022,7 @@ class _AppShell extends StatelessWidget {
                       const SingleActivator(LogicalKeyboardKey.gameButtonB): const DismissIntent(),
                     },
                     builder: (context, child) {
-                      final shell = WebThemeColorSync(child: rootShell(child));
+                      final shell = StartupIntroOverlay(child: WebThemeColorSync(child: rootShell(child)));
                       if (!agentControlEnabled) return shell;
                       return AgentControlScope(
                         commandContext: () => rootNavigatorKey.currentState?.overlay?.context,
@@ -2179,6 +2181,7 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
     _setStatus(t.common.startingOfflineMode);
     await context.read<DownloadProvider>().ensureInitialized();
     if (!mounted) return;
+    if (!await _holdLoadingScreen()) return;
     AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.mainScreen);
     unawaited(
       Navigator.pushReplacement(
@@ -2186,6 +2189,14 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
         fadeRoute(ProfileSessionScreen(isOfflineMode: true, initialPromptHandled: initialPromptHandled)),
       ),
     );
+  }
+
+  /// Keeps the loading screen up until the startup intro has finished and
+  /// the loading screen itself has been visible for a moment (see
+  /// [StartupTiming]). Returns false if this screen went away meanwhile.
+  Future<bool> _holdLoadingScreen() async {
+    await StartupTiming.beforeLeavingLoading();
+    return mounted;
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -2309,11 +2320,13 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
     if (!mounted) return;
     if (gate.needsWall) {
       appLogger.i('Setup: device not approved by the gate (${gate.state}); showing the wall');
+      if (!await _holdLoadingScreen()) return;
       unawaited(Navigator.pushReplacement(context, fadeRoute(AtlasWallScreen(initialStatus: gate))));
       return;
     }
 
     if (allConnections.isEmpty) {
+      if (!await _holdLoadingScreen()) return;
       if (mounted) {
         unawaited(Navigator.pushReplacement(context, fadeRoute(const AuthScreen())));
       }
@@ -2410,6 +2423,7 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
 
       var bindingSucceeded = activeProfile.lastBindingSucceeded;
       if (shouldPrompt) {
+        if (!await _holdLoadingScreen()) return;
         await Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const ProfileSwitchScreen(requireSelection: true)));
@@ -2443,6 +2457,7 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
       await downloadProvider.refreshMetadataFromCache();
       if (!mounted) return;
 
+      if (!await _holdLoadingScreen()) return;
       AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.mainScreen);
       unawaited(
         Navigator.pushReplacement(
@@ -2499,113 +2514,10 @@ class _SetupScreenState extends State<SetupScreen> with MountedSetStateMixin {
     super.dispose();
   }
 
-  Widget _buildStatusText(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
-      child: Text(
-        _statusMessage,
-        key: ValueKey(_statusMessage),
-        textAlign: TextAlign.center,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
-      ),
-    );
-  }
-
-  Widget _buildServerStatusList(BuildContext context) {
-    if (_serverStatus.isEmpty) return const SizedBox.shrink();
-    final textTheme = Theme.of(context).textTheme;
-    final dimColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
-    const successColor = Color(0xFF4CAF50);
-    const failColor = Color(0xFFEF5350);
-
-    return Column(
-      mainAxisSize: .min,
-      children: _serverStatus.entries.map((entry) {
-        final (name, connected) = entry.value;
-        final Widget statusIcon;
-        if (connected == null) {
-          statusIcon = AppIcon(Symbols.circle_rounded, size: 10, color: dimColor);
-        } else if (connected) {
-          statusIcon = const AppIcon(Symbols.check_circle_rounded, size: 14, color: successColor);
-        } else {
-          statusIcon = const AppIcon(Symbols.cancel_rounded, size: 14, color: failColor);
-        }
-        return Padding(
-          key: ValueKey(entry.key),
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            mainAxisSize: .min,
-            children: [
-              statusIcon,
-              const SizedBox(width: 8),
-              Text(name, style: textTheme.bodySmall?.copyWith(color: dimColor)),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   @override
-  Widget build(BuildContext context) {
-    const coralColor = Color(0xFFE5A00D);
-    final height = MediaQuery.sizeOf(context).height;
-    // The stacked layout below hangs its two rows off fixed ±170/180 offsets from the middle, which
-    // needs roughly 700 logical pixels of height. A car at a large interface scale — and a phone in
-    // landscape — has less than that, and the rows would collide or fall outside the Stack's clip.
-    if (height < 700) {
-      return ColoredBox(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset('assets/brand/glyph-app.png', width: 160, height: 160),
-                  _buildStatusText(context),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: _serverStatus.isEmpty
-                        ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
-                    )
-                        : _buildServerStatusList(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: Stack(
-        children: [
-          Center(child: Image.asset('assets/brand/glyph-app.png', width: 288, height: 288)),
-          Positioned(left: 0, right: 0, bottom: height * 0.5 - 170, child: _buildStatusText(context)),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: height * 0.5 + 180,
-            child: Center(
-              child: _serverStatus.isEmpty
-                  ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: coralColor),
-              )
-                  : _buildServerStatusList(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AtlasLoadingView(
+    // The loading screen shows playful lines; only pass through what the
+    // viewer needs to know.
+    notice: _statusMessage == t.common.startingOfflineMode ? _statusMessage : null,
+  );
 }

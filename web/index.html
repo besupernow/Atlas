@@ -18,12 +18,17 @@
     <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
     <link rel="icon" type="image/png" href="favicon.png"/>
-    <link rel="preload" href="icons/Icon-192.png" as="image">
 
     <title>Atlas+</title>
     <link rel="manifest" href="manifest.json">
 
     <style>
+        @font-face {
+          font-family: "AtlasWordmark";
+          src: url(data:font/woff2;base64,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) format("woff2");
+          font-weight: 400;
+          font-display: block;
+        }
         html, body {
           margin: 0;
           height: 100%;
@@ -38,22 +43,74 @@
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 32px;
           background: var(--atlas-bg, #0E0F12);
-          transition: opacity 280ms ease;
+          transition: opacity 320ms ease;
+          overflow: hidden;
         }
         #atlas-splash.hide { opacity: 0; pointer-events: none; }
-        #atlas-splash img {
-          width: 88px;
-          height: 88px;
-          border-radius: 20px;
+
+        /* Wordmark: letters are windows onto a strip of the server's
+           backdrops (painted into a canvas by the script below) that drifts
+           sideways. Same geometry as lib/widgets/loading/. */
+        .atlas-word {
+          position: relative;
+          font: 400 clamp(64px, 21vw, 240px)/1 "AtlasWordmark", system-ui, sans-serif;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+          user-select: none;
+          opacity: 0;
+        }
+        /* Added by the script once the artwork is decoded and painted, so
+           the letters never appear empty and then fill in. */
+        .atlas-word.go { animation: atlas-word-in 1400ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .atlas-word span { display: block; }
+        .atlas-word .base { color: rgba(255, 255, 255, 0.12); }
+        /* Glow: a blurred copy of the art-filled letters behind them, so the
+           glow takes the colours of whatever is drifting through. */
+        .atlas-word .glow {
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          color: transparent;
+          -webkit-background-clip: text;
+          background-clip: text;
+          background-repeat: repeat-x;
+          background-size: auto 125%;
+          background-position: 0 50%;
+          filter: blur(0.12em) saturate(1.4);
+          opacity: 0;
+          transition: opacity 600ms ease;
+        }
+        .atlas-word .glow.on { opacity: 0.55; }
+        .atlas-word:not(.go) .glow { transition: none; }
+        .atlas-word .art {
+          position: absolute;
+          inset: 0;
+          color: transparent;
+          -webkit-background-clip: text;
+          background-clip: text;
+          background-repeat: repeat-x;
+          background-size: auto 125%;
+          background-position: 0 50%;
+          opacity: 0;
+          transition: opacity 600ms ease;
+        }
+        /* Art that's ready before the letters come in needs no fade of its own. */
+        .atlas-word:not(.go) .art { transition: none; }
+        .atlas-word .art.on { opacity: 1; }
+        @keyframes atlas-word-in {
+          from { opacity: 0; letter-spacing: -0.04em; transform: translateY(0.06em) scale(0.94); }
+          to { opacity: 1; letter-spacing: 0.02em; transform: none; }
         }
         #atlas-splash .bar {
-          width: 120px;
+          width: 96px;
           height: 2px;
+          margin-top: calc(clamp(64px, 21vw, 240px) * 0.28);
           border-radius: 2px;
           background: rgba(255, 255, 255, 0.10);
           overflow: hidden;
+          opacity: 0;
+          animation: atlas-fade-in 560ms ease 840ms forwards;
         }
         #atlas-splash .bar::after {
           content: "";
@@ -61,14 +118,36 @@
           width: 40%;
           height: 100%;
           border-radius: 2px;
-          background: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.8);
           animation: atlas-slide 1.2s ease-in-out infinite;
         }
         @keyframes atlas-slide {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(250%); }
         }
+        @keyframes atlas-fade-in { to { opacity: 1; } }
+
+        /* Seasonal intro clip: full screen, silent, no controls, not
+           clickable. Hidden until it is actually playing. */
+        #atlas-intro {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          background: #000;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 400ms ease;
+        }
+        #atlas-intro::-webkit-media-controls,
+        #atlas-intro::-webkit-media-controls-start-playback-button,
+        #atlas-intro::-webkit-media-controls-overlay-play-button { display: none !important; }
+        #atlas-splash.intro-on #atlas-intro { opacity: 1; }
+
         @media (prefers-reduced-motion: reduce) {
+          .atlas-word.go { animation: none; opacity: 1; }
           #atlas-splash .bar::after { animation: none; }
         }
     </style>
@@ -86,16 +165,326 @@
 <body>
 <!-- Shows instantly while Flutter downloads and starts -->
 <div id="atlas-splash" aria-label="Loading Atlas+">
-    <img src="icons/Icon-192.png" alt="">
+    <video id="atlas-intro" muted playsinline preload="auto" disablepictureinpicture disableremoteplayback
+           controlslist="nodownload nofullscreen noremoteplayback noplaybackrate" tabindex="-1" aria-hidden="true"></video>
+    <div class="atlas-word" aria-hidden="true"><span class="glow">ATLAS+</span><span class="base">ATLAS+</span><span class="art">ATLAS+</span></div>
     <div class="bar"></div>
 </div>
 <script>
-    window.addEventListener('flutter-first-frame', function () {
-      var s = document.getElementById('atlas-splash');
-      if (!s) return;
-      s.classList.add('hide');
-      setTimeout(function () { s.remove(); }, 400);
-    });
+    (function () {
+      var splash = document.getElementById('atlas-splash');
+      var word = splash.querySelector('.atlas-word');
+      var art = splash.querySelector('.atlas-word .art');
+      var glow = splash.querySelector('.atlas-word .glow');
+      var video = document.getElementById('atlas-intro');
+      var store = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+                    set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+      var reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      var isShare = /[?&]share=/.test(location.search);
+
+      // Flutter skips the wordmark's entrance when this was already shown.
+      store.set('atlas_splash_shown', '1');
+
+      // ------------------------------------------------------------ leaving
+      // The splash leaves once Flutter has drawn, the intro is done, and the
+      // Flutter loading screen has its artwork (or a short wait has passed).
+      // (The share page never shows the Flutter loading screen.)
+      var flutterReady = false, introDone = true, artHandedOff = isShare;
+      var stopScroll = false;
+
+      function leave() {
+        // Never leave with the letters still hidden waiting for art.
+        if (!flutterReady || !introDone || !artHandedOff || !wordShown || !splash) return;
+        splash.classList.add('hide');
+        setTimeout(function () {
+          stopScroll = true;
+          try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) {}
+          splash.remove();
+          splash = null;
+        }, 400);
+      }
+      window.addEventListener('flutter-first-frame', function () {
+        flutterReady = true;
+        // Flutter normally says when its copy has the art; don't wait forever.
+        setTimeout(function () { artHandedOff = true; leave(); }, 4000);
+        leave();
+      });
+      window.addEventListener('atlas-loading-ready', function () { artHandedOff = true; leave(); });
+
+      // ------------------------------------------------------------ artwork
+      // Random backdrops from the server (atlas-share), cross-faded into one
+      // strip that scrolls inside the letters. The list is cached so the
+      // next load starts with images already in the HTTP cache.
+      var TILE_W = 640, TILE_H = 360, OVERLAP = 224, STEP = TILE_W - OVERLAP;
+      // Slow drift, a gentle float and a breathing brightness: a mirage,
+      // not a ticker. Same numbers as lib/widgets/loading/loading_art.dart.
+      var SPEED = 8, HEIGHT_FACTOR = 1.25;
+      var FLOAT_AMOUNT = 0.035, FLOAT_PERIOD = 14, SHIMMER_LOW = 0.8, SHIMMER_PERIOD = 7;
+
+      // The letters only come in once their art is decoded and painted.
+      // They come in plain only when there's no art to be had.
+      var wordShown = false;
+      function showWord() {
+        if (wordShown) return;
+        wordShown = true;
+        clearTimeout(wordFallback);
+        word.classList.add('go');
+        leave();
+      }
+      // Only a safety net: every failure path (no list, images that won't
+      // load, a strip that won't decode) shows the word straight away.
+      var wordFallback = setTimeout(showWord, 10000);
+
+      function loadImg(url) {
+        return new Promise(function (resolve) {
+          var img = new Image();
+          var done = false;
+          function fin(v) { if (!done) { done = true; resolve(v); } }
+          img.decoding = 'async';
+          img.onload = function () { fin(img); };
+          img.onerror = function () { fin(null); };
+          setTimeout(function () { fin(null); }, 5000);
+          img.src = url;
+        });
+      }
+
+      function paintStrip(images) {
+        var n = images.length;
+        var canvas = document.createElement('canvas');
+        canvas.width = n * STEP;
+        canvas.height = TILE_H;
+        var ctx = canvas.getContext('2d');
+        var tile = document.createElement('canvas');
+        tile.width = TILE_W; tile.height = TILE_H;
+        var t = tile.getContext('2d');
+        var fade = OVERLAP / TILE_W;
+        function draw(img, x) {
+          t.globalCompositeOperation = 'source-over';
+          t.clearRect(0, 0, TILE_W, TILE_H);
+          var iw = img.naturalWidth, ih = img.naturalHeight, target = TILE_W / TILE_H, sx, sy, sw, sh;
+          if (iw / ih > target) { sh = ih; sw = ih * target; sx = (iw - sw) / 2; sy = 0; }
+          else { sw = iw; sh = iw / target; sx = 0; sy = (ih - sh) / 2; }
+          t.drawImage(img, sx, sy, sw, sh, 0, 0, TILE_W, TILE_H);
+          var g = t.createLinearGradient(0, 0, TILE_W, 0);
+          g.addColorStop(0, 'rgba(255,255,255,0)');
+          g.addColorStop(fade, 'rgba(255,255,255,1)');
+          g.addColorStop(1 - fade, 'rgba(255,255,255,1)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          t.globalCompositeOperation = 'destination-in';
+          t.fillStyle = g;
+          t.fillRect(0, 0, TILE_W, TILE_H);
+          ctx.drawImage(tile, x, 0);
+        }
+        // The last backdrop again before the start: its fading tail is what
+        // shows right after the strip wraps.
+        draw(images[n - 1], -STEP);
+        for (var i = 0; i < n; i++) draw(images[i], i * STEP);
+        return canvas;
+      }
+
+      function stripDataUrl(urls) {
+        return Promise.all(urls.map(loadImg)).then(function (loaded) {
+          var images = loaded.filter(Boolean);
+          if (!images.length) return null;
+          try { return paintStrip(images).toDataURL('image/jpeg', 0.82); } catch (e) { return null; }
+        });
+      }
+
+      function fetchUrls() {
+        return fetch('/atlas-share/artwork?count=6', { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (body) {
+            return ((body && body.images) || []).map(function (i) { return i && i.url; })
+              .filter(function (u) { return typeof u === 'string' && /^https:\/\//.test(u); });
+          })
+          .catch(function () { return []; });
+      }
+
+      function saveStrip(url) {
+        try { localStorage.setItem('atlas_strip', url); } catch (e) {}
+      }
+
+      // Puts a finished strip (a data URL) into the letters and starts the
+      // drift. Also leaves it for the Flutter loading screen to pick up.
+      function showStrip(url) {
+        var probe = new Image();
+        function ready() {
+          if (!splash) return;
+          var stripWidth = probe.naturalWidth;
+          art.style.backgroundImage = 'url(' + url + ')';
+          glow.style.backgroundImage = 'url(' + url + ')';
+          glow.classList.add('on');
+          art.classList.add('on');
+          var t0 = Date.now();
+          store.set('atlas_strip_now', url);
+          store.set('atlas_art_t0', String(t0));
+          // Two frames: one to paint the art under the hidden letters, then
+          // bring them in.
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { clearTimeout(wordFallback); showWord(); });
+          });
+          if (reduceMotion) return;
+          (function tick() {
+            if (stopScroll) return;
+            var scale = word.offsetHeight * HEIGHT_FACTOR / TILE_H;
+            var period = stripWidth * scale;
+            if (period > 0) {
+              var s = (Date.now() - t0) / 1000;
+              var x = (s * SPEED) % period;
+              var y = Math.sin(2 * Math.PI * s / FLOAT_PERIOD) * word.offsetHeight * FLOAT_AMOUNT;
+              art.style.backgroundPosition = (-x) + 'px calc(50% + ' + y + 'px)';
+              glow.style.backgroundPosition = art.style.backgroundPosition;
+              // Breathe the brightness (after any fade-in).
+              if (Date.now() - t0 > 700) {
+                art.style.transition = 'none';
+                art.style.opacity = SHIMMER_LOW + (1 - SHIMMER_LOW) * (0.5 + 0.5 * Math.sin(2 * Math.PI * s / SHIMMER_PERIOD));
+              }
+            }
+            requestAnimationFrame(tick);
+          })();
+        }
+        probe.src = url;
+        // decode() resolves once the image is fully decoded in memory, so
+        // the first paint is instant.
+        var decoded = probe.decode ? probe.decode() : new Promise(function (res, rej) {
+          probe.onload = res; probe.onerror = rej;
+        });
+        decoded.then(ready, function () { clearTimeout(wordFallback); showWord(); });
+      }
+
+      if (isShare) showWord();
+      if (!isShare) {
+        var cachedStrip = null;
+        try { cachedStrip = localStorage.getItem('atlas_strip'); } catch (e) {}
+        if (cachedStrip && cachedStrip.indexOf('data:image/') === 0) {
+          // Last visit's strip: shows instantly, nothing to download. Then,
+          // once the app has had a head start, build a fresh random one for
+          // the NEXT visit.
+          showStrip(cachedStrip);
+          setTimeout(function () {
+            fetchUrls().then(function (urls) {
+              if (!urls.length) return;
+              stripDataUrl(urls).then(function (url) { if (url) saveStrip(url); });
+            });
+          }, 4000);
+        } else {
+          // First visit: build one now and keep it for next time.
+          fetchUrls().then(function (urls) {
+            if (!urls.length) return showWord();
+            stripDataUrl(urls).then(function (url) {
+              if (!url) return showWord();
+              saveStrip(url);
+              showStrip(url);
+            });
+          });
+        }
+      }
+
+      // ------------------------------------------------------------ intro clip
+      // Plays while Flutter downloads. Clips come from
+      // /atlas-share/intro/manifest.json (same file the apps use):
+      //   {"intros": [
+      //     {"id": "winter-2026", "from": "12-01", "to": "01-06", "file": "winter-2026.mp4"},
+      //     {"id": "atlas", "file": "atlas.mp4"}
+      //   ]}
+      // from/to are MM-DD, inclusive, and may wrap the new year. The first
+      // dated entry that matches today wins; an entry without dates is the
+      // default and plays whenever no seasonal one does.
+      var INTRO_BASE = '/atlas-share/intro/';
+      var giveUp = null, cap = null;
+
+      // The Flutter app holds its loading screen until this is set, then
+      // keeps it up a few more seconds (lib/services/startup_intro/).
+      function markIntroEnd() { store.set('atlas_intro_end', String(Date.now())); }
+
+      function finishIntro() {
+        if (introDone) return;
+        introDone = true;
+        markIntroEnd();
+        clearTimeout(giveUp);
+        clearTimeout(cap);
+        if (splash) splash.classList.remove('intro-on');
+        leave();
+      }
+
+      function mmdd(s) {
+        var m = /^(\d{2})-(\d{2})$/.exec(s || '');
+        return m ? parseInt(m[1], 10) * 100 + parseInt(m[2], 10) : null;
+      }
+
+      function pick(manifest) {
+        var list = manifest && manifest.intros;
+        if (!Array.isArray(list)) return null;
+        var now = new Date();
+        var d = (now.getMonth() + 1) * 100 + now.getDate();
+        var fallback = null;
+        for (var i = 0; i < list.length; i++) {
+          var e = list[i];
+          if (!e || typeof e.file !== 'string') continue;
+          if (e.from == null && e.to == null) { if (!fallback) fallback = e; continue; }
+          var from = mmdd(e.from), to = mmdd(e.to);
+          if (from === null || to === null) continue;
+          if (from <= to ? (d >= from && d <= to) : (d >= from || d <= to)) return e;
+        }
+        return fallback;
+      }
+
+      var playIntro = !isShare && !reduceMotion;
+      try {
+        // The app's "Startup animation" switch (shared_preferences on web;
+        // both the legacy and async key names).
+        if (localStorage.getItem('flutter.startup_animation') === 'false' ||
+            localStorage.getItem('startup_animation') === 'false') playIntro = false;
+      } catch (e) {}
+      // Not again on a quick refresh (within a minute of the last play).
+      // Mobile browsers keep a tab's session alive for days, so "once per
+      // tab" would mean never.
+      var lastPlayed = parseInt(store.get('atlas_intro_played') || '0', 10);
+      if (lastPlayed && Date.now() - lastPlayed < 60000) playIntro = false;
+
+      try { sessionStorage.removeItem('atlas_intro_end'); } catch (e) {}
+      if (!playIntro) {
+        // No intro: the loading screen's minimum time counts from now.
+        markIntroEnd();
+      } else {
+        introDone = false;
+        // Phones on mobile data can be slow to start the clip; past this
+        // it's skipped.
+        giveUp = setTimeout(finishIntro, 8000);
+        fetch(INTRO_BASE + 'manifest.json', { cache: 'no-cache' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (manifest) {
+            var entry = pick(manifest);
+            if (!entry || introDone) return finishIntro();
+            // iOS only autoplays inline, muted video, and checks the
+            // attributes as well as the properties.
+            video.muted = true;
+            video.defaultMuted = true;
+            video.setAttribute('muted', '');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.autoplay = true;
+            video.addEventListener('playing', function () {
+              if (introDone) return;
+              clearTimeout(giveUp);
+              splash.classList.add('intro-on');
+              store.set('atlas_intro_played', String(Date.now()));
+              cap = setTimeout(finishIntro, 15000);
+            }, { once: true });
+            video.addEventListener('ended', finishIntro);
+            video.addEventListener('error', finishIntro);
+            video.src = /^https?:/.test(entry.file) ? entry.file : INTRO_BASE + entry.file;
+            video.load();
+            var p = video.play();
+            if (p && p.catch) p.catch(finishIntro);
+          })
+          .catch(finishIntro);
+
+        // Click or key skips it.
+        splash.addEventListener('click', function () { finishIntro(); });
+        window.addEventListener('keydown', function () { finishIntro(); }, { once: true });
+      }
+    })();
 </script>
 
 <script src="hls.min.js" defer></script>

@@ -659,6 +659,9 @@ class SettingsService extends BaseSharedPreferencesService {
   // Off by default: a coloured halo round the focused card is visual noise.
   // The outline and lift already mark it.
   static const focusGlow = BoolPref('focus_glow', defaultValue: false);
+
+  /// The seasonal intro clip played once when the app opens.
+  static const startupAnimation = BoolPref('startup_animation', defaultValue: true);
   static const useGlobalHubs = BoolPref('use_global_hubs', defaultValue: true);
   static const showServerNameOnHubs = BoolPref('show_server_name_on_hubs');
   static const groupLibrariesByServer = BoolPref('group_libraries_by_server', defaultValue: true);
@@ -1586,6 +1589,7 @@ class SettingsService extends BaseSharedPreferencesService {
     rewindOnResume,
     tvFullCardLayout,
     focusGlow,
+    startupAnimation,
     useGlobalHubs,
     showServerNameOnHubs,
     groupLibrariesByServer,

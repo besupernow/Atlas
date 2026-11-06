@@ -101,6 +101,12 @@ class AppearanceSettingsScreen extends StatelessWidget {
                 title: t.settings.focusGlow,
                 subtitle: t.settings.focusGlowDescription,
               ),
+            const SettingSwitchTile(
+              pref: SettingsService.startupAnimation,
+              icon: Symbols.movie_rounded,
+              title: 'Startup animation',
+              subtitle: 'Play the seasonal intro when Atlas+ opens',
+            ),
           ],
         ),
 
