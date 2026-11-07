@@ -5,10 +5,11 @@ import '../../../models/audio_channel_limit.dart';
 import '../../../services/device_performance.dart';
 import '../../../services/settings_service.dart';
 import '../../models.dart';
+import '../native_subtitle_rendering.dart';
 import '../player_base.dart';
 
 /// Android implementation using ExoPlayer with ASS subtitle support via libass-android.
-class PlayerAndroid extends PlayerBase {
+class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
   static const _methodChannel = MethodChannel('com.plezy/exo_player');
   static const _eventChannel = EventChannel('com.plezy/exo_player/events');
 
@@ -520,6 +521,14 @@ class PlayerAndroid extends PlayerBase {
 
   /// Apply the box-fit mode to the native ExoPlayer layer.
   /// Maps to AspectRatioFrameLayout resize mode: 0=FIT, 1=ZOOM, 2=FILL.
+  /// Atlas: hides ExoPlayer's own subtitle views while the app draws the
+  /// selected sidecar itself. mpv fallback ignores it.
+  @override
+  Future<void> setNativeSubtitleRendering(bool enabled) async {
+    if (disposed || !initialized) return;
+    await invoke('setSubtitleRendering', {'enabled': enabled});
+  }
+
   @override
   Future<void> setBoxFitMode(int mode) async {
     if (disposed || !initialized) return;

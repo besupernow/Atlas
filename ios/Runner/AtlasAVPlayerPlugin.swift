@@ -199,6 +199,9 @@ final class AtlasAVPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     case "selectSubtitleTrack":
       core?.selectSubtitle(id: args["trackId"] as? String ?? "no")
       result(nil)
+    case "setSubtitleRendering":
+      core?.setSubtitleRendering(args["enabled"] as? Bool ?? true)
+      result(nil)
     case "setSubtitleDelay":
       core?.subtitleDelay = (args["seconds"] as? NSNumber)?.doubleValue ?? 0
       result(nil)
@@ -290,6 +293,8 @@ final class AtlasAVPlayerCore: NSObject {
   private var cuesById: [String: [Cue]] = [:]
   private var selectedSubtitleId: String?
   private var shownCueText: String?
+  /// False while the app draws subtitles itself (AtlasSubtitleOverlay).
+  private var drawsSubtitles = true
   var subtitleDelay: Double = 0
   private var subtitleFontSize: CGFloat = 55
   private var subtitleTextColor: UIColor = .white
@@ -643,6 +648,18 @@ final class AtlasAVPlayerCore: NSObject {
 
   // MARK: Subtitles
 
+  func setSubtitleRendering(_ enabled: Bool) {
+    drawsSubtitles = enabled
+    if enabled {
+      if let id = selectedSubtitleId, cuesById[id] == nil, let sidecar = sidecars.first(where: { $0.id == id }) {
+        loadCues(for: sidecar)
+      }
+      updateSubtitle(at: player.currentTime().seconds)
+    } else {
+      showCue(nil)
+    }
+  }
+
   func selectSubtitle(id: String) {
     guard let sidecar = sidecars.first(where: { $0.id == id }) else {
       selectedSubtitleId = nil
@@ -654,7 +671,7 @@ final class AtlasAVPlayerCore: NSObject {
     selectedSubtitleId = sidecar.id
     onProperty?("sid", sidecar.id)
     emitTrackList()
-    if cuesById[sidecar.id] == nil { loadCues(for: sidecar) }
+    if drawsSubtitles && cuesById[sidecar.id] == nil { loadCues(for: sidecar) }
   }
 
   private func loadCues(for sidecar: Sidecar) {
@@ -734,7 +751,7 @@ final class AtlasAVPlayerCore: NSObject {
   }
 
   private func updateSubtitle(at seconds: Double) {
-    guard let id = selectedSubtitleId, let cues = cuesById[id], seconds.isFinite else {
+    guard drawsSubtitles, let id = selectedSubtitleId, let cues = cuesById[id], seconds.isFinite else {
       showCue(nil)
       return
     }

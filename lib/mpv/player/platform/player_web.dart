@@ -16,6 +16,7 @@ import '../player_state.dart';
 import '../player_stream_controllers.dart';
 import '../player_streams.dart';
 import '../web_video_surface.dart';
+import '../native_subtitle_rendering.dart';
 
 Player createWebPlayer({bool audioOnly = false}) => PlayerWeb(audioOnly: audioOnly);
 
@@ -38,7 +39,7 @@ int _nextViewId = 0;
 
 /// Browser playback backend: an HTMLVideoElement/HTMLAudioElement, with hls.js
 /// for HLS where the browser has no native support (everything but Apple).
-class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSurface {
+class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSurface, NativeSubtitleRendering {
   PlayerWeb({bool audioOnly = false}) : _audioOnly = audioOnly {
     _streams = createStreams();
     final web.HTMLMediaElement media = audioOnly ? web.HTMLAudioElement() : web.HTMLVideoElement();
@@ -486,13 +487,29 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
   @override
   Future<void> selectSubtitleTrack(SubtitleTrack track) async {
     for (final entry in _sidecars.entries) {
-      entry.value.track.mode = entry.key == track.id ? 'showing' : 'disabled';
+      entry.value.track.mode = entry.key == track.id ? _selectedTrackMode : 'disabled';
     }
     _setState(track: TrackSelection(audio: _state.track.audio, subtitle: track));
   }
 
   @override
   Future<void> selectSecondarySubtitleTrack(SubtitleTrack track) async {}
+
+  /// Atlas: while the app draws subtitles itself, the selected `<track>` stays
+  /// loaded but `hidden`, so the browser stops painting it.
+  bool _nativeSubtitles = true;
+
+  String get _selectedTrackMode => _nativeSubtitles ? 'showing' : 'hidden';
+
+  @override
+  Future<void> setNativeSubtitleRendering(bool enabled) async {
+    if (_nativeSubtitles == enabled) return;
+    _nativeSubtitles = enabled;
+    for (final element in _sidecars.values) {
+      final mode = element.track.mode;
+      if (mode == 'showing' || mode == 'hidden') element.track.mode = _selectedTrackMode;
+    }
+  }
 
   @override
   Future<void> selectAudioTrack(AudioTrack track) async {

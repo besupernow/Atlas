@@ -59,6 +59,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.FilteringMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mkv.MatroskaExtractor
@@ -685,7 +686,16 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      trackSelector = DefaultTrackSelector(activity).apply {
+      // Atlas adaptive streaming: step up after 4s of comfortable buffer instead of
+      // 10s, and trust 85% of the measured bandwidth instead of 70%. The ladder's
+      // declared BANDWIDTH is already a peak, so the default margin double-counts.
+      val adaptiveSelection = AdaptiveTrackSelection.Factory(
+        /* minDurationForQualityIncreaseMs= */ 4_000,
+        /* maxDurationForQualityDecreaseMs= */ 25_000,
+        /* minDurationToRetainAfterDiscardMs= */ 25_000,
+        /* bandwidthFraction= */ 0.85f,
+      )
+      trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
         setParameters(
           buildUponParameters()
             // Recover passthrough when HDMI capabilities flap (Shield refresh-rate / AVR link drop):
@@ -866,6 +876,7 @@ class ExoPlayerCore(private val activity: Activity) :
       surfaceContainer?.let { container ->
         val assView = AssSubtitleSurfaceView(container.context, handler)
         assSubtitleView = assView
+        if (!nativeSubtitlesEnabled) assView.visibility = View.INVISIBLE
         // Pre-36 sublayer is already set by the view's own setZOrderMediaOverlay(true).
         FlutterOverlayHelper.applyCompositionOrder(assView, -1)
         val bitmapIndex = container.indexOfChild(bitmapSubtitleView)
@@ -895,6 +906,7 @@ class ExoPlayerCore(private val activity: Activity) :
 
       exoPlayer!!.addListener(this)
       exoPlayer!!.addAnalyticsListener(decoderHangListener)
+      exoPlayer!!.addAnalyticsListener(abrLogListener)
       exoPlayer!!.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, _, _ ->
         // ASS bypasses Media3's text renderer, so apply sub-delay before libass renders.
         // Also render the subtitle one video-frame earlier than the picture: the
@@ -3985,6 +3997,56 @@ class ExoPlayerCore(private val activity: Activity) :
     "webvtt", "vtt" -> MimeTypes.TEXT_VTT
     "ttml" -> MimeTypes.APPLICATION_TTML
     else -> null
+  }
+
+  @Volatile private var lastBandwidthEstimate = 0L
+  private var lastBandwidthLogMs = 0L
+
+  /** Atlas: logs the bandwidth estimate and every rendition switch, to tune the ladder. */
+  private val abrLogListener = object : AnalyticsListener {
+    override fun onBandwidthEstimate(
+      eventTime: AnalyticsListener.EventTime,
+      totalLoadTimeMs: Int,
+      totalBytesLoaded: Long,
+      bitrateEstimate: Long,
+    ) {
+      lastBandwidthEstimate = bitrateEstimate
+      val now = android.os.SystemClock.elapsedRealtime()
+      if (now - lastBandwidthLogMs >= 15_000) {
+        lastBandwidthLogMs = now
+        Log.i(TAG, "[abr] estimate=${bitrateEstimate / 1000} kbps (last load ${totalBytesLoaded / 1024} KiB in ${totalLoadTimeMs} ms)")
+      }
+    }
+
+    override fun onVideoInputFormatChanged(
+      eventTime: AnalyticsListener.EventTime,
+      format: androidx.media3.common.Format,
+      decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+    ) {
+      Log.i(TAG, "[abr] now playing ${format.width}x${format.height} @ ${format.bitrate / 1000} kbps (estimate ${lastBandwidthEstimate / 1000} kbps)")
+    }
+  }
+
+  /** False while the app draws subtitles itself (Atlas subtitle overlay). */
+  @Volatile private var nativeSubtitlesEnabled = true
+
+  /**
+   * Atlas: hides (or shows again) every native subtitle surface while keeping the
+   * track selected, so the Flutter overlay can draw the sidecar instead.
+   */
+  fun setSubtitleRenderingEnabled(enabled: Boolean) {
+    nativeSubtitlesEnabled = enabled
+    activity.runOnUiThread {
+      if (disposing) return@runOnUiThread
+      applyNativeSubtitleVisibility()
+    }
+  }
+
+  private fun applyNativeSubtitleVisibility() {
+    val visibility = if (nativeSubtitlesEnabled) View.VISIBLE else View.INVISIBLE
+    subtitleView?.visibility = visibility
+    bitmapSubtitleView?.visibility = visibility
+    assSubtitleView?.visibility = visibility
   }
 
   override fun setVisible(visible: Boolean) {

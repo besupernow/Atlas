@@ -264,6 +264,11 @@ class ExoPlayerPlugin :
       "getStats" -> handleGetStats(result)
       "getPlayerType" -> result.success(if (usingMpvFallback) "mpv" else "exoplayer")
       "setSubtitleStyle" -> handleSetSubtitleStyle(call, result)
+      // Atlas: the app draws sidecar subtitles itself during adaptive streaming.
+      "setSubtitleRendering" -> {
+        if (!usingMpvFallback) playerCore?.setSubtitleRenderingEnabled(call.argument<Boolean>("enabled") ?: true)
+        result.success(null)
+      }
       "setBoxFitMode" -> handleSetBoxFitMode(call, result)
       "setVideoZoom" -> handleSetVideoZoom(call, result)
       "setDvConversionMode" -> handleSetDvConversionMode(call, result)

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../models/audio_channel_limit.dart';
 import '../../../services/atlas_adaptive_streaming.dart';
 import '../../models.dart';
+import '../native_subtitle_rendering.dart';
 import '../player_base.dart';
 
 /// iPhone / iPad backend on AVPlayer (`AtlasAVPlayerPlugin.swift`).
@@ -16,7 +17,7 @@ import '../player_base.dart';
 /// Subtitles are sidecar text files (WebVTT/SRT) the native side fetches and
 /// draws itself; nothing is burned into an adaptive stream. mpv-only knobs
 /// (`hwdec`, `sub-*`, filters, shaders) are accepted and ignored.
-class PlayerAvFoundation extends PlayerBase {
+class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
   static const _methodChannel = MethodChannel('com.atlas/av_player');
   static const _eventChannel = EventChannel('com.atlas/av_player/events');
 
@@ -326,6 +327,12 @@ class PlayerAvFoundation extends PlayerBase {
   Future<void> setVideoZoom(double scale) async {
     if (disposed || !initialized) return;
     await invoke('setVideoZoom', {'scale': scale});
+  }
+
+  @override
+  Future<void> setNativeSubtitleRendering(bool enabled) async {
+    if (disposed || !initialized) return;
+    await invoke('setSubtitleRendering', {'enabled': enabled});
   }
 
   @override
