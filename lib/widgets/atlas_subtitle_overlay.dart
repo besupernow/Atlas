@@ -162,9 +162,9 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
   }
 
   void _setNative(bool enabled) {
-    final player = widget.player;
-    if (player is NativeSubtitleRendering) {
-      unawaited(player.setNativeSubtitleRendering(enabled).catchError((Object _) {}));
+    // Player and NativeSubtitleRendering are unrelated types, so `is` can't promote; bind instead.
+    if (widget.player case final NativeSubtitleRendering native) {
+      unawaited(native.setNativeSubtitleRendering(enabled).catchError((Object _) {}));
     }
   }
 
