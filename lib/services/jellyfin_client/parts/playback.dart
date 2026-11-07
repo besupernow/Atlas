@@ -324,6 +324,20 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
               track.isExternalFile &&
               CodecUtils.isTextSubtitleCodec(track.codec),
         );
+    // Atlas adaptive streaming: an original-quality video play on a player that
+    // switches renditions itself goes through the server's ladder instead of the
+    // static file. A selected bitmap subtitle has to be burned in, which only a
+    // single transcode can do, so that one case keeps the old path.
+    final selectedSubtitleNeedsBurnIn =
+        effectiveSubtitleStreamId != null &&
+        mediaInfo.subtitleTracks.any(
+          (track) =>
+              track.id == effectiveSubtitleStreamId &&
+              !track.isExternalFile &&
+              !CodecUtils.isTextSubtitleCodec(track.codec),
+        );
+    final useAdaptive = !isTrack && wantsOriginal && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
+    var isAdaptive = false;
     final int? maxStreamingBitrate = wantsOriginal
         ? null
         : isTrack
@@ -384,7 +398,26 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // A browser can't decode everything mpv can, so the server's "direct
       // play isn't possible" verdict has to win even at original quality.
       final webNeedsTranscode = kIsWeb && chosenSource['SupportsDirectPlay'] != true;
-      if ((!wantsOriginal || webNeedsTranscode) && transcodingUrl is String && transcodingUrl.isNotEmpty) {
+      final negotiatedPlaySessionId = negotiation!['PlaySessionId'];
+      final adaptiveSourceId = _normalizedSourceId(effectiveSourceId);
+      if (useAdaptive &&
+          negotiatedPlaySessionId is String &&
+          negotiatedPlaySessionId.isNotEmpty &&
+          adaptiveSourceId != null) {
+        playSessionId = negotiatedPlaySessionId;
+        videoUrl = _buildAtlasAdaptiveUrl(
+          metadata.id,
+          mediaSourceId: adaptiveSourceId,
+          playSessionId: negotiatedPlaySessionId,
+          audioStreamIndex: requestedAudioStreamId,
+        );
+        // Reported as a transcode: the server runs (and pings, and stops) it as one,
+        // even when the level being watched is the original stream copied.
+        playMethod = 'Transcode';
+        isTranscoding = true;
+        isAdaptive = true;
+        appLogger.i('Atlas adaptive streaming for ${metadata.id} (source $adaptiveSourceId)');
+      } else if ((!wantsOriginal || webNeedsTranscode) && transcodingUrl is String && transcodingUrl.isNotEmpty) {
         // TranscodingUrl is server-relative and already encodes container,
         // codecs, MediaSourceId, and PlaySessionId; we just append the
         // dialect's token query parameter for auth.
@@ -419,7 +452,10 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     final negotiatedSubtitleStreamId = requestedSubtitleStreamId == -1
         ? null
         : requestedSubtitleStreamId ?? mediaInfo.defaultSubtitleStreamIndex;
-    final burnedSourceStreamId = isTranscoding && !requestedSubtitleIsExternalFile ? negotiatedSubtitleStreamId : null;
+    // Nothing is burned into an adaptive stream: every text track is a sidecar.
+    final burnedSourceStreamId = isTranscoding && !isAdaptive && !requestedSubtitleIsExternalFile
+        ? negotiatedSubtitleStreamId
+        : null;
     final subtitleSidecars = isTrack
         ? const <PlaybackSubtitleSidecar>[]
         : _buildExternalSubtitles(
@@ -451,6 +487,32 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       playSessionId: playSessionId,
       playMethod: playMethod,
       selectedMediaIndex: bundle.selectedSourceIndex,
+    );
+  }
+
+  /// The Atlas adaptive master playlist for [itemId], with the codecs this
+  /// player takes in the stream (see [AtlasAdaptiveStreaming]).
+  String _buildAtlasAdaptiveUrl(
+    String itemId, {
+    required String mediaSourceId,
+    required String playSessionId,
+    int? audioStreamIndex,
+  }) {
+    final webCaps = kIsWeb ? atlasWebAdaptiveCaps() : null;
+    return buildJellyfinAtlasAdaptiveUrl(
+      baseUrl: connection.baseUrl,
+      accessToken: connection.accessToken,
+      tokenQueryParam: connection.dialect.tokenQueryParam,
+      deviceId: connection.deviceId,
+      itemId: itemId,
+      mediaSourceId: mediaSourceId,
+      playSessionId: playSessionId,
+      videoCodecs: webCaps?.video ?? AtlasAdaptiveStreaming.nativeVideoCodecs,
+      audioCodecs: webCaps?.audio ?? AtlasAdaptiveStreaming.nativeAudioCodecs,
+      // Browsers get stereo; native players take 5.1 when a transcode has to touch audio.
+      maxAudioChannels: kIsWeb ? 2 : 6,
+      audioStreamIndex: audioStreamIndex,
+      startBitrate: webCaps?.downlinkBps,
     );
   }
 

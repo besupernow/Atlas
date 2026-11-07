@@ -74,6 +74,7 @@ import '../services/player_sync_offsets.dart';
 import '../services/preferred_audio_device.dart';
 import '../services/scoped_player_prefs.dart';
 import '../services/settings_service.dart';
+import '../services/atlas_adaptive_streaming.dart';
 import '../services/sleep_timer_service.dart';
 import '../services/subtitle_preference.dart';
 import '../services/track_manager.dart';
@@ -1818,7 +1819,29 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       if (!mounted || generation != _playerInitializationGeneration) return;
 
       initPhase = 'creating player';
-      final currentPlayer = Player(useExoPlayer: useExoPlayer, hardwareDecoding: enableHardwareDecoding);
+      // Atlas: on iPhone/iPad, AVPlayer only takes HLS (the adaptive ladder, or a
+      // server transcode). A downloaded or directly played file (MKV) still needs
+      // mpv, so wait for the resolve (already in flight) to see which this is.
+      // Live TV stays on mpv too.
+      var allowAvPlayer = false;
+      if (AtlasAdaptiveStreaming.usesAvPlayer && !widget.isLive && !_offlineLibraryMode) {
+        final playbackDataFuture = _playbackDataFuture;
+        if (playbackDataFuture != null) {
+          try {
+            final resolved = await playbackDataFuture;
+            final path = Uri.tryParse(resolved.result.videoUrl ?? '')?.path.toLowerCase() ?? '';
+            allowAvPlayer = path.endsWith('.m3u8');
+          } catch (_) {
+            // The playback start awaits the same future and reports the failure.
+          }
+          if (!mounted || generation != _playerInitializationGeneration) return;
+        }
+      }
+      final currentPlayer = Player(
+        useExoPlayer: useExoPlayer,
+        hardwareDecoding: enableHardwareDecoding,
+        allowAvPlayer: allowAvPlayer,
+      );
       attemptPlayer = currentPlayer;
       if (!mounted || generation != _playerInitializationGeneration) return;
       if (Platform.isAndroid) {

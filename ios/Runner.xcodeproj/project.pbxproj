@@ -26,6 +26,7 @@
 		B1D51A6A2F0011000000000E /* MpvAudioPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D51A6A2F0011000000000F /* MpvAudioPlayerPlugin.swift */; };
 		B1D51A6A2F00110000000008 /* ExternalDisplayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D51A6A2F00110000000007 /* ExternalDisplayManager.swift */; };
 		B1D51A6A2F00110000000010 /* VideoDecodeCapabilitiesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D51A6A2F00110000000011 /* VideoDecodeCapabilitiesPlugin.swift */; };
+		A71A5A0B2F10000000000001 /* AtlasAVPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71A5A0B2F10000000000002 /* AtlasAVPlayerPlugin.swift */; };
 		A9C0FF1C2F00120000000001 /* AppIconPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C0FF1C2F00120000000002 /* AppIconPlugin.swift */; };
 		A9C0FF1C2F00120000000003 /* AlternateAppIcons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A9C0FF1C2F00120000000004 /* AlternateAppIcons.xcassets */; };
 		1FB1E3FC084653353BC7A05F /* DeepLinkDeliveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 236F8E4D18840737730E5EDD /* DeepLinkDeliveryCoordinator.swift */; };
@@ -86,6 +87,7 @@
 		B1D51A6A2F0011000000000F /* MpvAudioPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MpvAudioPlayerPlugin.swift; path = ../shared/apple/MpvPlayer/MpvAudioPlayerPlugin.swift; sourceTree = SOURCE_ROOT; };
 		B1D51A6A2F00110000000007 /* ExternalDisplayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDisplayManager.swift; sourceTree = "<group>"; };
 		B1D51A6A2F00110000000011 /* VideoDecodeCapabilitiesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDecodeCapabilitiesPlugin.swift; sourceTree = "<group>"; };
+		A71A5A0B2F10000000000002 /* AtlasAVPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasAVPlayerPlugin.swift; sourceTree = "<group>"; };
 		A9C0FF1C2F00120000000002 /* AppIconPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppIconPlugin.swift; path = ../shared/apple/AppIcon/AppIconPlugin.swift; sourceTree = SOURCE_ROOT; };
 		A9C0FF1C2F00120000000004 /* AlternateAppIcons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = AlternateAppIcons.xcassets; sourceTree = "<group>"; };
 		236F8E4D18840737730E5EDD /* DeepLinkDeliveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeepLinkDeliveryCoordinator.swift; path = ../shared/apple/DeepLink/DeepLinkDeliveryCoordinator.swift; sourceTree = SOURCE_ROOT; };
@@ -208,6 +210,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				B1D51A6A2F00110000000011 /* VideoDecodeCapabilitiesPlugin.swift */,
+				A71A5A0B2F10000000000002 /* AtlasAVPlayerPlugin.swift */,
 				A9C0FF1C2F00120000000002 /* AppIconPlugin.swift */,
 				A9C0FF1C2F00120000000004 /* AlternateAppIcons.xcassets */,
 				236F8E4D18840737730E5EDD /* DeepLinkDeliveryCoordinator.swift */,
@@ -447,6 +450,7 @@
 				92F969587D0E464D999910F5 /* MpvPipController.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				B1D51A6A2F00110000000010 /* VideoDecodeCapabilitiesPlugin.swift in Sources */,
+				A71A5A0B2F10000000000001 /* AtlasAVPlayerPlugin.swift in Sources */,
 				A9C0FF1C2F00120000000001 /* AppIconPlugin.swift in Sources */,
 				1FB1E3FC084653353BC7A05F /* DeepLinkDeliveryCoordinator.swift in Sources */,
 				48BFBE9EA6DCC36FD5AF161B /* DeepLinkPlugin.swift in Sources */,

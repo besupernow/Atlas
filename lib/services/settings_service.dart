@@ -638,6 +638,13 @@ class SettingsService extends BaseSharedPreferencesService {
   static const enableDebugLogging = BoolPref('enable_debug_logging', onWrite: setLoggerLevel);
   static const crashReporting = BoolPref('crash_reporting', defaultValue: true);
   static const enableHardwareDecoding = BoolPref('enable_hardware_decoding', defaultValue: true);
+
+  /// Atlas adaptive streaming: play through the server's quality ladder (HLS with
+  /// several renditions) so quality follows the connection instead of stalling.
+  /// Needs a player that switches renditions itself: hls.js / Safari on the web,
+  /// ExoPlayer on Android, AVPlayer on iPhone and iPad. Off falls back to plain
+  /// direct play on mpv.
+  static const adaptiveStreaming = BoolPref('atlas_adaptive_streaming', defaultValue: true);
   static const enableHDR = BoolPref('enable_hdr', defaultValue: true);
   // Linux native video plane only. Defaults to the compositor: photographed on a
   // 400-nit HDR output against a PQ chart, the compositor keeps 400 -> 1000 nits
@@ -869,7 +876,9 @@ class SettingsService extends BaseSharedPreferencesService {
   /// default, and honoring those picks would leave the devices that most
   /// need the new backend on the old one. Dropping it ([onInit]) puts every
   /// install on mpv; choosing ExoPlayer again writes this key and sticks.
-  static const useExoPlayer = BoolPref('android_use_exoplayer');
+  ///
+  /// Atlas: ExoPlayer is the default, because adaptive streaming needs it.
+  static const useExoPlayer = BoolPref('android_use_exoplayer', defaultValue: true);
   static const startupSection = EnumPref<NavigationTabId>(
     'startup_section',
     values: NavigationTabId.values,

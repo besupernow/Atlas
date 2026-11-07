@@ -4,8 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:plezy/i18n/strings.g.dart';
 
+import 'atlas_adaptive_streaming.dart';
+
 class PipService {
-  static const MethodChannel _channel = MethodChannel('com.plezy/pip');
+  static const MethodChannel _mpvChannel = MethodChannel('com.plezy/pip');
+
+  /// Atlas: AVPlayer (iPhone/iPad adaptive streaming) has its own PiP on its own layer.
+  static const MethodChannel _avChannel = MethodChannel('com.atlas/av_pip');
+
+  static MethodChannel get _channel => AtlasAdaptiveStreaming.avPlayerActive ? _avChannel : _mpvChannel;
 
   /// PiP is only implemented natively on Android, iOS, and macOS.
   static bool get _isAvailable => Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
@@ -16,7 +23,8 @@ class PipService {
   PipService._internal() {
     if (!_isAvailable) return;
     // Listen for callbacks from native Android
-    _channel.setMethodCallHandler(_handleMethodCall);
+    _mpvChannel.setMethodCallHandler(_handleMethodCall);
+    if (Platform.isIOS) _avChannel.setMethodCallHandler(_handleMethodCall);
   }
 
   /// ValueNotifier for PiP state - widgets can listen to this

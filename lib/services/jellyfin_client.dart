@@ -89,6 +89,7 @@ import 'settings_service.dart' show SpecialsOrdering;
 import 'subtitle_preference.dart';
 import 'track_selection_service.dart';
 import 'video_decode_capabilities.dart';
+import 'atlas_adaptive_streaming.dart';
 import '../mpv/mpv.dart';
 import '../utils/codec_utils.dart';
 

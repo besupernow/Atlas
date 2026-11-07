@@ -38,6 +38,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
     return SettingsBuilder(
       prefs: const [
         SettingsService.useExoPlayer,
+        SettingsService.adaptiveStreaming,
         SettingsService.matchRefreshRate,
         SettingsService.matchDynamicRange,
         SettingsService.matchContentFrameRate,
@@ -117,6 +118,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
             SettingsGroup(
               title: t.settings.quality,
               children: [
+                if (kIsWeb || Platform.isIOS || Platform.isAndroid) _adaptiveStreamingTile(exoActive: exoActive),
                 _defaultQualityTile(),
                 // Only a phone/tablet has a cellular radio; desktop and TV
                 // never report a cellular-only connection.
@@ -420,6 +422,17 @@ class PlaybackSettingsScreen extends StatelessWidget {
         subtitle: t.settings.gesturePinchToZoomDescription,
       ),
     ],
+  );
+
+  /// Atlas adaptive streaming. On Android it rides on ExoPlayer, so the hint says
+  /// so while mpv is the backend.
+  Widget _adaptiveStreamingTile({required bool exoActive}) => SettingSwitchTile(
+    pref: SettingsService.adaptiveStreaming,
+    icon: Symbols.network_check_rounded,
+    title: 'Adaptive streaming',
+    subtitle: Platform.isAndroid && !exoActive
+        ? 'Needs the ExoPlayer backend. Original quality plays as the file with mpv.'
+        : 'At Original quality, picture quality follows your connection instead of buffering.',
   );
 
   Widget _playerBackendSelector() => SettingSegmentedTile<bool>(

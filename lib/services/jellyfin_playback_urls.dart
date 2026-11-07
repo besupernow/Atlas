@@ -61,3 +61,50 @@ String buildJellyfinTrickplayTileUrl({
 
 String _encodeQuery(Map<String, String> params) =>
     params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
+
+/// Atlas adaptive (ABR) master playlist: `/Videos/{id}/master.m3u8` with
+/// `AtlasAbr=true`, which the Atlas server answers with a whole quality ladder.
+///
+/// What this asks for decides the top level. Stream copy is allowed for video
+/// and audio, and no bitrate or size cap is sent, so a file the client can play
+/// as-is comes back as the original (remuxed, not re-encoded) with transcoded
+/// levels below it. The server adds those levels and their caps itself.
+///
+/// Subtitles are left out of the stream (no `SubtitleStreamIndex`): text
+/// tracks travel as sidecar files, so switching them needs no new stream.
+String buildJellyfinAtlasAdaptiveUrl({
+  required String baseUrl,
+  required String accessToken,
+  required String tokenQueryParam,
+  required String deviceId,
+  required String itemId,
+  required String mediaSourceId,
+  required String playSessionId,
+  required List<String> videoCodecs,
+  required List<String> audioCodecs,
+  required int maxAudioChannels,
+  int? audioStreamIndex,
+  int? startBitrate,
+}) {
+  final params = <String, String>{
+    tokenQueryParam: accessToken,
+    'DeviceId': deviceId,
+    'MediaSourceId': mediaSourceId,
+    'PlaySessionId': playSessionId,
+    'VideoCodec': videoCodecs.join(','),
+    'AudioCodec': audioCodecs.join(','),
+    'AllowVideoStreamCopy': 'true',
+    'AllowAudioStreamCopy': 'true',
+    'SegmentContainer': 'mp4',
+    'MinSegments': '1',
+    'BreakOnNonKeyFrames': 'false',
+    'RequireAvc': 'false',
+    'EnableAudioVbrEncoding': 'true',
+    'TranscodingMaxAudioChannels': '$maxAudioChannels',
+    'AudioStreamIndex': ?audioStreamIndex?.toString(),
+    'AtlasAbr': 'true',
+    'AtlasStartBitrate': ?(startBitrate != null && startBitrate > 0 ? '$startBitrate' : null),
+  };
+  final encodedItem = Uri.encodeComponent(itemId);
+  return '$baseUrl/Videos/$encodedItem/master.m3u8?${_encodeQuery(params)}';
+}

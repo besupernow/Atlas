@@ -51,6 +51,11 @@ import MediaPlayer
       MpvAudioPlayerPlugin.register(with: registrar)
     }
 
+    // Atlas: AVPlayer backend for adaptive streaming.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AtlasAVPlayerPlugin") {
+      AtlasAVPlayerPlugin.register(with: registrar)
+    }
+
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VideoDecodeCapabilitiesPlugin") {
       VideoDecodeCapabilitiesPlugin.register(with: registrar)
     }

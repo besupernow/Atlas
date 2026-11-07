@@ -4,3 +4,6 @@ Map<String, Object?>? buildWebDeviceProfile({
   required bool burnSubtitles,
   required bool audioProfile,
 }) => null;
+
+/// What the browser can take in an Atlas adaptive (HLS) stream. Null off the web.
+({List<String> video, List<String> audio, int? downlinkBps})? atlasWebAdaptiveCaps() => null;

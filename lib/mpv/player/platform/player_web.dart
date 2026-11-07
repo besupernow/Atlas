@@ -343,6 +343,23 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
       final secs = (start - _timelineOffset).inMilliseconds / 1000.0;
       if (secs > 0) config.setProperty('startPosition'.toJS, secs.toJS);
     }
+    // Atlas adaptive streaming: a real ladder, so let hls.js pick and switch.
+    // Levels are capped to what the element can show, the first one comes from
+    // the browser's own bandwidth hint (the server lists it first too), and the
+    // buffer stays short so a switch takes effect within a few segments.
+    final query = Uri.tryParse(uri)?.queryParameters ?? const <String, String>{};
+    if (query['AtlasAbr'] == 'true') {
+      config.setProperty('startLevel'.toJS, (-1).toJS);
+      config.setProperty('capLevelToPlayerSize'.toJS, true.toJS);
+      config.setProperty('maxBufferLength'.toJS, 30.toJS);
+      config.setProperty('maxMaxBufferLength'.toJS, 60.toJS);
+      config.setProperty('backBufferLength'.toJS, 30.toJS);
+      config.setProperty('testBandwidth'.toJS, true.toJS);
+      final hint = int.tryParse(query['AtlasStartBitrate'] ?? '');
+      if (hint != null && hint > 0) {
+        config.setProperty('abrEwmaDefaultEstimate'.toJS, (hint * 0.8).toJS);
+      }
+    }
     final headers = media.headers;
     if (headers != null && headers.isNotEmpty) {
       config.setProperty(

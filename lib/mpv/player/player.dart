@@ -4,7 +4,9 @@ import '../../models/audio_channel_limit.dart';
 import '../../media/playback_rate.dart';
 import '../models.dart';
 import 'audio_rendering_mode.dart';
+import '../../services/atlas_adaptive_streaming.dart';
 import 'platform/player_android.dart';
+import 'platform/player_avfoundation.dart';
 import 'player_native.dart';
 import 'player_state.dart';
 import 'player_streams.dart';
@@ -401,7 +403,11 @@ abstract class Player {
   /// vo=mediacodec (with gpu behind it) for hardware sessions, gpu-next for
   /// software ones, where DV reshaping can actually happen (see
   /// MpvPlayerCore.initialVideoOutput; #2010).
-  factory Player({bool? useExoPlayer, bool hardwareDecoding = true}) {
+  ///
+  /// [allowAvPlayer] (Atlas): the caller knows the source is HLS, so iPhone/iPad
+  /// may play it on AVPlayer for adaptive streaming. Anything else (downloaded
+  /// files, MKV direct play, live TV) stays on mpv.
+  factory Player({bool? useExoPlayer, bool hardwareDecoding = true, bool allowAvPlayer = false}) {
     if (kIsWeb) return web_player.createWebPlayer();
     if (Platform.isAndroid) {
       // Default to MPV on Android, with ExoPlayer as the opt-in alternative.
@@ -411,6 +417,11 @@ abstract class Player {
         return PlayerAndroid(); // ExoPlayer (opt-in)
       }
       return PlayerNative(hardwareDecoding: hardwareDecoding); // MPV (default)
+    }
+    // Atlas: iPhone/iPad play through AVPlayer so adaptive streaming can switch
+    // renditions; with adaptive streaming off they stay on mpv.
+    if (Platform.isIOS && allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) {
+      return PlayerAvFoundation();
     }
     if (Platform.isMacOS || Platform.isIOS) {
       return PlayerNative();

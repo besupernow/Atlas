@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../i18n/strings.g.dart';
 import '../models/transcode_quality_preset.dart';
+import '../services/atlas_adaptive_streaming.dart';
 import 'dialogs.dart';
 import 'formatters.dart';
 
@@ -14,6 +15,10 @@ const int _audioBitrateEstimateKbps = 192;
 /// - [TranscodeQualityPreset.p720_2mbps] → "720p 2 Mbps"
 /// - [TranscodeQualityPreset.p480_1_5mbps] → "480p 1.5 Mbps"
 String qualityPresetLabel(TranscodeQualityPreset preset, {int? sourceBitrateKbps}) {
+  if (preset.isOriginal && AtlasAdaptiveStreaming.enabled) {
+    // Atlas adaptive streaming: Original is the top of a ladder the player moves along.
+    return 'Auto (up to ${t.videoControls.qualityOriginal})';
+  }
   if (preset.isOriginal) {
     final bitrate = sourceBitrateKbps != null && sourceBitrateKbps > 0
         ? ByteFormatter.formatBitrate(sourceBitrateKbps)

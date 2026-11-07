@@ -101,7 +101,15 @@ interface ExoPlayerDelegate : com.edde746.plezy.shared.PlayerDelegate {
   ): Boolean = false
 }
 
-internal fun playbackMimeType(isLive: Boolean): String? = if (isLive) MimeTypes.APPLICATION_M3U8 else null
+/**
+ * Pins HLS for Live TV and for any `.m3u8` URL (Atlas adaptive streaming's master
+ * playlist), so the source is never sniffed as a progressive file.
+ */
+internal fun playbackMimeType(isLive: Boolean, uri: String? = null): String? {
+  if (isLive) return MimeTypes.APPLICATION_M3U8
+  val path = uri?.substringBefore('?')?.substringBefore('#') ?: return null
+  return if (path.endsWith(".m3u8", ignoreCase = true)) MimeTypes.APPLICATION_M3U8 else null
+}
 
 @OptIn(UnstableApi::class)
 class ExoPlayerCore(private val activity: Activity) :
@@ -685,6 +693,9 @@ class ExoPlayerCore(private val activity: Activity) :
             // encoded audio track when capabilities come back. See androidx/media#2258.
             .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            // Atlas adaptive streaming: the top level can be a HEVC original over H.264
+            // transcodes, so adapt across codecs instead of locking to one of them.
+            .setAllowVideoMixedMimeTypeAdaptiveness(true)
         )
       }
 
@@ -2756,7 +2767,7 @@ class ExoPlayerCore(private val activity: Activity) :
     // Every Live TV backend negotiates HLS before opening the native player.
     // Pin the MIME type so tokenized manifests never fall back to progressive
     // extension sniffing, and so initial opens and recovery use one source path.
-    playbackMimeType(currentMediaIsLive)?.let(mediaItemBuilder::setMimeType)
+    playbackMimeType(currentMediaIsLive, uri)?.let(mediaItemBuilder::setMimeType)
 
     if (externalSubtitles.isNotEmpty()) {
       mediaItemBuilder.setSubtitleConfigurations(externalSubtitles.toList())

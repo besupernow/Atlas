@@ -1,3 +1,6 @@
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
 import 'package:web/web.dart' as web;
 
 final web.HTMLVideoElement _probe = web.HTMLVideoElement();
@@ -104,4 +107,38 @@ Map<String, Object?>? buildWebDeviceProfile({
         for (final format in const ['vtt', 'srt', 'ass', 'ssa']) {'Format': format, 'Method': 'External'},
     ],
   };
+}
+
+/// Whether Media Source Extensions (what hls.js feeds) can take [mime].
+/// Safari plays HLS natively, so the element's own answer counts there too.
+bool _canMse(String mime) {
+  try {
+    if (web.MediaSource.isTypeSupported(mime)) return true;
+  } catch (_) {}
+  return _can(mime);
+}
+
+/// What this browser can take in an Atlas adaptive (HLS, fMP4) stream, plus the
+/// browser's own bandwidth estimate when it has one (Chromium's
+/// `navigator.connection.downlink`, in Mbps), so the server can list a sensible
+/// first level.
+({List<String> video, List<String> audio, int? downlinkBps})? atlasWebAdaptiveCaps() {
+  final h264 = _canMse('video/mp4; codecs="avc1.640029"');
+  final hevc = _canMse('video/mp4; codecs="hvc1.1.6.L120.90"') || _canMse('video/mp4; codecs="hev1.1.6.L120.90"');
+  final aac = _canMse('audio/mp4; codecs="mp4a.40.2"');
+  final ac3 = _canMse('audio/mp4; codecs="ac-3"');
+  final eac3 = _canMse('audio/mp4; codecs="ec-3"');
+
+  int? downlinkBps;
+  try {
+    final connection = web.window.navigator.getProperty<JSObject?>('connection'.toJS);
+    final downlink = connection?.getProperty<JSNumber?>('downlink'.toJS)?.toDartDouble;
+    if (downlink != null && downlink > 0) downlinkBps = (downlink * 1000000).round();
+  } catch (_) {}
+
+  return (
+    video: [if (h264 || !hevc) 'h264', if (hevc) 'hevc'],
+    audio: [if (aac || !(ac3 || eac3)) 'aac', if (ac3) 'ac3', if (eac3) 'eac3'],
+    downlinkBps: downlinkBps,
+  );
 }
