@@ -297,6 +297,13 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       return false;
     }
 
+    // Atlas: with the app drawing subtitles, a switch is the overlay's alone. The
+    // player is left as it is (its own drawing is already hidden), so nothing is
+    // reopened, no sidecar attached and no transcode restarted.
+    if (adaptiveLocal && atlasOverlayDrawsSubtitles(currentPlayer)) {
+      return _selectAdaptiveSubtitle(currentPlayer, burnSession, choice, shouldContinue: shouldContinue);
+    }
+
     if (choice.isOff) {
       await currentPlayer.selectSecondarySubtitleTrack(SubtitleTrack.off);
       if (!shouldContinue()) return false;
@@ -349,6 +356,36 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     if (!shouldContinue()) return false;
     await _onSubtitleTrackChanged(nativeTrack, sourceStreamId: sourceStreamId);
     return true;
+  }
+
+  Future<bool> _selectAdaptiveSubtitle(
+    Player currentPlayer,
+    PlaybackSession session,
+    PlaybackSourceSubtitleChoice choice, {
+    required bool Function() shouldContinue,
+  }) async {
+    final selection = AtlasSubtitleSelection.of(currentPlayer);
+    if (choice.isOff) {
+      selection.select(null);
+      await _onSubtitleTrackChanged(SubtitleTrack.off);
+      return shouldContinue();
+    }
+    final sourceStreamId = choice.sourceStreamId!;
+    final sidecar = _sidecarForSourceStreamId(session, sourceStreamId);
+    MediaSubtitleTrack? sourceTrack;
+    for (final candidate in _currentMediaInfo?.subtitleTracks ?? const <MediaSubtitleTrack>[]) {
+      if (candidate.id == sourceStreamId) {
+        sourceTrack = candidate;
+        break;
+      }
+    }
+    if (sidecar == null || sourceTrack == null) return false;
+    selection.select(sidecar.track);
+    await _onSubtitleTrackChanged(
+      PlaybackSubtitleResolver.subtitleTrackForSource(sourceTrack, sidecar: sidecar),
+      sourceStreamId: sourceStreamId,
+    );
+    return shouldContinue();
   }
 
   /// Reload a VOD item/source while keeping the route, player instance, and

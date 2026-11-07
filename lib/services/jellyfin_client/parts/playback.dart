@@ -512,8 +512,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // Browsers get stereo; native players take 5.1 when a transcode has to touch audio.
       maxAudioChannels: kIsWeb ? 2 : 6,
       audioStreamIndex: audioStreamIndex,
-      // What this device measured last time beats the browser's coarse guess.
-      startBitrate: AtlasAdaptiveStreaming.rememberedBandwidth ?? webCaps?.downlinkBps,
+      // Always open on the lowest rung for a fast first frame (see startEstimateBps).
+      startBitrate: AtlasAdaptiveStreaming.startEstimateBps,
     );
   }
 

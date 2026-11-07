@@ -41,6 +41,7 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
   StreamSubscription<void>? _loadedSub;
   late final Ticker _ticker;
   PlayerSyncOffsets? _offsets;
+  AtlasSubtitleSelection? _selection;
 
   String? _activeUri;
   List<_Cue> _cues = const [];
@@ -57,12 +58,7 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
   String? _text;
 
   /// Backends whose subtitles this replaces: the adaptive-streaming players.
-  bool get _eligible {
-    final type = widget.player.playerType;
-    return widget.player is NativeSubtitleRendering &&
-        AtlasAdaptiveStreaming.enabled &&
-        (type == 'exoplayer' || type == 'avplayer' || type == 'web');
-  }
+  bool get _eligible => atlasOverlayDrawsSubtitles(widget.player);
 
   @override
   void initState() {
@@ -86,7 +82,8 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     _offsets = PlayerSyncOffsets.of(player)..addListener(_refreshText);
     _playing = player.state.playing;
     _markPosition(player.state.position);
-    _trackSub = player.streams.track.listen((selection) => _onSelection(selection.subtitle));
+    _selection = AtlasSubtitleSelection.of(player)..addListener(_onAppSelection);
+    _trackSub = player.streams.track.listen((selection) => _onNativeSelection(selection.subtitle));
     _positionSub = player.streams.position.listen(_markPosition);
     _playingSub = player.streams.playing.listen((playing) {
       _markPosition(_currentPosition());
@@ -94,9 +91,11 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     });
     // A reload can bring up a fresh native renderer that draws again; tell it once more.
     _loadedSub = player.streams.fileLoaded.listen((_) {
+      // A new file: the player's own selection is authoritative again.
+      _selection?.release();
       if (_nativeHidden) _setNative(false);
     });
-    _onSelection(player.state.track.subtitle);
+    _onAppSelection();
   }
 
   void _detach({required bool restoreNative}) {
@@ -110,6 +109,8 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     _playingSub = null;
     _offsets?.removeListener(_refreshText);
     _offsets = null;
+    _selection?.removeListener(_onAppSelection);
+    _selection = null;
     if (_ticker.isActive) _ticker.stop();
     _loadGeneration++;
     _activeUri = null;
@@ -128,6 +129,16 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
 
   // ---------------------------------------------------------------- selection
 
+  void _onNativeSelection(SubtitleTrack? track) {
+    if (_selection?.active ?? false) return;
+    _onSelection(track);
+  }
+
+  void _onAppSelection() {
+    final selection = _selection;
+    _onSelection(selection != null && selection.active ? selection.track : widget.player.state.track.subtitle);
+  }
+
   void _onSelection(SubtitleTrack? track) {
     final uri = track?.uri;
     final usable =
@@ -144,8 +155,9 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
         _setText(null);
         if (_ticker.isActive) _ticker.stop();
       }
-      // A bitmap or embedded track is the backend's to draw.
-      if (_nativeHidden) {
+      // A bitmap or embedded track is the backend's to draw, unless the app is in
+      // charge (its "off" must stay off, whatever the player still has selected).
+      if (_nativeHidden && !(_selection?.active ?? false)) {
         _nativeHidden = false;
         _setNative(true);
       }
@@ -358,6 +370,50 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
         ),
       ],
     );
+  }
+}
+
+/// Whether [player] is one whose subtitles [AtlasSubtitleOverlay] draws
+/// (adaptive streaming on ExoPlayer, AVPlayer or the web player).
+bool atlasOverlayDrawsSubtitles(Player player) {
+  final type = player.playerType;
+  return player is NativeSubtitleRendering &&
+      AtlasAdaptiveStreaming.enabled &&
+      (type == 'exoplayer' || type == 'avplayer' || type == 'web');
+}
+
+/// Atlas adaptive streaming: a subtitle the app picked itself, drawn by the
+/// overlay without the player ever loading it.
+///
+/// Switching subtitles this way never touches the stream: no reopen to attach a
+/// sidecar, no transcode restart. While [active], the player's own selection is
+/// ignored; a new file (reload, next episode) hands control back to it.
+final class AtlasSubtitleSelection extends ChangeNotifier {
+  AtlasSubtitleSelection._();
+
+  factory AtlasSubtitleSelection.of(Player player) => _byPlayer[player] ??= AtlasSubtitleSelection._();
+
+  static final Expando<AtlasSubtitleSelection> _byPlayer = Expando<AtlasSubtitleSelection>('AtlasSubtitleSelection');
+
+  bool _active = false;
+  SubtitleTrack? _track;
+
+  bool get active => _active;
+
+  /// The app's pick, or null for off. Only meaningful while [active].
+  SubtitleTrack? get track => _track;
+
+  void select(SubtitleTrack? track) {
+    _active = true;
+    _track = track == null || track.id == SubtitleTrack.off.id ? null : track;
+    notifyListeners();
+  }
+
+  void release() {
+    if (!_active) return;
+    _active = false;
+    _track = null;
+    notifyListeners();
   }
 }
 

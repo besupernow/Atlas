@@ -687,11 +687,12 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      // Atlas adaptive streaming: step up after 4s of comfortable buffer instead of
-      // 10s, and trust 85% of the measured bandwidth instead of 70%. The ladder's
-      // declared BANDWIDTH is already a peak, so the default margin double-counts.
+      // Atlas adaptive streaming: playback opens on the lowest rung, so step up after
+      // 3s of buffer instead of 10s, and trust 85% of the measured bandwidth instead
+      // of 70%. The ladder's declared BANDWIDTH is already a peak, so the default
+      // margin double-counts. It jumps several rungs at once when the estimate allows.
       val adaptiveSelection = AdaptiveTrackSelection.Factory(
-        /* minDurationForQualityIncreaseMs= */ 4_000,
+        /* minDurationForQualityIncreaseMs= */ 3_000,
         /* maxDurationForQualityDecreaseMs= */ 25_000,
         /* minDurationToRetainAfterDiscardMs= */ 25_000,
         /* bandwidthFraction= */ 0.85f,
@@ -1147,7 +1148,13 @@ class ExoPlayerCore(private val activity: Activity) :
     val textCues = cues.filter { it.bitmap == null }
     val bitmapCues = cues.filter { it.bitmap != null }
     updateBitmapSubtitlePlaneAspect(bitmapCues)
-    val outgoing = SubtitleCueLayout.layout(textCues, subtitlePositionPercent, subtitleFontSize)
+    // Atlas: while the app draws the sidecar itself, text cues never reach the
+    // native view (hiding the view alone isn't enough once it is re-laid out).
+    val outgoing = if (nativeSubtitlesEnabled) {
+      SubtitleCueLayout.layout(textCues, subtitlePositionPercent, subtitleFontSize)
+    } else {
+      emptyList()
+    }
     subtitleView?.setCues(outgoing)
     bitmapSubtitleView?.setCues(bitmapCues)
   }
@@ -4054,6 +4061,7 @@ class ExoPlayerCore(private val activity: Activity) :
   }
 
   private fun applyNativeSubtitleVisibility() {
+    renderSubtitleCues(lastSubtitleCues)
     val visibility = if (nativeSubtitlesEnabled) View.VISIBLE else View.INVISIBLE
     subtitleView?.visibility = visibility
     bitmapSubtitleView?.visibility = visibility

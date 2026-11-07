@@ -266,6 +266,8 @@ final class AtlasAVPlayerCore: NSObject {
   private var generation = 0
   private var wantsPlay = false
   private var desiredRate: Float = 1
+  /// Whether this item has started playing once (see startPlayback).
+  private var startedOnce = false
   private var pendingStart: CMTime?
   private var fileLoaded = false
   private var restartSent = false
@@ -382,6 +384,7 @@ final class AtlasAVPlayerCore: NSObject {
     }
 
     fileLoaded = false
+    startedOnce = false
     restartSent = false
     lastBuffering = nil
     wantsPlay = autoPlay
@@ -543,7 +546,16 @@ final class AtlasAVPlayerCore: NSObject {
   }
 
   /// Starts playback at the chosen speed (AVPlayer.play() always means 1x before iOS 16).
+  ///
+  /// The first start of an item doesn't wait for AVPlayer's "likely to keep up"
+  /// verdict, which wants several segments buffered: the stream opens on its
+  /// lowest rung, one segment is enough, and AVPlayer climbs from there.
   private func startPlayback() {
+    if !startedOnce {
+      startedOnce = true
+      player.playImmediately(atRate: desiredRate)
+      return
+    }
     player.play()
     if desiredRate != 1 { player.rate = desiredRate }
   }

@@ -52,6 +52,12 @@ abstract final class AtlasAdaptiveStreaming {
     return false;
   }
 
+  /// The first bandwidth estimate an adaptive play starts from, in bits per
+  /// second: just enough for the lowest rung (480p at 1.5 Mbps) and not the next
+  /// one, so the first segment comes back as fast as possible. The player climbs,
+  /// or jumps straight up, once it has measured the connection.
+  static const int startEstimateBps = 2600000;
+
   /// The start hint for the next adaptive play: what this device measured last
   /// time, or null when it never has.
   static int? get rememberedBandwidth {
