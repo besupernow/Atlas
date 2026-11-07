@@ -38,6 +38,7 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
   StreamSubscription<TrackSelection>? _trackSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<bool>? _playingSub;
+  StreamSubscription<void>? _loadedSub;
   late final Ticker _ticker;
   PlayerSyncOffsets? _offsets;
 
@@ -91,6 +92,10 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
       _markPosition(_currentPosition());
       _playing = playing;
     });
+    // A reload can bring up a fresh native renderer that draws again; tell it once more.
+    _loadedSub = player.streams.fileLoaded.listen((_) {
+      if (_nativeHidden) _setNative(false);
+    });
     _onSelection(player.state.track.subtitle);
   }
 
@@ -98,6 +103,8 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     _trackSub?.cancel();
     _positionSub?.cancel();
     _playingSub?.cancel();
+    _loadedSub?.cancel();
+    _loadedSub = null;
     _trackSub = null;
     _positionSub = null;
     _playingSub = null;

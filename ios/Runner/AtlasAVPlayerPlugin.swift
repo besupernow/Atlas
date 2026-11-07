@@ -895,6 +895,8 @@ final class AtlasAVPlayerCore: NSObject {
       let observedMbps = event.observedBitrate > 0 ? String(format: "%.1f", event.observedBitrate / 1_000_000) : "?"
       out["videoDecoderName"] = "AVPlayer HLS, \(event.numberOfMediaRequests) segments, est. \(observedMbps) Mbps"
       out["switches"] = event.switchBitrate
+      // Atlas: the measured connection speed, remembered for the next play's start level.
+      if event.observedBitrate > 0 { out["bandwidthEstimate"] = Int(event.observedBitrate) }
     }
     let now = item.currentTime().seconds
     for value in item.loadedTimeRanges {

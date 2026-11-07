@@ -36,7 +36,10 @@ String qualityPresetLabel(TranscodeQualityPreset preset, {int? sourceBitrateKbps
 ///
 /// The resolution is named from the frame size rather than the raw height, so a
 /// scope film's 1920x800 still reads as 1080p.
-String adaptiveQualityLabel({int? width, int? height, int? bitrateBps}) {
+///
+/// [linkBps], the player's measured connection speed, is appended as
+/// `(link 8.2 Mbps)` so it's clear why the player isn't stepping up.
+String adaptiveQualityLabel({int? width, int? height, int? bitrateBps, int? linkBps}) {
   final w = width ?? 0;
   final h = height ?? 0;
   if (w <= 0 && h <= 0) return 'Auto (up to ${t.videoControls.qualityOriginal})';
@@ -55,7 +58,8 @@ String adaptiveQualityLabel({int? width, int? height, int? bitrateBps}) {
     resolution = '${h}p';
   }
   final bitrate = bitrateBps != null && bitrateBps > 0 ? '${_formatBitrate(bitrateBps ~/ 1000)} Mbps' : null;
-  return ['Auto', resolution, ?bitrate].join(' · ');
+  final link = linkBps != null && linkBps > 0 ? '(link ${(linkBps / 1000000).toStringAsFixed(1)} Mbps)' : null;
+  return [['Auto', resolution, ?bitrate].join(' · '), ?link].join(' ');
 }
 
 String _formatBitrate(int kbps) {

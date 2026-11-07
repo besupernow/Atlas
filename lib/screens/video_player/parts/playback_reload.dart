@@ -263,7 +263,15 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     final burnSession = _playbackSession;
     final burnedSourceStreamId = burnSession?.subtitleSelection.primarySourceStreamId;
     final targetSourceStreamId = choice.sourceStreamId;
-    if (PlaybackSubtitleResolver.burnRequiresRenegotiation(
+    // Atlas adaptive streaming burns nothing: any target that has a sidecar (every text track)
+    // or is off is applied right here, without restarting the stream.
+    final adaptiveLocal =
+        burnSession != null &&
+        burnSession.isAdaptive &&
+        (choice.isOff ||
+            (targetSourceStreamId != null && _sidecarForSourceStreamId(burnSession, targetSourceStreamId) != null));
+    if (!adaptiveLocal &&
+        PlaybackSubtitleResolver.burnRequiresRenegotiation(
       isTranscoding: _isTranscoding,
       currentSourceStreamId: burnedSourceStreamId,
       currentSelectionHasSidecar:

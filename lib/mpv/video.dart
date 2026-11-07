@@ -7,6 +7,7 @@ import 'models.dart';
 import 'player/player.dart';
 import 'player/video_rect_support.dart';
 import 'player/web_video_surface.dart';
+import '../widgets/atlas_abr_sampler.dart';
 import '../widgets/atlas_subtitle_overlay.dart';
 
 /// Video widget for displaying player output.
@@ -127,6 +128,7 @@ class _VideoState extends State<Video> {
 
           // Atlas: app-drawn subtitles during adaptive streaming (inactive otherwise).
           AtlasSubtitleOverlay(player: widget.player),
+          AtlasAbrSampler(player: widget.player),
 
           // Controls overlay
           if (widget.controls != null) widget.controls!(context),

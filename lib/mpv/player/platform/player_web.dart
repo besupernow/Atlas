@@ -32,6 +32,9 @@ extension type _Hls._(JSObject _) implements JSObject {
 
   /// Index into [levels] being played, -1 before the first one is picked.
   external int get currentLevel;
+
+  /// hls.js's measured bandwidth, in bits per second.
+  external double get bandwidthEstimate;
   external JSArray<JSObject> get levels;
 }
 
@@ -354,7 +357,8 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     // buffer stays short so a switch takes effect within a few segments.
     final query = Uri.tryParse(uri)?.queryParameters ?? const <String, String>{};
     if (query['AtlasAbr'] == 'true') {
-      config.setProperty('startLevel'.toJS, (-1).toJS);
+      // No startLevel: hls.js then opens on the first level of the manifest,
+      // which is the one the server picked for this connection.
       config.setProperty('capLevelToPlayerSize'.toJS, true.toJS);
       config.setProperty('maxBufferLength'.toJS, 30.toJS);
       config.setProperty('maxMaxBufferLength'.toJS, 60.toJS);
@@ -376,10 +380,12 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     }
     final hls = _Hls(config);
     _hls = hls;
+    _fragmentsLoaded = false;
     hls.on('hlsError', _onHlsError.toJS);
     if (query['AtlasAbr'] == 'true') {
       hls.on('hlsManifestParsed', _onHlsManifestParsed.toJS);
       hls.on('hlsLevelSwitched', _onHlsLevelSwitched.toJS);
+      hls.on('hlsFragLoaded', _onHlsFragLoaded.toJS);
     }
     hls.attachMedia(_media);
     hls.loadSource(uri);
@@ -403,6 +409,20 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     logController.add(
       PlayerLog(level: PlayerLogLevel.info, prefix: 'hls', text: 'Atlas ABR: now on ${_describeLevel(levels[index])}'),
     );
+  }
+
+  /// hls.js reports its default guess until it has timed a fragment; only a
+  /// real measurement is worth remembering.
+  int? _measuredBandwidth(_Hls hls) {
+    if (!_fragmentsLoaded) return null;
+    final estimate = hls.bandwidthEstimate;
+    return estimate.isFinite && estimate > 0 ? estimate.round() : null;
+  }
+
+  bool _fragmentsLoaded = false;
+
+  void _onHlsFragLoaded(JSAny? event, JSObject data) {
+    _fragmentsLoaded = true;
   }
 
   static String _describeLevel(JSObject level) {
@@ -674,6 +694,7 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
             'videoWidth': level.getProperty<JSNumber?>('width'.toJS)?.toDartDouble.round(),
             'videoHeight': level.getProperty<JSNumber?>('height'.toJS)?.toDartDouble.round(),
             'videoBitrate': level.getProperty<JSNumber?>('bitrate'.toJS)?.toDartDouble.round(),
+            'bandwidthEstimate': _measuredBandwidth(hls),
           };
         }
       } catch (_) {

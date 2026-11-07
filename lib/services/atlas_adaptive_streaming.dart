@@ -52,6 +52,34 @@ abstract final class AtlasAdaptiveStreaming {
     return false;
   }
 
+  /// The start hint for the next adaptive play: what this device measured last
+  /// time, or null when it never has.
+  static int? get rememberedBandwidth {
+    try {
+      final value = SettingsService.instance.read(SettingsService.adaptiveBandwidthEstimate);
+      return value > 0 ? value : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Folds one session's measured connection speed into the remembered one.
+  /// Half old, half new: one slow evening doesn't wipe out a fast connection,
+  /// and a new, faster one shows up within a play or two.
+  ///
+  /// [baseline] is the value to blend with (what was remembered when the session
+  /// started), so saving more than once in a session doesn't blend twice.
+  static Future<void> rememberBandwidth(int bitsPerSecond, {int? baseline}) async {
+    if (bitsPerSecond <= 0) return;
+    final previous = baseline ?? rememberedBandwidth;
+    final blended = previous == null ? bitsPerSecond : ((previous + bitsPerSecond) / 2).round();
+    try {
+      await SettingsService.instance.write(SettingsService.adaptiveBandwidthEstimate, blended);
+    } catch (_) {
+      // Best effort: the next play just starts from the default.
+    }
+  }
+
   /// Video codecs a native ABR player takes in the stream. The library is
   /// conformed to H.264; HEVC is listed where the device decodes it so a HEVC
   /// original can still be the top (stream copied) level.

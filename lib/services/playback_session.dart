@@ -75,6 +75,11 @@ class PlaybackSession {
 
   bool get isTranscoding => context.result.isTranscoding;
 
+  /// Atlas adaptive streaming: the server's quality ladder. A transcode as far
+  /// as reporting goes, but every text subtitle is a sidecar and nothing is
+  /// burned in, so subtitle changes never need the server.
+  bool get isAdaptive => context.result.videoUrl?.contains('AtlasAbr=true') ?? false;
+
   bool get isOffline => context.result.isOffline;
 
   String? get playSessionId => context.result.playSessionId;

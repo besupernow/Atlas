@@ -391,6 +391,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   int? _adaptiveWidth;
   int? _adaptiveHeight;
   int? _adaptiveBitrate;
+  int? _adaptiveLink;
 
   TrackControlsState get _state => widget.trackControlsState;
 
@@ -456,11 +457,20 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final width = asInt(stats['videoWidth']);
     final height = asInt(stats['videoHeight']);
     final bitrate = asInt(stats['videoBitrate']);
-    if (width == _adaptiveWidth && height == _adaptiveHeight && bitrate == _adaptiveBitrate) return;
+    // Rounded to 0.1 Mbps so the row doesn't flicker on every sample.
+    final rawLink = asInt(stats['bandwidthEstimate']);
+    final link = rawLink == null ? null : (rawLink / 100000).round() * 100000;
+    if (width == _adaptiveWidth &&
+        height == _adaptiveHeight &&
+        bitrate == _adaptiveBitrate &&
+        link == _adaptiveLink) {
+      return;
+    }
     setState(() {
       _adaptiveWidth = width;
       _adaptiveHeight = height;
       _adaptiveBitrate = bitrate;
+      _adaptiveLink = link;
     });
   }
 
@@ -822,7 +832,14 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final values = <String>[];
     if (showVersions) values.add(_selectedVersionLabel());
     if (_state.serverSupportsTranscoding && _isAdaptivePlayback) {
-      values.add(adaptiveQualityLabel(width: _adaptiveWidth, height: _adaptiveHeight, bitrateBps: _adaptiveBitrate));
+      values.add(
+        adaptiveQualityLabel(
+          width: _adaptiveWidth,
+          height: _adaptiveHeight,
+          bitrateBps: _adaptiveBitrate,
+          linkBps: _adaptiveLink,
+        ),
+      );
     } else if (_state.serverSupportsTranscoding) {
       values.add(
         qualityPresetLabel(

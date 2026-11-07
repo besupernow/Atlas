@@ -334,7 +334,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
           (track) =>
               track.id == effectiveSubtitleStreamId &&
               !track.isExternalFile &&
-              !CodecUtils.isTextSubtitleCodec(track.codec),
+              CodecUtils.isImageSubtitleCodec(track.codec),
         );
     final useAdaptive = !isTrack && wantsOriginal && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
     var isAdaptive = false;
@@ -512,7 +512,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // Browsers get stereo; native players take 5.1 when a transcode has to touch audio.
       maxAudioChannels: kIsWeb ? 2 : 6,
       audioStreamIndex: audioStreamIndex,
-      startBitrate: webCaps?.downlinkBps,
+      // What this device measured last time beats the browser's coarse guess.
+      startBitrate: AtlasAdaptiveStreaming.rememberedBandwidth ?? webCaps?.downlinkBps,
     );
   }
 

@@ -60,6 +60,7 @@ import androidx.media3.exoplayer.source.FilteringMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mkv.MatroskaExtractor
@@ -849,8 +850,11 @@ class ExoPlayerCore(private val activity: Activity) :
           "tunneling=$tunnelingUserEnabled, dataSource=$dataSourceLabel"
       )
 
+      val meter = HintedBandwidthMeter(DefaultBandwidthMeter.Builder(activity).build())
+      bandwidthMeter = meter
       exoPlayer = ExoPlayer.Builder(activity)
         .setTrackSelector(trackSelector!!)
+        .setBandwidthMeter(meter)
         .setLoadControl(loadControl)
         .setAudioAttributes(audioAttributes, false) // We handle audio focus manually
         .setMediaSourceFactory(mediaSourceFactory)
@@ -3436,6 +3440,12 @@ class ExoPlayerCore(private val activity: Activity) :
     resumeStallRecoveryCount = 0
     loggedResumeStallCap = false
 
+    // Atlas adaptive streaming: the app's remembered connection speed rides in the
+    // master URL; until this player has measured anything, it is the estimate the
+    // first rendition is picked from.
+    bandwidthMeter?.hintBps =
+      Uri.parse(uri).getQueryParameter("AtlasStartBitrate")?.toLongOrNull()?.takeIf { it > 0 } ?: 0L
+
     // Reset FPS detection for new content
     detectedFrameRate = -1f
     this.contentFrameRate = contentFrameRate
@@ -3999,6 +4009,7 @@ class ExoPlayerCore(private val activity: Activity) :
     else -> null
   }
 
+  private var bandwidthMeter: HintedBandwidthMeter? = null
   @Volatile private var lastBandwidthEstimate = 0L
   private var lastBandwidthLogMs = 0L
 
@@ -4255,6 +4266,8 @@ class ExoPlayerCore(private val activity: Activity) :
       "videoHeight" to videoFormat?.height,
       "videoFps" to (videoFormat?.frameRate?.takeIf { it > 0 } ?: detectedFrameRate.takeIf { it > 0 }),
       "videoBitrate" to videoFormat?.bitrate,
+      // Atlas: the measured connection speed, remembered for the next play's start level.
+      "bandwidthEstimate" to bandwidthMeter?.measuredEstimate?.takeIf { it > 0 },
       "videoDecoderName" to videoDecoderName,
       "videoDroppedFrames" to player.videoDecoderCounters?.droppedBufferCount,
       "videoRenderedFrames" to player.videoDecoderCounters?.renderedOutputBufferCount,
