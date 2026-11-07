@@ -301,7 +301,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     // player is left as it is (its own drawing is already hidden), so nothing is
     // reopened, no sidecar attached and no transcode restarted.
     if (adaptiveLocal && atlasOverlayDrawsSubtitles(currentPlayer)) {
-      return _selectAdaptiveSubtitle(currentPlayer, burnSession, choice, shouldContinue: shouldContinue);
+      return _selectAdaptiveSubtitle(currentPlayer, burnSession!, choice, shouldContinue: shouldContinue);
     }
 
     if (choice.isOff) {
