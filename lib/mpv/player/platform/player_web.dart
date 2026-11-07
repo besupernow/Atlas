@@ -28,6 +28,10 @@ extension type _Hls._(JSObject _) implements JSObject {
   external void recoverMediaError();
   external void destroy();
   external void on(String event, JSFunction callback);
+
+  /// Index into [levels] being played, -1 before the first one is picked.
+  external int get currentLevel;
+  external JSArray<JSObject> get levels;
 }
 
 int _nextViewId = 0;
@@ -372,8 +376,38 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     final hls = _Hls(config);
     _hls = hls;
     hls.on('hlsError', _onHlsError.toJS);
+    if (query['AtlasAbr'] == 'true') {
+      hls.on('hlsManifestParsed', _onHlsManifestParsed.toJS);
+      hls.on('hlsLevelSwitched', _onHlsLevelSwitched.toJS);
+    }
     hls.attachMedia(_media);
     hls.loadSource(uri);
+  }
+
+  void _onHlsManifestParsed(JSAny? event, JSObject data) {
+    if (_disposed) return;
+    final levels = data.getProperty<JSArray<JSObject>?>('levels'.toJS)?.toDart ?? const <JSObject>[];
+    final described = levels.map(_describeLevel).join(', ');
+    logController.add(
+      PlayerLog(level: PlayerLogLevel.info, prefix: 'hls', text: 'Atlas ABR: ${levels.length} levels [$described]'),
+    );
+  }
+
+  void _onHlsLevelSwitched(JSAny? event, JSObject data) {
+    final hls = _hls;
+    if (_disposed || hls == null) return;
+    final index = data.getProperty<JSNumber?>('level'.toJS)?.toDartInt ?? -1;
+    final levels = hls.levels.toDart;
+    if (index < 0 || index >= levels.length) return;
+    logController.add(
+      PlayerLog(level: PlayerLogLevel.info, prefix: 'hls', text: 'Atlas ABR: now on ${_describeLevel(levels[index])}'),
+    );
+  }
+
+  static String _describeLevel(JSObject level) {
+    final height = level.getProperty<JSNumber?>('height'.toJS)?.toDartDouble.round() ?? 0;
+    final bitrate = level.getProperty<JSNumber?>('bitrate'.toJS)?.toDartDouble ?? 0;
+    return '${height}p@${(bitrate / 1000000).toStringAsFixed(1)}M';
   }
 
   void _onHlsError(JSAny? event, JSObject data) {
@@ -608,8 +642,33 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     bool anchorToScreen = false,
   }) async {}
 
+  /// Only what the quality row needs: the rendition hls.js is on (Atlas
+  /// adaptive streaming), or the element's own frame size for native HLS.
   @override
-  Future<Map<String, dynamic>> getStats() async => const {};
+  Future<Map<String, dynamic>> getStats() async {
+    final hls = _hls;
+    if (hls != null) {
+      try {
+        final index = hls.currentLevel;
+        final levels = hls.levels.toDart;
+        if (index >= 0 && index < levels.length) {
+          final level = levels[index];
+          return {
+            'videoWidth': level.getProperty<JSNumber?>('width'.toJS)?.toDartDouble.round(),
+            'videoHeight': level.getProperty<JSNumber?>('height'.toJS)?.toDartDouble.round(),
+            'videoBitrate': level.getProperty<JSNumber?>('bitrate'.toJS)?.toDartDouble.round(),
+          };
+        }
+      } catch (_) {
+        // A torn-down instance; fall through to the element.
+      }
+    }
+    final media = _media;
+    if (media is web.HTMLVideoElement && media.videoHeight > 0) {
+      return {'videoWidth': media.videoWidth, 'videoHeight': media.videoHeight};
+    }
+    return const {};
+  }
 
   @override
   Future<String> runtimePlayerType() async => 'web';

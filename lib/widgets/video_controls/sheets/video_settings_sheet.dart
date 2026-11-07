@@ -21,6 +21,7 @@ import '../../../media/playback_rate.dart';
 import '../../../mpv/mpv.dart';
 import '../../../mpv/player/player_native.dart';
 import '../../../providers/shader_provider.dart';
+import '../../../services/atlas_adaptive_streaming.dart';
 import '../../../services/file_picker_service.dart';
 import '../../../services/scoped_player_prefs.dart';
 import '../../../services/settings_service.dart';
@@ -384,7 +385,21 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   late HdrToneMapping _hdrToneMapping;
   late AudioChannelLimit _audioChannelLimit;
 
+  // Atlas adaptive streaming: the rendition the player is on, polled while the
+  // sheet is open so the Quality row climbs along with the player.
+  Timer? _adaptiveLevelTimer;
+  int? _adaptiveWidth;
+  int? _adaptiveHeight;
+  int? _adaptiveBitrate;
+
   TrackControlsState get _state => widget.trackControlsState;
+
+  /// Playing the adaptive ladder: Original quality, adaptive streaming on, and a
+  /// backend that switches renditions (mpv only ever plays the file itself).
+  bool get _isAdaptivePlayback =>
+      _state.selectedQualityPreset.isOriginal &&
+      AtlasAdaptiveStreaming.enabled &&
+      widget.player.playerType != 'mpv';
 
   // An explicit value from the caller wins. Otherwise the capability is static
   // per platform, except on the Linux video plane where it depends on the
@@ -419,10 +434,39 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       _hdrOutputChanged = widget.player.streams.hdrOutputChanged.listen((_) => _refreshLinuxHdrSupport());
     }
     _refreshLinuxHdrSupport();
+    _startAdaptiveLevelPolling();
+  }
+
+  void _startAdaptiveLevelPolling() {
+    if (!_isAdaptivePlayback) return;
+    unawaited(_pollAdaptiveLevel());
+    _adaptiveLevelTimer = Timer.periodic(const Duration(seconds: 1), (_) => unawaited(_pollAdaptiveLevel()));
+  }
+
+  Future<void> _pollAdaptiveLevel() async {
+    final player = widget.player;
+    final Map<String, dynamic> stats;
+    try {
+      stats = await player.getStats();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || player != widget.player) return;
+    int? asInt(Object? value) => value is num && value > 0 ? value.round() : null;
+    final width = asInt(stats['videoWidth']);
+    final height = asInt(stats['videoHeight']);
+    final bitrate = asInt(stats['videoBitrate']);
+    if (width == _adaptiveWidth && height == _adaptiveHeight && bitrate == _adaptiveBitrate) return;
+    setState(() {
+      _adaptiveWidth = width;
+      _adaptiveHeight = height;
+      _adaptiveBitrate = bitrate;
+    });
   }
 
   @override
   void dispose() {
+    _adaptiveLevelTimer?.cancel();
     _hdrSupportLifecycle?.dispose();
     _hdrOutputChanged?.cancel();
     super.dispose();
@@ -777,7 +821,9 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final showVersions = _state.availableVersions.length > 1;
     final values = <String>[];
     if (showVersions) values.add(_selectedVersionLabel());
-    if (_state.serverSupportsTranscoding) {
+    if (_state.serverSupportsTranscoding && _isAdaptivePlayback) {
+      values.add(adaptiveQualityLabel(width: _adaptiveWidth, height: _adaptiveHeight, bitrateBps: _adaptiveBitrate));
+    } else if (_state.serverSupportsTranscoding) {
       values.add(
         qualityPresetLabel(
           _state.selectedQualityPreset,

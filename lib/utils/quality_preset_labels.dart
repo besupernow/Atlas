@@ -30,6 +30,34 @@ String qualityPresetLabel(TranscodeQualityPreset preset, {int? sourceBitrateKbps
   return t.videoControls.qualityPresetLabel(resolution: height, bitrate: bitrate);
 }
 
+/// Atlas adaptive streaming: the level the player is on right now, e.g.
+/// `Auto · 1080p · 7.4 Mbps`. Falls back to `Auto (up to Original)` until the
+/// player has picked one.
+///
+/// The resolution is named from the frame size rather than the raw height, so a
+/// scope film's 1920x800 still reads as 1080p.
+String adaptiveQualityLabel({int? width, int? height, int? bitrateBps}) {
+  final w = width ?? 0;
+  final h = height ?? 0;
+  if (w <= 0 && h <= 0) return 'Auto (up to ${t.videoControls.qualityOriginal})';
+  final String resolution;
+  if (w >= 3200 || h >= 1800) {
+    resolution = '4K';
+  } else if (w >= 1800 || h >= 1000) {
+    resolution = '1080p';
+  } else if (w >= 1200 || h >= 700) {
+    resolution = '720p';
+  } else if (w >= 800 || h >= 460) {
+    resolution = '480p';
+  } else if (w >= 600 || h >= 340) {
+    resolution = '360p';
+  } else {
+    resolution = '${h}p';
+  }
+  final bitrate = bitrateBps != null && bitrateBps > 0 ? '${_formatBitrate(bitrateBps ~/ 1000)} Mbps' : null;
+  return ['Auto', resolution, ?bitrate].join(' · ');
+}
+
 String _formatBitrate(int kbps) {
   final mbps = kbps / 1000.0;
   if (mbps >= 10) return mbps.toStringAsFixed(0);
