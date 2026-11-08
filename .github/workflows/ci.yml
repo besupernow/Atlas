@@ -659,7 +659,9 @@ jobs:
             libva-dev libxkbcommon-dev libpulse-dev libdbus-1-dev libdrm-dev \
             libdisplay-info-dev libgbm-dev libwayland-dev wayland-protocols liblcms2-dev libmujs-dev \
             liblua5.2-dev rpm libarchive-tools imagemagick ruby-dev build-essential \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav gstreamer1.0-alsa gstreamer1.0-pulseaudio libsoup-3.0-0
           sudo gem install fpm --version 1.17.0 --no-document
 
       # Keyed the same way build.yml keys it: the lock names the asset and its

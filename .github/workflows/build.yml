@@ -44,6 +44,8 @@ env:
     libva-dev libvdpau-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev
     libxss-dev libxpresent-dev libxkbcommon-dev libpulse-dev libdbus-1-dev libdrm-dev
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+    gstreamer1.0-libav gstreamer1.0-alsa gstreamer1.0-pulseaudio libsoup-3.0-0
     libdisplay-info-dev libgbm-dev libwayland-dev wayland-protocols liblcms2-dev libmujs-dev liblua5.2-dev
     build-essential libcurl4-openssl-dev zstd libsecret-1-dev libjsoncpp-dev
 

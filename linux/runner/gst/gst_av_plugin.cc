@@ -516,6 +516,34 @@ class GstAvPlugin {
 
   // ---- lifecycle ---------------------------------------------------------------------------
 
+  // The packaged app carries its own GStreamer next to the binary (linux/packaging/bundle-libs.sh):
+  // point GStreamer at those plugins only, with its own registry, so nothing has to be installed
+  // and the host's plugins (built against the host's GStreamer) never get mixed in. A build run
+  // from the source tree, or a Flatpak, has no lib/gstreamer-1.0 and uses the system's.
+  static void UseBundledGStreamer() {
+    g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+    if (exe == nullptr) return;
+    g_autofree gchar* dir = g_path_get_dirname(exe);
+    g_autofree gchar* plugins = g_build_filename(dir, "lib", "gstreamer-1.0", nullptr);
+    if (!g_file_test(plugins, G_FILE_TEST_IS_DIR)) return;
+    g_setenv("GST_PLUGIN_SYSTEM_PATH_1_0", plugins, TRUE);
+    g_unsetenv("GST_PLUGIN_PATH_1_0");
+    g_unsetenv("GST_PLUGIN_PATH");
+    g_autofree gchar* scanner = g_build_filename(plugins, "gst-plugin-scanner", nullptr);
+    if (g_file_test(scanner, G_FILE_TEST_IS_EXECUTABLE)) g_setenv("GST_PLUGIN_SCANNER_1_0", scanner, TRUE);
+    g_autofree gchar* cache = g_build_filename(g_get_user_cache_dir(), "atlas", nullptr);
+    g_mkdir_with_parents(cache, 0700);
+    g_autofree gchar* registry = g_build_filename(cache, "gstreamer-1.0-registry.bin", nullptr);
+    g_setenv("GST_REGISTRY_1_0", registry, TRUE);
+    Log("info", std::string("[AtlasGst] using the bundled GStreamer in ") + plugins);
+  }
+
+  static void EnsureGstInit() {
+    if (gst_is_initialized()) return;
+    UseBundledGStreamer();
+    gst_init(nullptr, nullptr);
+  }
+
   // GStreamer with the elements this needs, on a Wayland session.
   static bool CanPlay(std::string* error) {
     GdkDisplay* display = gdk_display_get_default();
@@ -523,12 +551,11 @@ class GstAvPlugin {
       *error = "Video needs a Wayland session (this looks like X11)";
       return false;
     }
-    if (!gst_is_initialized()) gst_init(nullptr, nullptr);
+    EnsureGstInit();
     for (const char* needed : {"playbin3", "hlsdemux2", "waylandsink"}) {
       GstElementFactory* factory = gst_element_factory_find(needed);
       if (factory == nullptr) {
-        *error = std::string("GStreamer element '") + needed +
-                 "' is missing (install the GStreamer good and bad plugins)";
+        *error = std::string("GStreamer element '") + needed + "' is missing";
         return false;
       }
       gst_object_unref(factory);

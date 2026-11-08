@@ -22,9 +22,7 @@ fi
 
 # ── Exclusion list ──────────────────────────────────────────────────────────
 # Libraries that must come from the host system.
-# GStreamer (Atlas adaptive streaming) and orc are on this list because its plugins (hlsdemux2,
-# waylandsink, the VA decoders) are loaded from the host and have to match the host's core libs.
-EXCLUDE_PATTERN='libgst[a-z0-9_-]*-1\.0\.so|liborc-0\.4\.so|linux-vdso\.so|ld-linux.*\.so|libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|libmvec\.so|libresolv\.so|libnss_.*\.so|libGL\.so|libEGL\.so|libGLX\.so|libGLESv2\.so|libGLdispatch\.so|libOpenGL\.so|libepoxy\.so|libvulkan\.so|libdrm\.so|libgbm\.so|libnvidia.*\.so|libcuda.*\.so|libasound\.so|libwayland.*\.so|libxcb.*\.so|libva.*\.so|libvdpau\.so|libX11\.so|libX11-xcb\.so|libXext\.so'
+EXCLUDE_PATTERN='linux-vdso\.so|ld-linux.*\.so|libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|libmvec\.so|libresolv\.so|libnss_.*\.so|libGL\.so|libEGL\.so|libGLX\.so|libGLESv2\.so|libGLdispatch\.so|libOpenGL\.so|libepoxy\.so|libvulkan\.so|libdrm\.so|libgbm\.so|libnvidia.*\.so|libcuda.*\.so|libasound\.so|libwayland.*\.so|libxcb.*\.so|libva.*\.so|libvdpau\.so|libX11\.so|libX11-xcb\.so|libXext\.so'
 
 # ── Helper: collect ldd deps ───────────────────────────────────────────────
 collect_deps() {
@@ -159,6 +157,63 @@ if [[ -n "$GTK_LIBDIR" ]]; then
     PRINT_MODULE_DIR="$GTK_LIBDIR/gtk-3.0/3.0.0/printbackends"
     PRINT_DEST="$LIB_DIR/gtk-3.0/3.0.0/printbackends"
     bundle_module_dir "$PRINT_MODULE_DIR" "$PRINT_DEST"
+fi
+
+# ── GStreamer (Atlas adaptive streaming) ──────────────────────────────────
+# The app carries its own GStreamer, core libs and plugins together, so nobody has to install
+# anything: the GStreamer backend (linux/runner/gst) points GStreamer at lib/gstreamer-1.0 and
+# never loads the host's plugins, which would have to match the host's core libs instead.
+# What it bundles is what an Atlas stream needs: HLS (hlsdemux2 + souphttpsrc over libsoup, which
+# GStreamer loads at runtime), fMP4, H.264/HEVC/AAC decoding (VA-API on the GPU, libav otherwise),
+# Wayland video out and Pulse/PipeWire or ALSA audio. libva, libwayland, libasound and the GPU
+# drivers stay the host's (they're on the exclusion list): those have to match the machine.
+GST_PLUGIN_SRC="$(pkg-config --variable=pluginsdir gstreamer-1.0 2>/dev/null || true)"
+GST_DEST="$LIB_DIR/gstreamer-1.0"
+GST_PLUGINS=(
+    coreelements playback typefindfunctions app
+    videoconvertscale audioconvert audioresample volume autodetect
+    adaptivedemux2 soup isomp4 id3demux audioparsers videoparsersbad
+    waylandsink va libav
+    pulseaudio alsa
+)
+if [[ -n "$GST_PLUGIN_SRC" && -d "$GST_PLUGIN_SRC" ]]; then
+    echo "==> Bundling GStreamer plugins from $GST_PLUGIN_SRC"
+    mkdir -p "$GST_DEST"
+    missing=()
+    for plugin in "${GST_PLUGINS[@]}"; do
+        if [[ -f "$GST_PLUGIN_SRC/libgst$plugin.so" ]]; then
+            cp -L "$GST_PLUGIN_SRC/libgst$plugin.so" "$GST_DEST/"
+        else
+            missing+=("$plugin")
+        fi
+    done
+    # Adaptive streaming can't play at all without these.
+    for required in coreelements playback typefindfunctions adaptivedemux2 soup isomp4 waylandsink; do
+        if [[ ! -f "$GST_DEST/libgst$required.so" ]]; then
+            echo "Error: GStreamer plugin '$required' isn't installed on the build host" >&2
+            exit 1
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "WARNING: optional GStreamer plugins not on the build host: ${missing[*]}" >&2
+    fi
+    # The registry scanner GStreamer runs to index plugins.
+    GST_SCANNER="$(pkg-config --variable=pluginscannerdir gstreamer-1.0 2>/dev/null || true)/gst-plugin-scanner"
+    if [[ ! -x "$GST_SCANNER" ]]; then
+        GST_SCANNER="$(ls /usr/lib/*/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner /usr/libexec/gstreamer-1.0/gst-plugin-scanner 2>/dev/null | head -1 || true)"
+    fi
+    if [[ -x "$GST_SCANNER" ]]; then
+        cp -L "$GST_SCANNER" "$GST_DEST/gst-plugin-scanner"
+        mapfile -t scanner_deps < <(collect_deps "$GST_SCANNER")
+        for dep in "${scanner_deps[@]}"; do
+            base="$(basename "$dep")"
+            [[ -f "$LIB_DIR/$base" ]] || cp -L "$dep" "$LIB_DIR/$base" 2>/dev/null || true
+        done
+    else
+        echo "WARNING: gst-plugin-scanner not found; GStreamer will scan plugins in-process" >&2
+    fi
+    # Loaded with dlopen by souphttpsrc and hlsdemux2, so ldd never sees it.
+    bundle_dlopen_lib "libsoup-3.0.so"
 fi
 
 # ── Resolve transitive deps of modules ────────────────────────────────────
