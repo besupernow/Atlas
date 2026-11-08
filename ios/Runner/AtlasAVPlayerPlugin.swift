@@ -17,6 +17,9 @@ import UIKit
 /// Video sits in a view behind the (transparent) Flutter view, the same place
 /// the mpv core puts its layer. Subtitles are sidecar text files fetched and
 /// drawn here, since nothing is burned into an adaptive stream.
+///
+/// Rendition switching goes through `AtlasAVWarmGate` (shared with the Mac): AVPlayer
+/// only steps up once the server has the higher rung transcoding ahead of it.
 final class AtlasAVPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
   private var eventSink: FlutterEventSink?
   private var nameToId: [String: Int] = [:]
@@ -274,6 +277,11 @@ final class AtlasAVPlayerCore: NSObject {
   private var lastTimeEmit: CFTimeInterval = 0
   private var lastBuffering: Bool?
 
+  // Atlas adaptive streaming: when to step up (see AtlasAVWarmGate).
+  private let abr = AtlasAVWarmGate()
+  private var lastAbrTick: CFTimeInterval = 0
+  private var lastSeekAt: CFTimeInterval = 0
+
   // Subtitles
   private struct Cue {
     let start: Double
@@ -327,6 +335,11 @@ final class AtlasAVPlayerCore: NSObject {
 
     player.automaticallyWaitsToMinimizeStalling = true
     player.allowsExternalPlayback = true
+
+    abr.log = { [weak self] text in
+      NSLog("[AtlasAVPlayer] %@", text)
+      self?.onEvent?("log-message", ["prefix": "avplayer", "level": "info", "text": text])
+    }
 
     let interval = CMTime(value: 1, timescale: 10)
     timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
@@ -413,6 +426,8 @@ final class AtlasAVPlayerCore: NSObject {
     // 0 = let AVPlayer size its own forward buffer, which it ties to its ABR choices.
     item.preferredForwardBufferDuration = 0
     self.item = item
+    // Atlas: opens capped to the start rung; steps up only once the server has warmed the next.
+    abr.configure(url: url, headers: headers, item: item)
 
     itemObservations.append(
       item.observe(\.status, options: [.new]) { [weak self] item, _ in
@@ -507,6 +522,7 @@ final class AtlasAVPlayerCore: NSObject {
 
   func stop() {
     generation += 1
+    abr.reset()
     wantsPlay = false
     player.pause()
     teardownItem()
@@ -525,6 +541,8 @@ final class AtlasAVPlayerCore: NSObject {
       return
     }
     onProperty?("eof-reached", false)
+    lastSeekAt = CACurrentMediaTime()
+    abr.onSeek()
     player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
       DispatchQueue.main.async {
         completion()
@@ -571,7 +589,22 @@ final class AtlasAVPlayerCore: NSObject {
       lastTimeEmit = now
       onProperty?("time-pos", seconds)
     }
+    if now - lastAbrTick >= 1, let item {
+      lastAbrTick = now
+      abr.tick(position: seconds, bufferedEnd: Self.bufferedEnd(item, at: seconds))
+    }
     updateSubtitle(at: seconds)
+  }
+
+  /// The end of the buffered range playback is in (or the position, if none).
+  private static func bufferedEnd(_ item: AVPlayerItem, at seconds: Double) -> Double {
+    for value in item.loadedTimeRanges {
+      let range = value.timeRangeValue
+      let start = range.start.seconds
+      let end = (range.start + range.duration).seconds
+      if seconds >= start - 0.5 && seconds <= end + 0.5 { return end }
+    }
+    return seconds
   }
 
   private func onTimeControlStatus(_ player: AVPlayer) {
@@ -580,6 +613,8 @@ final class AtlasAVPlayerCore: NSObject {
       && player.reasonForWaitingToPlay != AVPlayer.WaitingReason.noItemToPlay
     let buffering = wantsPlay && waiting
     if lastBuffering != buffering {
+      // A stall mid-play (not the start, not a seek) right after a step up backs the step out.
+      if buffering, restartSent, CACurrentMediaTime() - lastSeekAt > 3 { abr.onStall() }
       lastBuffering = buffering
       onProperty?("paused-for-cache", buffering)
     }
@@ -925,6 +960,7 @@ final class AtlasAVPlayerCore: NSObject {
 
   func dispose() {
     generation += 1
+    abr.reset()
     player.pause()
     teardownItem()
     player.replaceCurrentItem(with: nil)

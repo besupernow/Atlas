@@ -16,9 +16,11 @@ import 'video_decode_capabilities.dart';
 /// one is the backend:
 /// - web: hls.js (Safari: its native HLS)
 /// - Android: ExoPlayer (mpv has no ABR)
-/// - iPhone / iPad: AVPlayer (see `PlayerAvFoundation`)
+/// - iPhone / iPad / Mac: AVPlayer (see `PlayerAvFoundation`)
 ///
-/// Desktop keeps mpv and direct play for now.
+/// Every step up waits for the server to have the higher rung transcoding ahead of the player
+/// (`AtlasWarmGate.kt` on Android, `AtlasAVWarmGate.swift` on Apple). Windows and Linux keep
+/// mpv and direct play: mpv can't switch renditions.
 abstract final class AtlasAdaptiveStreaming {
   /// Whether the user left adaptive streaming on.
   static bool get _settingOn {
@@ -29,9 +31,9 @@ abstract final class AtlasAdaptiveStreaming {
     }
   }
 
-  /// Whether this platform's video backend is AVPlayer (iPhone / iPad with
+  /// Whether this platform's video backend is AVPlayer (iPhone / iPad / Mac with
   /// adaptive streaming on). Decides which [Player] the factory builds.
-  static bool get usesAvPlayer => !kIsWeb && Platform.isIOS && _settingOn;
+  static bool get usesAvPlayer => !kIsWeb && (Platform.isIOS || Platform.isMacOS) && _settingOn;
 
   /// Whether an AVPlayer core is the live video backend right now (set by
   /// `PlayerAvFoundation`). Picture in Picture follows it to the right plugin.
@@ -41,7 +43,7 @@ abstract final class AtlasAdaptiveStreaming {
   static bool get enabled {
     if (!_settingOn) return false;
     if (kIsWeb) return true;
-    if (Platform.isIOS) return true;
+    if (Platform.isIOS || Platform.isMacOS) return true;
     if (Platform.isAndroid) {
       try {
         return SettingsService.instance.read(SettingsService.useExoPlayer);

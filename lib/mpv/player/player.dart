@@ -404,7 +404,7 @@ abstract class Player {
   /// software ones, where DV reshaping can actually happen (see
   /// MpvPlayerCore.initialVideoOutput; #2010).
   ///
-  /// [allowAvPlayer] (Atlas): the caller knows the source is HLS, so iPhone/iPad
+  /// [allowAvPlayer] (Atlas): the caller knows the source is HLS, so iPhone/iPad/Mac
   /// may play it on AVPlayer for adaptive streaming. Anything else (downloaded
   /// files, MKV direct play, live TV) stays on mpv.
   factory Player({bool? useExoPlayer, bool hardwareDecoding = true, bool allowAvPlayer = false}) {
@@ -418,9 +418,9 @@ abstract class Player {
       }
       return PlayerNative(hardwareDecoding: hardwareDecoding); // MPV (default)
     }
-    // Atlas: iPhone/iPad play through AVPlayer so adaptive streaming can switch
+    // Atlas: iPhone/iPad/Mac play through AVPlayer so adaptive streaming can switch
     // renditions; with adaptive streaming off they stay on mpv.
-    if (Platform.isIOS && allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) {
+    if ((Platform.isIOS || Platform.isMacOS) && allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) {
       return PlayerAvFoundation();
     }
     if (Platform.isMacOS || Platform.isIOS) {

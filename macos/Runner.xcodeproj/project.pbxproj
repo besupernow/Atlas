@@ -34,6 +34,8 @@
 		6AD8B1622ED7B50000E9E1B4 /* MpvPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD8B1642ED7B50000E9E1B4 /* MpvPlayerPlugin.swift */; };
 		6AD8B1662ED7B50000E9E1B5 /* WindowUtilsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD8B1682ED7B50000E9E1B5 /* WindowUtilsPlugin.swift */; };
 		6AD8B1702ED7B50000E9E1C1 /* AppLookupPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD8B1712ED7B50000E9E1C1 /* AppLookupPlugin.swift */; };
+		A71A5A0B2F10000000000011 /* AtlasAVPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71A5A0B2F10000000000012 /* AtlasAVPlayerPlugin.swift */; };
+		A71A5A0B2F10000000000013 /* AtlasAVWarmGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71A5A0B2F10000000000014 /* AtlasAVWarmGate.swift */; };
 		6AD8B1672ED7B50000E9E1B5 /* WindowDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD8B1692ED7B50000E9E1B5 /* WindowDelegate.swift */; };
 		6AD8B16A2ED7B50000E9E1B6 /* MpvPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD8B16B2ED7B50000E9E1B6 /* MpvPipController.swift */; };
 		B1D51A6A2F00110000000003 /* MpvPlayerCoreBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D51A6A2F00110000000004 /* MpvPlayerCoreBase.swift */; };
@@ -98,6 +100,8 @@
 		6AD8B1642ED7B50000E9E1B4 /* MpvPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MpvPlayerPlugin.swift; sourceTree = "<group>"; };
 		6AD8B1682ED7B50000E9E1B5 /* WindowUtilsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowUtilsPlugin.swift; sourceTree = "<group>"; };
 		6AD8B1712ED7B50000E9E1C1 /* AppLookupPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLookupPlugin.swift; sourceTree = "<group>"; };
+		A71A5A0B2F10000000000012 /* AtlasAVPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasAVPlayerPlugin.swift; sourceTree = "<group>"; };
+		A71A5A0B2F10000000000014 /* AtlasAVWarmGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AtlasAVWarmGate.swift; path = ../shared/apple/AtlasAVPlayer/AtlasAVWarmGate.swift; sourceTree = SOURCE_ROOT; };
 		6AD8B1692ED7B50000E9E1B5 /* WindowDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDelegate.swift; sourceTree = "<group>"; };
 		6AD8B16B2ED7B50000E9E1B6 /* MpvPipController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MpvPipController.swift; sourceTree = "<group>"; };
 		6AD8B16C2ED7B50000E9E1B7 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -223,6 +227,8 @@
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				6AD8B1682ED7B50000E9E1B5 /* WindowUtilsPlugin.swift */,
 				6AD8B1712ED7B50000E9E1C1 /* AppLookupPlugin.swift */,
+				A71A5A0B2F10000000000012 /* AtlasAVPlayerPlugin.swift */,
+				A71A5A0B2F10000000000014 /* AtlasAVWarmGate.swift */,
 				7278E9E14CBE2D57031E91BE /* DeepLinkDeliveryCoordinator.swift */,
 				F61EAD3C5AC4801CFE93DFA5 /* DeepLinkPlugin.swift */,
 				6AD8B1692ED7B50000E9E1B5 /* WindowDelegate.swift */,
@@ -506,6 +512,8 @@
 				6AD8B1622ED7B50000E9E1B4 /* MpvPlayerPlugin.swift in Sources */,
 				6AD8B1662ED7B50000E9E1B5 /* WindowUtilsPlugin.swift in Sources */,
 				6AD8B1702ED7B50000E9E1C1 /* AppLookupPlugin.swift in Sources */,
+				A71A5A0B2F10000000000011 /* AtlasAVPlayerPlugin.swift in Sources */,
+				A71A5A0B2F10000000000013 /* AtlasAVWarmGate.swift in Sources */,
 				CD0DE6EB5F0D9131708BECF5 /* DeepLinkDeliveryCoordinator.swift in Sources */,
 				3C6721571E784D3A4AC4C7B3 /* DeepLinkPlugin.swift in Sources */,
 				6AD8B1672ED7B50000E9E1B5 /* WindowDelegate.swift in Sources */,
