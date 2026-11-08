@@ -37,18 +37,18 @@ class PlaybackSession {
   /// quality falls back to original when the backend rejected the requested
   /// preset, and the media source id follows the clamped version index.
   factory PlaybackSession.fromContext(
-    PlaybackContext context, {
-    required TranscodeQualityPreset requestedQualityPreset,
-    String? requestedMediaSourceId,
-    PlaybackSubtitleSelection subtitleSelection = const PlaybackSubtitleSelection.off(),
-  }) {
+      PlaybackContext context, {
+        required TranscodeQualityPreset requestedQualityPreset,
+        String? requestedMediaSourceId,
+        PlaybackSubtitleSelection subtitleSelection = const PlaybackSubtitleSelection.off(),
+      }) {
     final result = context.result;
     final fellBackToOriginal = result.fallbackReason != null && !requestedQualityPreset.isOriginal;
     return PlaybackSession(
       context: context,
       qualityPreset: fellBackToOriginal ? TranscodeQualityPreset.original : requestedQualityPreset,
       mediaSourceId:
-          result.selectedMediaSourceId ??
+      result.selectedMediaSourceId ??
           mediaSourceIdForIndex(result.availableVersions, result.selectedMediaIndex) ??
           requestedMediaSourceId,
       subtitleSelection: subtitleSelection,
@@ -74,6 +74,11 @@ class PlaybackSession {
   MediaServerClient? get reportingClient => context.reportingClient;
 
   bool get isTranscoding => context.result.isTranscoding;
+
+  /// Atlas adaptive streaming: the server's quality ladder. A transcode as far
+  /// as reporting goes, but every text subtitle is a sidecar and nothing is
+  /// burned in, so subtitle changes never need the server.
+  bool get isAdaptive => context.result.videoUrl?.contains('AtlasAbr=true') ?? false;
 
   bool get isOffline => context.result.isOffline;
 

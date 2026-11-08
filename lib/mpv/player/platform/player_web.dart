@@ -16,6 +16,7 @@ import '../player_state.dart';
 import '../player_stream_controllers.dart';
 import '../player_streams.dart';
 import '../web_video_surface.dart';
+import '../native_subtitle_rendering.dart';
 
 Player createWebPlayer({bool audioOnly = false}) => PlayerWeb(audioOnly: audioOnly);
 
@@ -28,13 +29,20 @@ extension type _Hls._(JSObject _) implements JSObject {
   external void recoverMediaError();
   external void destroy();
   external void on(String event, JSFunction callback);
+
+  /// Index into [levels] being played, -1 before the first one is picked.
+  external int get currentLevel;
+
+  /// hls.js's measured bandwidth, in bits per second.
+  external double get bandwidthEstimate;
+  external JSArray<JSObject> get levels;
 }
 
 int _nextViewId = 0;
 
 /// Browser playback backend: an HTMLVideoElement/HTMLAudioElement, with hls.js
 /// for HLS where the browser has no native support (everything but Apple).
-class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSurface {
+class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSurface, NativeSubtitleRendering {
   PlayerWeb({bool audioOnly = false}) : _audioOnly = audioOnly {
     _streams = createStreams();
     final web.HTMLMediaElement media = audioOnly ? web.HTMLAudioElement() : web.HTMLVideoElement();
@@ -349,12 +357,17 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     // buffer stays short so a switch takes effect within a few segments.
     final query = Uri.tryParse(uri)?.queryParameters ?? const <String, String>{};
     if (query['AtlasAbr'] == 'true') {
-      config.setProperty('startLevel'.toJS, (-1).toJS);
+      // No startLevel: hls.js then opens on the first level of the manifest,
+      // which is the one the server picked for this connection.
       config.setProperty('capLevelToPlayerSize'.toJS, true.toJS);
       config.setProperty('maxBufferLength'.toJS, 30.toJS);
       config.setProperty('maxMaxBufferLength'.toJS, 60.toJS);
       config.setProperty('backBufferLength'.toJS, 30.toJS);
       config.setProperty('testBandwidth'.toJS, true.toJS);
+      // Fetch the first fragment while the manifest is still being handled. Stepping
+      // up keeps hls.js's cautious default (70% of the estimate): a rendition it
+      // hasn't played yet is transcoded from scratch and arrives slower at first.
+      config.setProperty('startFragPrefetch'.toJS, true.toJS);
       final hint = int.tryParse(query['AtlasStartBitrate'] ?? '');
       if (hint != null && hint > 0) {
         config.setProperty('abrEwmaDefaultEstimate'.toJS, (hint * 0.8).toJS);
@@ -371,9 +384,55 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     }
     final hls = _Hls(config);
     _hls = hls;
+    _fragmentsLoaded = false;
     hls.on('hlsError', _onHlsError.toJS);
+    if (query['AtlasAbr'] == 'true') {
+      hls.on('hlsManifestParsed', _onHlsManifestParsed.toJS);
+      hls.on('hlsLevelSwitched', _onHlsLevelSwitched.toJS);
+      hls.on('hlsFragLoaded', _onHlsFragLoaded.toJS);
+    }
     hls.attachMedia(_media);
     hls.loadSource(uri);
+  }
+
+  void _onHlsManifestParsed(JSAny? event, JSObject data) {
+    if (_disposed) return;
+    final levels = data.getProperty<JSArray<JSObject>?>('levels'.toJS)?.toDart ?? const <JSObject>[];
+    final described = levels.map(_describeLevel).join(', ');
+    logController.add(
+      PlayerLog(level: PlayerLogLevel.info, prefix: 'hls', text: 'Atlas ABR: ${levels.length} levels [$described]'),
+    );
+  }
+
+  void _onHlsLevelSwitched(JSAny? event, JSObject data) {
+    final hls = _hls;
+    if (_disposed || hls == null) return;
+    final index = data.getProperty<JSNumber?>('level'.toJS)?.toDartInt ?? -1;
+    final levels = hls.levels.toDart;
+    if (index < 0 || index >= levels.length) return;
+    logController.add(
+      PlayerLog(level: PlayerLogLevel.info, prefix: 'hls', text: 'Atlas ABR: now on ${_describeLevel(levels[index])}'),
+    );
+  }
+
+  /// hls.js reports its default guess until it has timed a fragment; only a
+  /// real measurement is worth remembering.
+  int? _measuredBandwidth(_Hls hls) {
+    if (!_fragmentsLoaded) return null;
+    final estimate = hls.bandwidthEstimate;
+    return estimate.isFinite && estimate > 0 ? estimate.round() : null;
+  }
+
+  bool _fragmentsLoaded = false;
+
+  void _onHlsFragLoaded(JSAny? event, JSObject data) {
+    _fragmentsLoaded = true;
+  }
+
+  static String _describeLevel(JSObject level) {
+    final height = level.getProperty<JSNumber?>('height'.toJS)?.toDartDouble.round() ?? 0;
+    final bitrate = level.getProperty<JSNumber?>('bitrate'.toJS)?.toDartDouble ?? 0;
+    return '${height}p@${(bitrate / 1000000).toStringAsFixed(1)}M';
   }
 
   void _onHlsError(JSAny? event, JSObject data) {
@@ -452,13 +511,29 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
   @override
   Future<void> selectSubtitleTrack(SubtitleTrack track) async {
     for (final entry in _sidecars.entries) {
-      entry.value.track.mode = entry.key == track.id ? 'showing' : 'disabled';
+      entry.value.track.mode = entry.key == track.id ? _selectedTrackMode : 'disabled';
     }
     _setState(track: TrackSelection(audio: _state.track.audio, subtitle: track));
   }
 
   @override
   Future<void> selectSecondarySubtitleTrack(SubtitleTrack track) async {}
+
+  /// Atlas: while the app draws subtitles itself, the selected `<track>` stays
+  /// loaded but `hidden`, so the browser stops painting it.
+  bool _nativeSubtitles = true;
+
+  String get _selectedTrackMode => _nativeSubtitles ? 'showing' : 'hidden';
+
+  @override
+  Future<void> setNativeSubtitleRendering(bool enabled) async {
+    if (_nativeSubtitles == enabled) return;
+    _nativeSubtitles = enabled;
+    for (final element in _sidecars.values) {
+      final mode = element.track.mode;
+      if (mode == 'showing' || mode == 'hidden') element.track.mode = _selectedTrackMode;
+    }
+  }
 
   @override
   Future<void> selectAudioTrack(AudioTrack track) async {
@@ -608,8 +683,34 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     bool anchorToScreen = false,
   }) async {}
 
+  /// Only what the quality row needs: the rendition hls.js is on (Atlas
+  /// adaptive streaming), or the element's own frame size for native HLS.
   @override
-  Future<Map<String, dynamic>> getStats() async => const {};
+  Future<Map<String, dynamic>> getStats() async {
+    final hls = _hls;
+    if (hls != null) {
+      try {
+        final index = hls.currentLevel;
+        final levels = hls.levels.toDart;
+        if (index >= 0 && index < levels.length) {
+          final level = levels[index];
+          return {
+            'videoWidth': level.getProperty<JSNumber?>('width'.toJS)?.toDartDouble.round(),
+            'videoHeight': level.getProperty<JSNumber?>('height'.toJS)?.toDartDouble.round(),
+            'videoBitrate': level.getProperty<JSNumber?>('bitrate'.toJS)?.toDartDouble.round(),
+            'bandwidthEstimate': _measuredBandwidth(hls),
+          };
+        }
+      } catch (_) {
+        // A torn-down instance; fall through to the element.
+      }
+    }
+    final media = _media;
+    if (media is web.HTMLVideoElement && media.videoHeight > 0) {
+      return {'videoWidth': media.videoWidth, 'videoHeight': media.videoHeight};
+    }
+    return const {};
+  }
 
   @override
   Future<String> runtimePlayerType() async => 'web';

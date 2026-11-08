@@ -30,6 +30,38 @@ String qualityPresetLabel(TranscodeQualityPreset preset, {int? sourceBitrateKbps
   return t.videoControls.qualityPresetLabel(resolution: height, bitrate: bitrate);
 }
 
+/// Atlas adaptive streaming: the level the player is on right now, e.g.
+/// `Auto · 1080p · 7.4 Mbps`. Falls back to `Auto (up to Original)` until the
+/// player has picked one.
+///
+/// The resolution is named from the frame size rather than the raw height, so a
+/// scope film's 1920x800 still reads as 1080p.
+///
+/// [linkBps], the player's measured connection speed, is appended as
+/// `(link 8.2 Mbps)` so it's clear why the player isn't stepping up.
+String adaptiveQualityLabel({int? width, int? height, int? bitrateBps, int? linkBps}) {
+  final w = width ?? 0;
+  final h = height ?? 0;
+  if (w <= 0 && h <= 0) return 'Auto (up to ${t.videoControls.qualityOriginal})';
+  final String resolution;
+  if (w >= 3200 || h >= 1800) {
+    resolution = '4K';
+  } else if (w >= 1800 || h >= 1000) {
+    resolution = '1080p';
+  } else if (w >= 1200 || h >= 700) {
+    resolution = '720p';
+  } else if (w >= 800 || h >= 460) {
+    resolution = '480p';
+  } else if (w >= 600 || h >= 340) {
+    resolution = '360p';
+  } else {
+    resolution = '${h}p';
+  }
+  final bitrate = bitrateBps != null && bitrateBps > 0 ? '${_formatBitrate(bitrateBps ~/ 1000)} Mbps' : null;
+  final link = linkBps != null && linkBps > 0 ? '(link ${(linkBps / 1000000).toStringAsFixed(1)} Mbps)' : null;
+  return [['Auto', resolution, ?bitrate].join(' · '), ?link].join(' ');
+}
+
 String _formatBitrate(int kbps) {
   final mbps = kbps / 1000.0;
   if (mbps >= 10) return mbps.toStringAsFixed(0);
@@ -85,12 +117,12 @@ String? qualityPresetSizeEstimate({
 /// Quality-preset picker dialog — shares [TranscodeQualityPreset.displayOrder]
 /// with the in-player sheet. Returns the selected preset, or `null` if dismissed.
 Future<TranscodeQualityPreset?> showQualityPickerDialog(
-  BuildContext context, {
-  String? title,
-  int? sourceBitrateKbps,
-  int? sourceDurationMs,
-  int? sourceSizeBytes,
-}) {
+    BuildContext context, {
+      String? title,
+      int? sourceBitrateKbps,
+      int? sourceDurationMs,
+      int? sourceSizeBytes,
+    }) {
   String labelFor(TranscodeQualityPreset p) {
     final base = qualityPresetLabel(p);
     final size = qualityPresetSizeEstimate(

@@ -7,6 +7,8 @@ import 'models.dart';
 import 'player/player.dart';
 import 'player/video_rect_support.dart';
 import 'player/web_video_surface.dart';
+import '../widgets/atlas_abr_sampler.dart';
+import '../widgets/atlas_subtitle_overlay.dart';
 
 /// Video widget for displaying player output.
 ///
@@ -28,12 +30,17 @@ class Video extends StatefulWidget {
   final Color backgroundColor;
   final ValueListenable<bool>? hasFirstFrame;
 
+  /// Atlas: the player chrome's visibility, so app-drawn subtitles can rise
+  /// above the controls while they're up.
+  final ValueListenable<bool>? controlsVisible;
+
   const Video({
     super.key,
     required this.player,
     this.controls,
     this.backgroundColor = Colors.black,
     this.hasFirstFrame,
+    this.controlsVisible,
   });
 
   @override
@@ -124,6 +131,10 @@ class _VideoState extends State<Video> {
           // Video rendering area
           _buildVideoSurface(),
 
+          // Atlas: app-drawn subtitles during adaptive streaming (inactive otherwise).
+          AtlasSubtitleOverlay(player: widget.player, controlsVisible: widget.controlsVisible),
+          AtlasAbrSampler(player: widget.player),
+
           // Controls overlay
           if (widget.controls != null) widget.controls!(context),
         ],
@@ -201,8 +212,8 @@ class _VideoState extends State<Video> {
 
     final player = widget.player as VideoRectSupport;
     player.setVideoRect(left: left, top: top, right: right, bottom: bottom, devicePixelRatio: dpr).catchError((
-      Object e,
-    ) {
+        Object e,
+        ) {
       // Geometry is the only thing that makes the native surface visible,
       // so a rejected rect is a black video area, not a cosmetic glitch.
       // Post-frame callbacks have nobody to rethrow to, so route it to the

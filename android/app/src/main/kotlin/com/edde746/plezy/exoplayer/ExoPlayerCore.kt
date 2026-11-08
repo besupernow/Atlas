@@ -59,6 +59,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.FilteringMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mkv.MatroskaExtractor
@@ -685,7 +686,19 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      trackSelector = DefaultTrackSelector(activity).apply {
+      // Atlas adaptive streaming: playback opens on the lowest rung. When the selection can afford a
+      // higher one (any rung, not just the next), it asks the server to warm that rung up and
+      // switches once it's ahead (AtlasAdaptiveTrackSelection + AtlasWarmGate). Step up with 6s
+      // buffered, trusting 85% of the measured bandwidth. A stall right after a switch still caps
+      // the estimate for a while (HintedBandwidthMeter.penalize).
+      val adaptiveSelection = AtlasAdaptiveTrackSelection.Factory(
+        /* minDurationForQualityIncreaseMs= */ 6_000,
+        /* maxDurationForQualityDecreaseMs= */ 25_000,
+        /* minDurationToRetainAfterDiscardMs= */ 25_000,
+        /* bandwidthFraction= */ 0.85f,
+        atlasWarmGate,
+      )
+      trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
         setParameters(
           buildUponParameters()
             // Recover passthrough when HDMI capabilities flap (Shield refresh-rate / AVR link drop):
@@ -828,7 +841,13 @@ class ExoPlayerCore(private val activity: Activity) :
           LoadControlPolicy.BUFFER_FOR_PLAYBACK_MS,
           LoadControlPolicy.BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
         )
-      }.build().let { ObservingLoadControl(it).also { observing -> observingLoadControl = observing } }
+      }.build().let {
+        ObservingLoadControl(it).also { observing ->
+          observingLoadControl = observing
+          // Atlas: pause buffering the old rung while the one it wants warms up (AtlasWarmGate).
+          observing.loadingHold = { bufferedUs -> atlasWarmGate.shouldHoldLoading(bufferedUs) }
+        }
+      }
       emitLog(
         "info",
         "init",
@@ -839,8 +858,11 @@ class ExoPlayerCore(private val activity: Activity) :
           "tunneling=$tunnelingUserEnabled, dataSource=$dataSourceLabel"
       )
 
+      val meter = HintedBandwidthMeter(DefaultBandwidthMeter.Builder(activity).build())
+      bandwidthMeter = meter
       exoPlayer = ExoPlayer.Builder(activity)
         .setTrackSelector(trackSelector!!)
+        .setBandwidthMeter(meter)
         .setLoadControl(loadControl)
         .setAudioAttributes(audioAttributes, false) // We handle audio focus manually
         .setMediaSourceFactory(mediaSourceFactory)
@@ -866,6 +888,7 @@ class ExoPlayerCore(private val activity: Activity) :
       surfaceContainer?.let { container ->
         val assView = AssSubtitleSurfaceView(container.context, handler)
         assSubtitleView = assView
+        if (!nativeSubtitlesEnabled) assView.visibility = View.INVISIBLE
         // Pre-36 sublayer is already set by the view's own setZOrderMediaOverlay(true).
         FlutterOverlayHelper.applyCompositionOrder(assView, -1)
         val bitmapIndex = container.indexOfChild(bitmapSubtitleView)
@@ -895,6 +918,7 @@ class ExoPlayerCore(private val activity: Activity) :
 
       exoPlayer!!.addListener(this)
       exoPlayer!!.addAnalyticsListener(decoderHangListener)
+      exoPlayer!!.addAnalyticsListener(abrLogListener)
       exoPlayer!!.setVideoFrameMetadataListener { presentationTimeUs, releaseTimeNs, _, _ ->
         // ASS bypasses Media3's text renderer, so apply sub-delay before libass renders.
         // Also render the subtitle one video-frame earlier than the picture: the
@@ -1131,7 +1155,13 @@ class ExoPlayerCore(private val activity: Activity) :
     val textCues = cues.filter { it.bitmap == null }
     val bitmapCues = cues.filter { it.bitmap != null }
     updateBitmapSubtitlePlaneAspect(bitmapCues)
-    val outgoing = SubtitleCueLayout.layout(textCues, subtitlePositionPercent, subtitleFontSize)
+    // Atlas: while the app draws the sidecar itself, text cues never reach the
+    // native view (hiding the view alone isn't enough once it is re-laid out).
+    val outgoing = if (nativeSubtitlesEnabled) {
+      SubtitleCueLayout.layout(textCues, subtitlePositionPercent, subtitleFontSize)
+    } else {
+      emptyList()
+    }
     subtitleView?.setCues(outgoing)
     bitmapSubtitleView?.setCues(bitmapCues)
   }
@@ -3424,6 +3454,14 @@ class ExoPlayerCore(private val activity: Activity) :
     resumeStallRecoveryCount = 0
     loggedResumeStallCap = false
 
+    // Atlas adaptive streaming: the app's remembered connection speed rides in the
+    // master URL; until this player has measured anything, it is the estimate the
+    // first rendition is picked from.
+    bandwidthMeter?.hintBps =
+      Uri.parse(uri).getQueryParameter("AtlasStartBitrate")?.toLongOrNull()?.takeIf { it > 0 } ?: 0L
+    // The warm-up endpoint lives next to the master; its levels arrive with the manifest.
+    atlasWarmGate.configure(uri, headers)
+
     // Reset FPS detection for new content
     detectedFrameRate = -1f
     this.contentFrameRate = contentFrameRate
@@ -3987,6 +4025,100 @@ class ExoPlayerCore(private val activity: Activity) :
     else -> null
   }
 
+  private var bandwidthMeter: HintedBandwidthMeter? = null
+  private val atlasWarmGate by lazy { AtlasWarmGate() }
+  @Volatile private var lastBandwidthEstimate = 0L
+  private var lastBandwidthLogMs = 0L
+
+  @Volatile private var currentVideoBitrate = 0L
+  @Volatile private var lastUpswitchAtMs = 0L
+  @Volatile private var lastSeekAtMs = 0L
+
+  /** Atlas: logs the bandwidth estimate and every rendition switch, to tune the ladder. */
+  private val abrLogListener = object : AnalyticsListener {
+    override fun onPositionDiscontinuity(
+      eventTime: AnalyticsListener.EventTime,
+      oldPosition: androidx.media3.common.Player.PositionInfo,
+      newPosition: androidx.media3.common.Player.PositionInfo,
+      reason: Int,
+    ) {
+      if (reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK) {
+        lastSeekAtMs = android.os.SystemClock.elapsedRealtime()
+        atlasWarmGate.reset()
+      }
+    }
+
+    // Atlas: each rung's server level id is in its variant URL; hand them to the warm-up gate.
+    override fun onTimelineChanged(eventTime: AnalyticsListener.EventTime, reason: Int) {
+      val manifest = exoPlayer?.currentManifest as? androidx.media3.exoplayer.hls.HlsManifest ?: return
+      atlasWarmGate.setLevels(manifest.multivariantPlaylist.variants.map { it.format to it.url })
+    }
+
+    // A stall soon after stepping up (and not caused by a seek) means the new
+    // rendition can't keep up: hold the estimate under it for a while.
+    override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
+      if (state != androidx.media3.common.Player.STATE_BUFFERING) return
+      val player = exoPlayer ?: return
+      if (!player.playWhenReady) return
+      val now = android.os.SystemClock.elapsedRealtime()
+      if (now - lastUpswitchAtMs > 30_000 || now - lastSeekAtMs < 3_000) return
+      val failed = currentVideoBitrate
+      bandwidthMeter?.penalize(failed, now)
+      lastUpswitchAtMs = 0L
+      Log.i(TAG, "[abr] stalled after stepping up to ${failed / 1000} kbps; holding below it for a while")
+    }
+
+    override fun onBandwidthEstimate(
+      eventTime: AnalyticsListener.EventTime,
+      totalLoadTimeMs: Int,
+      totalBytesLoaded: Long,
+      bitrateEstimate: Long,
+    ) {
+      lastBandwidthEstimate = bitrateEstimate
+      val now = android.os.SystemClock.elapsedRealtime()
+      if (now - lastBandwidthLogMs >= 15_000) {
+        lastBandwidthLogMs = now
+        Log.i(TAG, "[abr] estimate=${bitrateEstimate / 1000} kbps (last load ${totalBytesLoaded / 1024} KiB in ${totalLoadTimeMs} ms)")
+      }
+    }
+
+    override fun onVideoInputFormatChanged(
+      eventTime: AnalyticsListener.EventTime,
+      format: androidx.media3.common.Format,
+      decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+    ) {
+      val previous = currentVideoBitrate
+      currentVideoBitrate = format.bitrate.toLong()
+      if (previous > 0 && currentVideoBitrate > previous) {
+        lastUpswitchAtMs = android.os.SystemClock.elapsedRealtime()
+      }
+      Log.i(TAG, "[abr] now playing ${format.width}x${format.height} @ ${format.bitrate / 1000} kbps (estimate ${lastBandwidthEstimate / 1000} kbps)")
+    }
+  }
+
+  /** False while the app draws subtitles itself (Atlas subtitle overlay). */
+  @Volatile private var nativeSubtitlesEnabled = true
+
+  /**
+   * Atlas: hides (or shows again) every native subtitle surface while keeping the
+   * track selected, so the Flutter overlay can draw the sidecar instead.
+   */
+  fun setSubtitleRenderingEnabled(enabled: Boolean) {
+    nativeSubtitlesEnabled = enabled
+    activity.runOnUiThread {
+      if (disposing) return@runOnUiThread
+      applyNativeSubtitleVisibility()
+    }
+  }
+
+  private fun applyNativeSubtitleVisibility() {
+    renderSubtitleCues(lastSubtitleCues)
+    val visibility = if (nativeSubtitlesEnabled) View.VISIBLE else View.INVISIBLE
+    subtitleView?.visibility = visibility
+    bitmapSubtitleView?.visibility = visibility
+    assSubtitleView?.visibility = visibility
+  }
+
   override fun setVisible(visible: Boolean) {
     if (disposing) return
     currentVisible = visible
@@ -4193,6 +4325,8 @@ class ExoPlayerCore(private val activity: Activity) :
       "videoHeight" to videoFormat?.height,
       "videoFps" to (videoFormat?.frameRate?.takeIf { it > 0 } ?: detectedFrameRate.takeIf { it > 0 }),
       "videoBitrate" to videoFormat?.bitrate,
+      // Atlas: the measured connection speed, remembered for the next play's start level.
+      "bandwidthEstimate" to bandwidthMeter?.measuredEstimate?.takeIf { it > 0 },
       "videoDecoderName" to videoDecoderName,
       "videoDroppedFrames" to player.videoDecoderCounters?.droppedBufferCount,
       "videoRenderedFrames" to player.videoDecoderCounters?.renderedOutputBufferCount,
@@ -4281,24 +4415,24 @@ class ExoPlayerCore(private val activity: Activity) :
         activeDoviMkvWrapper?.doviTrackOutput
           ?: activeDoviMp4Wrapper?.doviTrackOutput
         ).let { dovi ->
-        arrayOf(
-          "dvConversionActive" to (dovi?.conversionActive == true),
-          "dvConversionMode" to dvMode.name,
-          "dvConversionDebugMode" to (debugDvModeOverride?.name ?: "AUTO"),
-          "dvSourceProfile" to dvPlaybackInfo?.sourceProfile,
-          "dvPlaybackPath" to dvPlaybackInfo?.path,
-          "dvPlaybackReason" to dvPlaybackInfo?.reason,
-          "dvStrippedInitNals" to (dovi?.strippedInitNalCount ?: 0L),
-          "dvStrippedNals" to (dovi?.strippedNalCount ?: 0L),
-          "dvStrippedRpuNals" to (dovi?.strippedRpuNalCount ?: 0L),
-          "dvStrippedElNals" to (dovi?.strippedElNalCount ?: 0L),
-          "dvConvertedRpus" to (dovi?.convertedRpuCount ?: 0L),
-          "dvRpuConversionFailures" to (dovi?.rpuConversionFailureCount ?: 0L),
-          "dvRpuOutputTooSmall" to (dovi?.rpuOutputTooSmallCount ?: 0L),
-          "dvAvgRpuConversionUs" to (dovi?.averageRpuConversionTimeUs ?: 0L),
-          "dvAvgSampleProcessingUs" to (dovi?.averageSampleProcessingTimeUs ?: 0L)
-        )
-      }
+          arrayOf(
+            "dvConversionActive" to (dovi?.conversionActive == true),
+            "dvConversionMode" to dvMode.name,
+            "dvConversionDebugMode" to (debugDvModeOverride?.name ?: "AUTO"),
+            "dvSourceProfile" to dvPlaybackInfo?.sourceProfile,
+            "dvPlaybackPath" to dvPlaybackInfo?.path,
+            "dvPlaybackReason" to dvPlaybackInfo?.reason,
+            "dvStrippedInitNals" to (dovi?.strippedInitNalCount ?: 0L),
+            "dvStrippedNals" to (dovi?.strippedNalCount ?: 0L),
+            "dvStrippedRpuNals" to (dovi?.strippedRpuNalCount ?: 0L),
+            "dvStrippedElNals" to (dovi?.strippedElNalCount ?: 0L),
+            "dvConvertedRpus" to (dovi?.convertedRpuCount ?: 0L),
+            "dvRpuConversionFailures" to (dovi?.rpuConversionFailureCount ?: 0L),
+            "dvRpuOutputTooSmall" to (dovi?.rpuOutputTooSmallCount ?: 0L),
+            "dvAvgRpuConversionUs" to (dovi?.averageRpuConversionTimeUs ?: 0L),
+            "dvAvgSampleProcessingUs" to (dovi?.averageSampleProcessingTimeUs ?: 0L)
+          )
+        }
     )
   }
 
@@ -4404,6 +4538,7 @@ class ExoPlayerCore(private val activity: Activity) :
     exoPlayer?.clearVideoSurface()
     exoPlayer?.removeListener(this)
     exoPlayer?.release()
+    atlasWarmGate.release()
     exoPlayer = null
     renderersFactory = null
     trackSelector = null

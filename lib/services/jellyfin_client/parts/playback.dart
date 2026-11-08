@@ -62,12 +62,12 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// best-effort so unsupported and older servers use chapter title fallback.
   @override
   Future<PlaybackExtras> fetchPlaybackExtras(
-    String itemId, {
-    String? introPattern,
-    String? creditsPattern,
-    bool forceChapterFallback = false,
-    bool forceRefresh = false,
-  }) async {
+      String itemId, {
+        String? introPattern,
+        String? creditsPattern,
+        bool forceChapterFallback = false,
+        bool forceRefresh = false,
+      }) async {
     final item = forceRefresh ? await fetchItem(itemId) : await fetchItemFreshCacheFirst(itemId);
     final markers = item == null ? const <MediaMarker>[] : await _fetchMediaSegmentMarkers(itemId);
     return jellyfinPlaybackExtrasFromRaw(
@@ -83,11 +83,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
 
   @override
   Future<PlaybackExtras?> fetchPlaybackExtrasFromCacheOnly(
-    String itemId, {
-    String? introPattern,
-    String? creditsPattern,
-    bool forceChapterFallback = false,
-  }) async {
+      String itemId, {
+        String? introPattern,
+        String? creditsPattern,
+        bool forceChapterFallback = false,
+      }) async {
     final item = await cache.getMetadata(ServerId(cacheServerId), itemId);
     if (item == null) return null;
     final markers = await _fetchCachedMediaSegmentMarkers(itemId);
@@ -104,11 +104,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
 
   @override
   Future<MediaSourceInfo?> fetchCachedMediaSourceInfo(
-    String itemId, {
-    int mediaIndex = 0,
-    String? mediaSourceId,
-    String? preferredVersionSignature,
-  }) async {
+      String itemId, {
+        int mediaIndex = 0,
+        String? mediaSourceId,
+        String? preferredVersionSignature,
+      }) async {
     final item = await cache.getMetadata(ServerId(cacheServerId), itemId);
     final raw = item?.raw;
     if (raw is! Map<String, dynamic>) return null;
@@ -144,7 +144,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // service just suppresses the tooltip.
       final service = BifThumbnailService();
       await service.load(
-        (maxBytes) => _downloadEmbyBifFile(item.id, maxBytes: maxBytes),
+            (maxBytes) => _downloadEmbyBifFile(item.id, maxBytes: maxBytes),
         aspectRatio: mediaSource.videoAspectRatio,
       );
       return service;
@@ -181,18 +181,18 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     final endpoint = JellyfinApiCache.mediaSegmentsEndpoint(itemId);
     try {
       return await fetchWithCacheFallback<List<MediaMarker>>(
-            cacheKey: endpoint,
-            networkCall: () async {
-              final response = await _http.get(endpoint);
-              if (response.statusCode == 404) {
-                return MediaServerResponse(statusCode: 200, headers: response.headers, requestUri: response.requestUri);
-              }
-              throwIfHttpError(response);
-              return response;
-            },
-            parseCache: jellyfinMediaSegmentsToMarkers,
-            parseResponse: (response) => jellyfinMediaSegmentsToMarkers(response.data),
-          ) ??
+        cacheKey: endpoint,
+        networkCall: () async {
+          final response = await _http.get(endpoint);
+          if (response.statusCode == 404) {
+            return MediaServerResponse(statusCode: 200, headers: response.headers, requestUri: response.requestUri);
+          }
+          throwIfHttpError(response);
+          return response;
+        },
+        parseCache: jellyfinMediaSegmentsToMarkers,
+        parseResponse: (response) => jellyfinMediaSegmentsToMarkers(response.data),
+      ) ??
           const [];
     } on MediaServerHttpException catch (e) {
       if (e.statusCode != 404) {
@@ -294,8 +294,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     final wantsOriginal = isTrack ? audioPreset.isOriginal : preset.isOriginal;
     final requestedAudioStreamId = options.selectedAudioStreamId == null
         ? options.preferredAudioTrack == null
-              ? null
-              : findSourceAudioTrackForIntent(options.preferredAudioTrack!, mediaInfo.audioTracks)?.id
+        ? null
+        : findSourceAudioTrackForIntent(options.preferredAudioTrack!, mediaInfo.audioTracks)?.id
         : _validJellyfinAudioStreamId(options.selectedAudioStreamId, mediaInfo);
     final requestedSubtitleStreamId = _validJellyfinSubtitleStreamId(options.preferredSubtitleTrack, mediaInfo);
     // A real external subtitle file stays a file the client fetches, on a transcode as much as on
@@ -318,30 +318,32 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     // externally delivered would leave the client fetching a copy of pixels already in the video.
     final requestedSubtitleIsExternalFile =
         effectiveSubtitleStreamId != null &&
-        mediaInfo.subtitleTracks.any(
-          (track) =>
+            mediaInfo.subtitleTracks.any(
+                  (track) =>
               track.id == effectiveSubtitleStreamId &&
-              track.isExternalFile &&
-              CodecUtils.isTextSubtitleCodec(track.codec),
-        );
+                  track.isExternalFile &&
+                  CodecUtils.isTextSubtitleCodec(track.codec),
+            );
     // Atlas adaptive streaming: an original-quality video play on a player that
     // switches renditions itself goes through the server's ladder instead of the
     // static file. A selected bitmap subtitle has to be burned in, which only a
     // single transcode can do, so that one case keeps the old path.
     final selectedSubtitleNeedsBurnIn =
         effectiveSubtitleStreamId != null &&
-        mediaInfo.subtitleTracks.any(
-          (track) =>
+            mediaInfo.subtitleTracks.any(
+                  (track) =>
               track.id == effectiveSubtitleStreamId &&
-              !track.isExternalFile &&
-              !CodecUtils.isTextSubtitleCodec(track.codec),
-        );
-    final useAdaptive = !isTrack && wantsOriginal && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
+                  !track.isExternalFile &&
+                  CodecUtils.isImageSubtitleCodec(track.codec),
+            );
+    // A quality picked by hand goes through the same Atlas master, pinned to that one level, so it
+    // keeps sidecar subtitles and the grid instead of a classic transcode that burns them in.
+    final useAdaptive = !isTrack && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
     var isAdaptive = false;
     final int? maxStreamingBitrate = wantsOriginal
         ? null
         : isTrack
-        // Non-original audio presets always carry a bitrate by construction.
+    // Non-original audio presets always carry a bitrate by construction.
         ? audioPreset.bitrateKbps! * 1000
         : (preset.videoBitrateKbps ?? 100_000) * 1000;
     final resumeOffsetMs = metadata.viewOffsetMs;
@@ -410,6 +412,9 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
           mediaSourceId: adaptiveSourceId,
           playSessionId: negotiatedPlaySessionId,
           audioStreamIndex: requestedAudioStreamId,
+          startTicks: msToJellyfinTicks(options.startPosition?.inMilliseconds ?? resumeOffsetMs ?? 0),
+          pinnedBitrate: wantsOriginal || preset.videoBitrateKbps == null ? null : preset.videoBitrateKbps! * 1000,
+          pinnedHeight: wantsOriginal ? null : preset.resolutionHeight,
         );
         // Reported as a transcode: the server runs (and pings, and stops) it as one,
         // even when the level being watched is the original stream copied.
@@ -459,12 +464,12 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     final subtitleSidecars = isTrack
         ? const <PlaybackSubtitleSidecar>[]
         : _buildExternalSubtitles(
-            metadata.id,
-            effectiveSourceId,
-            mediaInfo,
-            isTranscoding: isTranscoding,
-            burnedSourceStreamId: burnedSourceStreamId,
-          );
+      metadata.id,
+      effectiveSourceId,
+      mediaInfo,
+      isTranscoding: isTranscoding,
+      burnedSourceStreamId: burnedSourceStreamId,
+    );
     mediaInfo = _withSidecarBackedSubtitleIdentity(mediaInfo, subtitleSidecars);
     // Jellyfin's streaming endpoint resolves a blank MediaSourceId to its own
     // first sorted source, which for an item with alternate versions is a
@@ -493,11 +498,14 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// The Atlas adaptive master playlist for [itemId], with the codecs this
   /// player takes in the stream (see [AtlasAdaptiveStreaming]).
   String _buildAtlasAdaptiveUrl(
-    String itemId, {
-    required String mediaSourceId,
-    required String playSessionId,
-    int? audioStreamIndex,
-  }) {
+      String itemId, {
+        required String mediaSourceId,
+        required String playSessionId,
+        int? audioStreamIndex,
+        int? startTicks,
+        int? pinnedBitrate,
+        int? pinnedHeight,
+      }) {
     final webCaps = kIsWeb ? atlasWebAdaptiveCaps() : null;
     return buildJellyfinAtlasAdaptiveUrl(
       baseUrl: connection.baseUrl,
@@ -512,7 +520,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // Browsers get stereo; native players take 5.1 when a transcode has to touch audio.
       maxAudioChannels: kIsWeb ? 2 : 6,
       audioStreamIndex: audioStreamIndex,
-      startBitrate: webCaps?.downlinkBps,
+      // Always open on the lowest rung for a fast first frame (see startEstimateBps).
+      startBitrate: AtlasAdaptiveStreaming.startEstimateBps,
+      startTicks: startTicks,
+      pinnedBitrate: pinnedBitrate,
+      pinnedHeight: pinnedHeight,
     );
   }
 
@@ -520,11 +532,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// files (see [MediaPart]).
   @override
   Future<ExternalPlaybackTarget?> resolveExternalPlayback(
-    MediaItem item, {
-    int mediaIndex = 0,
-    String? mediaSourceId,
-    Duration? position,
-  }) async {
+      MediaItem item, {
+        int mediaIndex = 0,
+        String? mediaSourceId,
+        Duration? position,
+      }) async {
     // Tracks stream from /Audio/{id}/stream; the URL contract (Static=true,
     // api_key in the query string) is otherwise identical to the video one.
     final isTrack = item.kind == MediaKind.track;
@@ -668,9 +680,9 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// is absent from the container whether or not this open managed to build a
   /// sidecar URL for it, so it must never fuzzy-match a native track.
   MediaSourceInfo _withSidecarBackedSubtitleIdentity(
-    MediaSourceInfo mediaInfo,
-    List<PlaybackSubtitleSidecar> sidecars,
-  ) {
+      MediaSourceInfo mediaInfo,
+      List<PlaybackSubtitleSidecar> sidecars,
+      ) {
     if (mediaInfo.subtitleTracks.isEmpty) return mediaInfo;
     final sidecarSourceIds = {for (final sidecar in sidecars) ?sidecar.sourceStreamId};
     return mediaInfo.copyWith(
@@ -712,12 +724,12 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// the picture. On a direct play embedded rows are absent on purpose - the native player reads
   /// them out of the container itself.
   List<PlaybackSubtitleSidecar> _buildExternalSubtitles(
-    String itemId,
-    String? mediaSourceId,
-    MediaSourceInfo mediaInfo, {
-    bool isTranscoding = false,
-    int? burnedSourceStreamId,
-  }) {
+      String itemId,
+      String? mediaSourceId,
+      MediaSourceInfo mediaInfo, {
+        bool isTranscoding = false,
+        int? burnedSourceStreamId,
+      }) {
     final externalSubtitles = <PlaybackSubtitleSidecar>[];
     for (final track in mediaInfo.subtitleTracks) {
       if (burnedSourceStreamId != null && track.id == burnedSourceStreamId) continue;
@@ -744,7 +756,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
           track: SubtitleTrack.uri(
             url,
             title:
-                cleanSubtitleTitle(track.displayTitle ?? track.title, codec: track.codec) ??
+            cleanSubtitleTitle(track.displayTitle ?? track.title, codec: track.codec) ??
                 cleanTrackMetadataValue(track.language),
             language: cleanTrackMetadataValue(track.languageCode),
             codec: track.codec,
@@ -768,11 +780,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// range as a fallback to mirror Plex's `parseVideoPlaybackDataFromJson`.
   @override
   Future<JellyfinPlaybackBundle?> fetchPlaybackBundle(
-    String itemId, {
-    int sourceIndex = 0,
-    String? sourceId,
-    String? preferredSignature,
-  }) async {
+      String itemId, {
+        int sourceIndex = 0,
+        String? sourceId,
+        String? preferredSignature,
+      }) async {
     final item = await fetchItemFreshCacheFirst(itemId);
     final raw = item?.raw;
     if (raw is! Map<String, dynamic>) return null;
@@ -785,11 +797,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   }
 
   JellyfinPlaybackBundle? _playbackBundleFromRaw(
-    Map<String, dynamic> raw, {
-    int sourceIndex = 0,
-    String? sourceId,
-    String? preferredSignature,
-  }) {
+      Map<String, dynamic> raw, {
+        int sourceIndex = 0,
+        String? sourceId,
+        String? preferredSignature,
+      }) {
     final sources = raw['MediaSources'];
     if (sources is! List || sources.isEmpty) return null;
     final availableVersions = jellyfinSourcesToVersions(sources);
@@ -836,14 +848,14 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// param to pick which file to serve.
   @override
   String buildDirectStreamUrl(
-    String itemId, {
-    String? container,
-    String? mediaSourceId,
-    String? playSessionId,
-    String? liveStreamId,
-    int? audioStreamIndex,
-    bool containerExtension = false,
-  }) {
+      String itemId, {
+        String? container,
+        String? mediaSourceId,
+        String? playSessionId,
+        String? liveStreamId,
+        int? audioStreamIndex,
+        bool containerExtension = false,
+      }) {
     return buildJellyfinDirectStreamUrl(
       baseUrl: connection.baseUrl,
       accessToken: connection.accessToken,
@@ -864,11 +876,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// for track direct-play fallback, downloads, and external players.
   @override
   String buildAudioDirectStreamUrl(
-    String itemId, {
-    String? container,
-    String? mediaSourceId,
-    bool containerExtension = false,
-  }) {
+      String itemId, {
+        String? container,
+        String? mediaSourceId,
+        bool containerExtension = false,
+      }) {
     return buildJellyfinDirectStreamUrl(
       baseUrl: connection.baseUrl,
       accessToken: connection.accessToken,
@@ -924,26 +936,26 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// the request body when false) are untouched either way.
   @override
   Future<Map<String, dynamic>> getPlaybackInfo(
-    String itemId, {
-    int? maxStreamingBitrate = 100_000_000,
-    String? mediaSourceId,
-    String? liveStreamId,
-    int? startTimeTicks,
-    int? audioStreamIndex,
-    int? subtitleStreamIndex,
-    bool? autoOpenLiveStream,
-    bool? enableDirectPlay,
-    bool? enableDirectStream,
-    bool? enableTranscoding,
-    bool? allowVideoStreamCopy,
-    bool? allowAudioStreamCopy,
-    bool isLiveTv = false,
-    bool audioProfile = false,
+      String itemId, {
+        int? maxStreamingBitrate = 100_000_000,
+        String? mediaSourceId,
+        String? liveStreamId,
+        int? startTimeTicks,
+        int? audioStreamIndex,
+        int? subtitleStreamIndex,
+        bool? autoOpenLiveStream,
+        bool? enableDirectPlay,
+        bool? enableDirectStream,
+        bool? enableTranscoding,
+        bool? allowVideoStreamCopy,
+        bool? allowAudioStreamCopy,
+        bool isLiveTv = false,
+        bool audioProfile = false,
 
-    /// Drop `External` subtitle delivery from the profile, so the server burns
-    /// the selected subtitle into a transcode instead of serving it alongside.
-    bool burnSubtitles = false,
-  }) async {
+        /// Drop `External` subtitle delivery from the profile, so the server burns
+        /// the selected subtitle into a transcode instead of serving it alongside.
+        bool burnSubtitles = false,
+      }) async {
     // The same negotiation fields go out stringified in the query string and
     // typed in the body.
     final negotiation = <String, Object>{
@@ -1128,17 +1140,17 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   /// fields, and Jellyfin's session tracker drops events that omit `PlayMethod`
   /// because it has no way to associate progress with an active session row.
   Future<void> _postPlayingState(
-    String path, {
-    required String itemId,
-    required Duration position,
-    required bool isPaused,
-    String? playSessionId,
-    String? playMethod,
-    String? liveStreamId,
-    String? mediaSourceId,
-    int? audioStreamIndex,
-    int? subtitleStreamIndex,
-  }) async {
+      String path, {
+        required String itemId,
+        required Duration position,
+        required bool isPaused,
+        String? playSessionId,
+        String? playMethod,
+        String? liveStreamId,
+        String? mediaSourceId,
+        int? audioStreamIndex,
+        int? subtitleStreamIndex,
+      }) async {
     final response = await _http.post(
       path,
       body: {

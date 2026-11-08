@@ -85,6 +85,9 @@ String buildJellyfinAtlasAdaptiveUrl({
   required int maxAudioChannels,
   int? audioStreamIndex,
   int? startBitrate,
+  int? startTicks,
+  int? pinnedBitrate,
+  int? pinnedHeight,
 }) {
   final params = <String, String>{
     tokenQueryParam: accessToken,
@@ -104,6 +107,12 @@ String buildJellyfinAtlasAdaptiveUrl({
     'AudioStreamIndex': ?audioStreamIndex?.toString(),
     'AtlasAbr': 'true',
     'AtlasStartBitrate': ?(startBitrate != null && startBitrate > 0 ? '$startBitrate' : null),
+    // Where playback will begin, so the server can start transcoding that segment
+    // while the player is still fetching playlists.
+    'AtlasStartTicks': ?(startTicks != null && startTicks > 0 ? '$startTicks' : null),
+    // A quality picked by hand: the server answers with just that one level.
+    'AtlasMaxBitrate': ?(pinnedBitrate != null && pinnedHeight != null && pinnedBitrate > 0 ? '$pinnedBitrate' : null),
+    'AtlasMaxHeight': ?(pinnedBitrate != null && pinnedHeight != null && pinnedHeight > 0 ? '$pinnedHeight' : null),
   };
   final encodedItem = Uri.encodeComponent(itemId);
   return '$baseUrl/Videos/$encodedItem/master.m3u8?${_encodeQuery(params)}';

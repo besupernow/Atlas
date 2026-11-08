@@ -199,6 +199,9 @@ final class AtlasAVPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     case "selectSubtitleTrack":
       core?.selectSubtitle(id: args["trackId"] as? String ?? "no")
       result(nil)
+    case "setSubtitleRendering":
+      core?.setSubtitleRendering(args["enabled"] as? Bool ?? true)
+      result(nil)
     case "setSubtitleDelay":
       core?.subtitleDelay = (args["seconds"] as? NSNumber)?.doubleValue ?? 0
       result(nil)
@@ -263,6 +266,8 @@ final class AtlasAVPlayerCore: NSObject {
   private var generation = 0
   private var wantsPlay = false
   private var desiredRate: Float = 1
+  /// Whether this item has started playing once (see startPlayback).
+  private var startedOnce = false
   private var pendingStart: CMTime?
   private var fileLoaded = false
   private var restartSent = false
@@ -290,6 +295,8 @@ final class AtlasAVPlayerCore: NSObject {
   private var cuesById: [String: [Cue]] = [:]
   private var selectedSubtitleId: String?
   private var shownCueText: String?
+  /// False while the app draws subtitles itself (AtlasSubtitleOverlay).
+  private var drawsSubtitles = true
   var subtitleDelay: Double = 0
   private var subtitleFontSize: CGFloat = 55
   private var subtitleTextColor: UIColor = .white
@@ -377,6 +384,7 @@ final class AtlasAVPlayerCore: NSObject {
     }
 
     fileLoaded = false
+    startedOnce = false
     restartSent = false
     lastBuffering = nil
     wantsPlay = autoPlay
@@ -538,7 +546,16 @@ final class AtlasAVPlayerCore: NSObject {
   }
 
   /// Starts playback at the chosen speed (AVPlayer.play() always means 1x before iOS 16).
+  ///
+  /// The first start of an item doesn't wait for AVPlayer's "likely to keep up"
+  /// verdict, which wants several segments buffered: the stream opens on its
+  /// lowest rung, one segment is enough, and AVPlayer climbs from there.
   private func startPlayback() {
+    if !startedOnce {
+      startedOnce = true
+      player.playImmediately(atRate: desiredRate)
+      return
+    }
     player.play()
     if desiredRate != 1 { player.rate = desiredRate }
   }
@@ -643,6 +660,18 @@ final class AtlasAVPlayerCore: NSObject {
 
   // MARK: Subtitles
 
+  func setSubtitleRendering(_ enabled: Bool) {
+    drawsSubtitles = enabled
+    if enabled {
+      if let id = selectedSubtitleId, cuesById[id] == nil, let sidecar = sidecars.first(where: { $0.id == id }) {
+        loadCues(for: sidecar)
+      }
+      updateSubtitle(at: player.currentTime().seconds)
+    } else {
+      showCue(nil)
+    }
+  }
+
   func selectSubtitle(id: String) {
     guard let sidecar = sidecars.first(where: { $0.id == id }) else {
       selectedSubtitleId = nil
@@ -654,7 +683,7 @@ final class AtlasAVPlayerCore: NSObject {
     selectedSubtitleId = sidecar.id
     onProperty?("sid", sidecar.id)
     emitTrackList()
-    if cuesById[sidecar.id] == nil { loadCues(for: sidecar) }
+    if drawsSubtitles && cuesById[sidecar.id] == nil { loadCues(for: sidecar) }
   }
 
   private func loadCues(for sidecar: Sidecar) {
@@ -734,7 +763,7 @@ final class AtlasAVPlayerCore: NSObject {
   }
 
   private func updateSubtitle(at seconds: Double) {
-    guard let id = selectedSubtitleId, let cues = cuesById[id], seconds.isFinite else {
+    guard drawsSubtitles, let id = selectedSubtitleId, let cues = cuesById[id], seconds.isFinite else {
       showCue(nil)
       return
     }
@@ -878,6 +907,8 @@ final class AtlasAVPlayerCore: NSObject {
       let observedMbps = event.observedBitrate > 0 ? String(format: "%.1f", event.observedBitrate / 1_000_000) : "?"
       out["videoDecoderName"] = "AVPlayer HLS, \(event.numberOfMediaRequests) segments, est. \(observedMbps) Mbps"
       out["switches"] = event.switchBitrate
+      // Atlas: the measured connection speed, remembered for the next play's start level.
+      if event.observedBitrate > 0 { out["bandwidthEstimate"] = Int(event.observedBitrate) }
     }
     let now = item.currentTime().seconds
     for value in item.loadedTimeRanges {

@@ -645,6 +645,11 @@ class SettingsService extends BaseSharedPreferencesService {
   /// ExoPlayer on Android, AVPlayer on iPhone and iPad. Off falls back to plain
   /// direct play on mpv.
   static const adaptiveStreaming = BoolPref('atlas_adaptive_streaming', defaultValue: true);
+
+  /// Atlas adaptive streaming: the connection speed this device last measured
+  /// during playback, in bits per second (0 = never). Sent as the start hint so
+  /// the next play opens on a level the connection can actually carry.
+  static const adaptiveBandwidthEstimate = IntPref('atlas_adaptive_bandwidth_bps');
   static const enableHDR = BoolPref('enable_hdr', defaultValue: true);
   // Linux native video plane only. Defaults to the compositor: photographed on a
   // 400-nit HDR output against a PQ chart, the compositor keeps 400 -> 1000 nits

@@ -278,6 +278,7 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                     return Video(
                       player: player!,
                       hasFirstFrame: _firstFrame.uiReady,
+                      controlsVisible: _chromeController,
                       controls: (context) => PlexVideoControls(
                         player: player!,
                         volumeController: _volumeController!,
