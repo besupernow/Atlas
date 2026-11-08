@@ -285,7 +285,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
             libstdc++-12-dev libmpv-dev libepoxy-dev libcurl4-openssl-dev libevdev-dev \
-            libwayland-dev libegl-dev
+            libwayland-dev libegl-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Prepare Flutter Linux configuration
         run: |
@@ -658,7 +658,8 @@ jobs:
             libharfbuzz-dev libegl-dev libgl-dev libgnutls28-dev libpipewire-0.3-dev \
             libva-dev libxkbcommon-dev libpulse-dev libdbus-1-dev libdrm-dev \
             libdisplay-info-dev libgbm-dev libwayland-dev wayland-protocols liblcms2-dev libmujs-dev \
-            liblua5.2-dev rpm libarchive-tools imagemagick ruby-dev build-essential
+            liblua5.2-dev rpm libarchive-tools imagemagick ruby-dev build-essential \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
           sudo gem install fpm --version 1.17.0 --no-document
 
       # Keyed the same way build.yml keys it: the lock names the asset and its

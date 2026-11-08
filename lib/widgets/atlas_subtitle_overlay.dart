@@ -500,12 +500,12 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
 }
 
 /// Whether [player] is one whose subtitles [AtlasSubtitleOverlay] draws
-/// (adaptive streaming on ExoPlayer, AVPlayer or the web player).
+/// (adaptive streaming on ExoPlayer, AVPlayer, GStreamer or the web player).
 bool atlasOverlayDrawsSubtitles(Player player) {
   final type = player.playerType;
   return player is NativeSubtitleRendering &&
       AtlasAdaptiveStreaming.enabled &&
-      (type == 'exoplayer' || type == 'avplayer' || type == 'web');
+      (type == 'exoplayer' || type == 'avplayer' || type == 'gstreamer' || type == 'web');
 }
 
 /// Atlas adaptive streaming: a subtitle the app picked itself, drawn by the

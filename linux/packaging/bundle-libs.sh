@@ -22,7 +22,9 @@ fi
 
 # ── Exclusion list ──────────────────────────────────────────────────────────
 # Libraries that must come from the host system.
-EXCLUDE_PATTERN='linux-vdso\.so|ld-linux.*\.so|libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|libmvec\.so|libresolv\.so|libnss_.*\.so|libGL\.so|libEGL\.so|libGLX\.so|libGLESv2\.so|libGLdispatch\.so|libOpenGL\.so|libepoxy\.so|libvulkan\.so|libdrm\.so|libgbm\.so|libnvidia.*\.so|libcuda.*\.so|libasound\.so|libwayland.*\.so|libxcb.*\.so|libva.*\.so|libvdpau\.so|libX11\.so|libX11-xcb\.so|libXext\.so'
+# GStreamer (Atlas adaptive streaming) and orc are on this list because its plugins (hlsdemux2,
+# waylandsink, the VA decoders) are loaded from the host and have to match the host's core libs.
+EXCLUDE_PATTERN='libgst[a-z0-9_-]*-1\.0\.so|liborc-0\.4\.so|linux-vdso\.so|ld-linux.*\.so|libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|libmvec\.so|libresolv\.so|libnss_.*\.so|libGL\.so|libEGL\.so|libGLX\.so|libGLESv2\.so|libGLdispatch\.so|libOpenGL\.so|libepoxy\.so|libvulkan\.so|libdrm\.so|libgbm\.so|libnvidia.*\.so|libcuda.*\.so|libasound\.so|libwayland.*\.so|libxcb.*\.so|libva.*\.so|libvdpau\.so|libX11\.so|libX11-xcb\.so|libXext\.so'
 
 # ── Helper: collect ldd deps ───────────────────────────────────────────────
 collect_deps() {

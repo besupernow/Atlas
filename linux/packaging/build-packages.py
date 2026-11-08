@@ -81,6 +81,15 @@ DISTROS = {
             "libxcb-dri3-0",
             "libxcb-render0",
             "libxcb-shm0",
+            # Atlas adaptive streaming: GStreamer from the host, never bundled, because its
+            # plugins are the host's. hlsdemux2 is in -good, waylandsink and the VA-API decoders
+            # in -bad, and -libav is the software decoder for GPUs without VA-API.
+            "libgstreamer1.0-0",
+            "libgstreamer-plugins-base1.0-0",
+            "liborc-0.4-0t64 | liborc-0.4-0",
+            "gstreamer1.0-plugins-good",
+            "gstreamer1.0-plugins-bad",
+            "gstreamer1.0-libav",
         ],
     },
     "rpm": {
@@ -108,6 +117,13 @@ DISTROS = {
             "libX11-xcb",
             "libXext",
             "libxcb",
+            # Atlas adaptive streaming (see the deb list). Fedora's -bad-free has waylandsink and
+            # the VA-API decoders; software H.264 needs RPM Fusion's -libav, so it isn't required.
+            "gstreamer1",
+            "gstreamer1-plugins-base",
+            "orc",
+            "gstreamer1-plugins-good",
+            "gstreamer1-plugins-bad-free",
         ],
     },
     "pacman": {
@@ -133,6 +149,13 @@ DISTROS = {
             "libx11",
             "libxext",
             "libxcb",
+            # Atlas adaptive streaming (see the deb list).
+            "gstreamer",
+            "gst-plugins-base-libs",
+            "orc",
+            "gst-plugins-good",
+            "gst-plugins-bad",
+            "gst-libav",
         ],
     },
 }

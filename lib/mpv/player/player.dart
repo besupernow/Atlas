@@ -10,6 +10,7 @@ import 'platform/player_avfoundation.dart';
 import 'player_native.dart';
 import 'player_state.dart';
 import 'player_streams.dart';
+import 'platform/player_gstreamer.dart';
 import 'platform/player_linux.dart';
 import 'platform/player_windows.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -430,6 +431,8 @@ abstract class Player {
       return PlayerWindows();
     }
     if (Platform.isLinux) {
+      // Atlas: adaptive (HLS) streams play on GStreamer, which can switch renditions.
+      if (allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) return PlayerGStreamer();
       return PlayerLinux();
     }
     throw UnsupportedError('Player is not supported on this platform');

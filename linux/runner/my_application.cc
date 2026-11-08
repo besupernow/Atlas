@@ -7,6 +7,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "gst/gst_av_plugin.h"
 #include "mpv/mpv_plugin.h"
 
 // On Wayland the mpv video plane is a wl_subsurface stacked *below* this
@@ -96,6 +97,12 @@ static void my_application_activate(GApplication* application) {
   FlPluginRegistrar* audio_registrar =
       fl_plugin_registry_get_registrar_for_plugin(FL_PLUGIN_REGISTRY(self->flutter_view), "MpvAudioPlugin");
   mpv_audio_plugin_register_with_registrar(audio_registrar);
+
+  // Atlas: GStreamer for adaptive streaming (HLS rendition switching mpv can't do). Its video
+  // goes below the Flutter surface like mpv's plane.
+  FlPluginRegistrar* gst_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(FL_PLUGIN_REGISTRY(self->flutter_view), "AtlasGstPlugin");
+  gst_av_plugin_register_with_registrar(gst_registrar);
 
   gtk_widget_show(GTK_WIDGET(window));
   gtk_widget_grab_focus(GTK_WIDGET(self->flutter_view));
