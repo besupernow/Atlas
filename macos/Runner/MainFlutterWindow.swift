@@ -31,6 +31,10 @@ class MainFlutterWindow: NSWindow {
     MpvAudioPlayerPlugin.register(
       with: flutterViewController.registrar(forPlugin: "MpvAudioPlayerPlugin"))
 
+    // Atlas: AVPlayer for adaptive streaming (HLS rendition switching mpv can't do).
+    AtlasAVPlayerPlugin.register(
+      with: flutterViewController.registrar(forPlugin: "AtlasAVPlayerPlugin"))
+
     WindowUtilsPlugin.register(
       with: flutterViewController.registrar(forPlugin: "WindowUtilsPlugin"))
     WindowUtilsPlugin.setWindow(self)

@@ -24,7 +24,8 @@ class PipService {
     if (!_isAvailable) return;
     // Listen for callbacks from native Android
     _mpvChannel.setMethodCallHandler(_handleMethodCall);
-    if (Platform.isIOS) _avChannel.setMethodCallHandler(_handleMethodCall);
+    // Atlas: AVPlayer's PiP (iPhone/iPad/Mac adaptive streaming) reports on its own channel.
+    if (Platform.isIOS || Platform.isMacOS) _avChannel.setMethodCallHandler(_handleMethodCall);
   }
 
   /// ValueNotifier for PiP state - widgets can listen to this

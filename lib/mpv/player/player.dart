@@ -10,6 +10,7 @@ import 'platform/player_avfoundation.dart';
 import 'player_native.dart';
 import 'player_state.dart';
 import 'player_streams.dart';
+import 'platform/player_gstreamer.dart';
 import 'platform/player_linux.dart';
 import 'platform/player_windows.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -404,7 +405,7 @@ abstract class Player {
   /// software ones, where DV reshaping can actually happen (see
   /// MpvPlayerCore.initialVideoOutput; #2010).
   ///
-  /// [allowAvPlayer] (Atlas): the caller knows the source is HLS, so iPhone/iPad
+  /// [allowAvPlayer] (Atlas): the caller knows the source is HLS, so iPhone/iPad/Mac
   /// may play it on AVPlayer for adaptive streaming. Anything else (downloaded
   /// files, MKV direct play, live TV) stays on mpv.
   factory Player({bool? useExoPlayer, bool hardwareDecoding = true, bool allowAvPlayer = false}) {
@@ -418,9 +419,9 @@ abstract class Player {
       }
       return PlayerNative(hardwareDecoding: hardwareDecoding); // MPV (default)
     }
-    // Atlas: iPhone/iPad play through AVPlayer so adaptive streaming can switch
+    // Atlas: iPhone/iPad/Mac play through AVPlayer so adaptive streaming can switch
     // renditions; with adaptive streaming off they stay on mpv.
-    if (Platform.isIOS && allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) {
+    if ((Platform.isIOS || Platform.isMacOS) && allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) {
       return PlayerAvFoundation();
     }
     if (Platform.isMacOS || Platform.isIOS) {
@@ -430,6 +431,8 @@ abstract class Player {
       return PlayerWindows();
     }
     if (Platform.isLinux) {
+      // Atlas: adaptive (HLS) streams play on GStreamer, which can switch renditions.
+      if (allowAvPlayer && AtlasAdaptiveStreaming.usesAvPlayer) return PlayerGStreamer();
       return PlayerLinux();
     }
     throw UnsupportedError('Player is not supported on this platform');

@@ -45,6 +45,7 @@ import 'services/storage_service.dart';
 import 'services/assistive_technology_service.dart';
 import 'services/device_performance.dart';
 import 'services/video_decode_capabilities.dart';
+import 'services/atlas_adaptive_streaming.dart';
 import 'services/macos_window_service.dart';
 import 'services/native_window_service.dart';
 import 'services/fullscreen_state_manager.dart';
@@ -995,6 +996,8 @@ Future<_StartupDependencies> _initializeStartup(SettingsService settings) async 
       TvDetectionService.getInstance(forceTv: settings.read(SettingsService.forceTvMode)),
       DevicePerformance.getInstance(override: settings.read(SettingsService.visualEffects)),
       VideoDecodeCapabilities.getInstance(),
+      // Atlas: whether Linux can play adaptive streams on GStreamer (decides the player backend).
+      AtlasAdaptiveStreaming.probe(),
       ).wait;
     });
 

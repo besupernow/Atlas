@@ -8,6 +8,7 @@ add_executable(${BINARY_NAME}
   "mpv/mpv_plugin.cc"
   "mpv/plane_render_executor.cc"
   "mpv/wayland_video_surface.cc"
+  "gst/gst_av_plugin.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 
@@ -30,6 +31,9 @@ pkg_check_modules(WAYLAND_EGL REQUIRED IMPORTED_TARGET wayland-egl)
 pkg_check_modules(EGL REQUIRED IMPORTED_TARGET egl)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
 pkg_check_modules(EPOXY REQUIRED IMPORTED_TARGET epoxy)
+# Atlas: GStreamer plays adaptive (HLS) streams, which mpv can't switch renditions of.
+# hlsdemux2 (plugins-good) and waylandsink (plugins-bad) are runtime plugins, not link deps.
+pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET gstreamer-1.0>=1.22 gstreamer-video-1.0>=1.22)
 
 # Vendored wayland-scanner output for color-management-v1 (staging), which backs
 # HDR on the native video plane. Built separately because it is C (the runner is
@@ -64,6 +68,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::MPV)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::EPOXY)
+target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GSTREAMER)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::WAYLAND_CLIENT)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::WAYLAND_EGL)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::EGL)

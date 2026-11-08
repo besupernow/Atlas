@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:plezy/utils/app_platform.dart';
 
 import 'settings_service.dart';
@@ -16,9 +17,12 @@ import 'video_decode_capabilities.dart';
 /// one is the backend:
 /// - web: hls.js (Safari: its native HLS)
 /// - Android: ExoPlayer (mpv has no ABR)
-/// - iPhone / iPad: AVPlayer (see `PlayerAvFoundation`)
+/// - iPhone / iPad / Mac: AVPlayer (see `PlayerAvFoundation`)
+/// - Linux: GStreamer (see `PlayerGStreamer`), when the system has it and runs Wayland
 ///
-/// Desktop keeps mpv and direct play for now.
+/// Every step up waits for the server to have the higher rung transcoding ahead of the player
+/// (`AtlasWarmGate.kt` on Android, `AtlasAVWarmGate.swift` on Apple, `AtlasGstAbr` on Linux).
+/// Windows keeps mpv and direct play: mpv can't switch renditions.
 abstract final class AtlasAdaptiveStreaming {
   /// Whether the user left adaptive streaming on.
   static bool get _settingOn {
@@ -29,9 +33,25 @@ abstract final class AtlasAdaptiveStreaming {
     }
   }
 
-  /// Whether this platform's video backend is AVPlayer (iPhone / iPad with
-  /// adaptive streaming on). Decides which [Player] the factory builds.
-  static bool get usesAvPlayer => !kIsWeb && Platform.isIOS && _settingOn;
+  /// Whether adaptive streams play on this platform's dedicated HLS backend: AVPlayer
+  /// (iPhone / iPad / Mac) or GStreamer (Linux), with adaptive streaming on. Decides which
+  /// [Player] the factory builds.
+  static bool get usesAvPlayer =>
+      !kIsWeb && (Platform.isIOS || Platform.isMacOS || (Platform.isLinux && _linuxGstreamer)) && _settingOn;
+
+  /// Linux: whether the GStreamer backend can play (GStreamer with hlsdemux2 and waylandsink, on
+  /// Wayland). Asked once at startup ([probe]); until then, and when it can't, Linux stays on mpv.
+  static bool _linuxGstreamer = false;
+
+  /// Asks the Linux GStreamer backend whether it can play. Call once at startup.
+  static Future<void> probe() async {
+    if (kIsWeb || !Platform.isLinux) return;
+    try {
+      _linuxGstreamer = await const MethodChannel('com.atlas/gst_player').invokeMethod<bool>('isSupported') ?? false;
+    } catch (_) {
+      _linuxGstreamer = false;
+    }
+  }
 
   /// Whether an AVPlayer core is the live video backend right now (set by
   /// `PlayerAvFoundation`). Picture in Picture follows it to the right plugin.
@@ -41,7 +61,8 @@ abstract final class AtlasAdaptiveStreaming {
   static bool get enabled {
     if (!_settingOn) return false;
     if (kIsWeb) return true;
-    if (Platform.isIOS) return true;
+    if (Platform.isIOS || Platform.isMacOS) return true;
+    if (Platform.isLinux) return _linuxGstreamer;
     if (Platform.isAndroid) {
       try {
         return SettingsService.instance.read(SettingsService.useExoPlayer);
