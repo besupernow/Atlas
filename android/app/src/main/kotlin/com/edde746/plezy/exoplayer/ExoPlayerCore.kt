@@ -687,15 +687,16 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      // Atlas adaptive streaming: playback opens on the lowest rung, so step up after
-      // 3s of buffer instead of 10s, and trust 85% of the measured bandwidth instead
-      // of 70%. The ladder's declared BANDWIDTH is already a peak, so the default
-      // margin double-counts. It jumps several rungs at once when the estimate allows.
+      // Atlas adaptive streaming: playback opens on the lowest rung. Step up only
+      // with 10s buffered (a new rendition has to be transcoded from scratch, and
+      // its first segments come slower than the ones already waiting), trusting
+      // 75% of the measured bandwidth. A stall right after a switch caps the
+      // estimate for a while (HintedBandwidthMeter.penalize) so it doesn't bounce.
       val adaptiveSelection = AdaptiveTrackSelection.Factory(
-        /* minDurationForQualityIncreaseMs= */ 3_000,
+        /* minDurationForQualityIncreaseMs= */ 10_000,
         /* maxDurationForQualityDecreaseMs= */ 25_000,
         /* minDurationToRetainAfterDiscardMs= */ 25_000,
-        /* bandwidthFraction= */ 0.85f,
+        /* bandwidthFraction= */ 0.75f,
       )
       trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
         setParameters(
@@ -4020,8 +4021,37 @@ class ExoPlayerCore(private val activity: Activity) :
   @Volatile private var lastBandwidthEstimate = 0L
   private var lastBandwidthLogMs = 0L
 
+  @Volatile private var currentVideoBitrate = 0L
+  @Volatile private var lastUpswitchAtMs = 0L
+  @Volatile private var lastSeekAtMs = 0L
+
   /** Atlas: logs the bandwidth estimate and every rendition switch, to tune the ladder. */
   private val abrLogListener = object : AnalyticsListener {
+    override fun onPositionDiscontinuity(
+      eventTime: AnalyticsListener.EventTime,
+      oldPosition: androidx.media3.common.Player.PositionInfo,
+      newPosition: androidx.media3.common.Player.PositionInfo,
+      reason: Int,
+    ) {
+      if (reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK) {
+        lastSeekAtMs = android.os.SystemClock.elapsedRealtime()
+      }
+    }
+
+    // A stall soon after stepping up (and not caused by a seek) means the new
+    // rendition can't keep up: hold the estimate under it for a while.
+    override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
+      if (state != androidx.media3.common.Player.STATE_BUFFERING) return
+      val player = exoPlayer ?: return
+      if (!player.playWhenReady) return
+      val now = android.os.SystemClock.elapsedRealtime()
+      if (now - lastUpswitchAtMs > 30_000 || now - lastSeekAtMs < 3_000) return
+      val failed = currentVideoBitrate
+      bandwidthMeter?.penalize(failed, now)
+      lastUpswitchAtMs = 0L
+      Log.i(TAG, "[abr] stalled after stepping up to ${failed / 1000} kbps; holding below it for a while")
+    }
+
     override fun onBandwidthEstimate(
       eventTime: AnalyticsListener.EventTime,
       totalLoadTimeMs: Int,
@@ -4041,6 +4071,11 @@ class ExoPlayerCore(private val activity: Activity) :
       format: androidx.media3.common.Format,
       decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
     ) {
+      val previous = currentVideoBitrate
+      currentVideoBitrate = format.bitrate.toLong()
+      if (previous > 0 && currentVideoBitrate > previous) {
+        lastUpswitchAtMs = android.os.SystemClock.elapsedRealtime()
+      }
       Log.i(TAG, "[abr] now playing ${format.width}x${format.height} @ ${format.bitrate / 1000} kbps (estimate ${lastBandwidthEstimate / 1000} kbps)")
     }
   }

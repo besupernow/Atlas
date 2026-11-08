@@ -34,8 +34,39 @@ internal class HintedBandwidthMeter(
   val measuredEstimate: Long
     get() = if (measured) delegate.bitrateEstimate else 0L
 
+  // Atlas: a ceiling set after an upswitch stalled playback (see [penalize]).
+  @Volatile private var capBps = 0L
+  @Volatile private var capUntilMs = 0L
+  private var backoffMs = INITIAL_BACKOFF_MS
+
+  /**
+   * A switch up to [failedBitrate] made playback stall, so the estimate stays
+   * just under that rendition for a while instead of bouncing straight back.
+   *
+   * The meter measures segments the server already has ready, which arrive at
+   * full line speed; a rendition the player hasn't touched yet has to be
+   * transcoded first and can't keep up with that number. Each repeat failure
+   * doubles the hold (1, 2, 4 ... up to 10 minutes).
+   */
+  fun penalize(failedBitrate: Long, nowMs: Long) {
+    if (failedBitrate <= 0) return
+    capBps = (failedBitrate * 0.98).toLong()
+    capUntilMs = nowMs + backoffMs
+    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+  }
+
+  /** The ceiling in force right now, or 0. */
+  fun activeCap(nowMs: Long): Long = if (capBps > 0 && nowMs < capUntilMs) capBps else 0L
+
   override fun getBitrateEstimate(): Long {
     val hint = hintBps
-    return if (!measured && hint > 0) hint else delegate.bitrateEstimate
+    val estimate = if (!measured && hint > 0) hint else delegate.bitrateEstimate
+    val cap = activeCap(android.os.SystemClock.elapsedRealtime())
+    return if (cap > 0) minOf(estimate, cap) else estimate
+  }
+
+  private companion object {
+    const val INITIAL_BACKOFF_MS = 60_000L
+    const val MAX_BACKOFF_MS = 600_000L
   }
 }

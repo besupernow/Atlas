@@ -364,10 +364,10 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
       config.setProperty('maxMaxBufferLength'.toJS, 60.toJS);
       config.setProperty('backBufferLength'.toJS, 30.toJS);
       config.setProperty('testBandwidth'.toJS, true.toJS);
-      // Fetch the first fragment while the manifest is still being handled, and
-      // step up once the estimate covers 80% of a level (hls.js default: 70%).
+      // Fetch the first fragment while the manifest is still being handled. Stepping
+      // up keeps hls.js's cautious default (70% of the estimate): a rendition it
+      // hasn't played yet is transcoded from scratch and arrives slower at first.
       config.setProperty('startFragPrefetch'.toJS, true.toJS);
-      config.setProperty('abrBandWidthUpFactor'.toJS, 0.8.toJS);
       final hint = int.tryParse(query['AtlasStartBitrate'] ?? '');
       if (hint != null && hint > 0) {
         config.setProperty('abrEwmaDefaultEstimate'.toJS, (hint * 0.8).toJS);

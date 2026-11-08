@@ -30,12 +30,17 @@ class Video extends StatefulWidget {
   final Color backgroundColor;
   final ValueListenable<bool>? hasFirstFrame;
 
+  /// Atlas: the player chrome's visibility, so app-drawn subtitles can rise
+  /// above the controls while they're up.
+  final ValueListenable<bool>? controlsVisible;
+
   const Video({
     super.key,
     required this.player,
     this.controls,
     this.backgroundColor = Colors.black,
     this.hasFirstFrame,
+    this.controlsVisible,
   });
 
   @override
@@ -127,7 +132,7 @@ class _VideoState extends State<Video> {
           _buildVideoSurface(),
 
           // Atlas: app-drawn subtitles during adaptive streaming (inactive otherwise).
-          AtlasSubtitleOverlay(player: widget.player),
+          AtlasSubtitleOverlay(player: widget.player, controlsVisible: widget.controlsVisible),
           AtlasAbrSampler(player: widget.player),
 
           // Controls overlay
