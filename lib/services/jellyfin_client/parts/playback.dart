@@ -410,6 +410,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
           mediaSourceId: adaptiveSourceId,
           playSessionId: negotiatedPlaySessionId,
           audioStreamIndex: requestedAudioStreamId,
+          startTicks: msToJellyfinTicks(options.startPosition?.inMilliseconds ?? resumeOffsetMs ?? 0),
         );
         // Reported as a transcode: the server runs (and pings, and stops) it as one,
         // even when the level being watched is the original stream copied.
@@ -497,6 +498,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     required String mediaSourceId,
     required String playSessionId,
     int? audioStreamIndex,
+    int? startTicks,
   }) {
     final webCaps = kIsWeb ? atlasWebAdaptiveCaps() : null;
     return buildJellyfinAtlasAdaptiveUrl(
@@ -514,6 +516,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       audioStreamIndex: audioStreamIndex,
       // Always open on the lowest rung for a fast first frame (see startEstimateBps).
       startBitrate: AtlasAdaptiveStreaming.startEstimateBps,
+      startTicks: startTicks,
     );
   }
 
