@@ -336,7 +336,9 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
               !track.isExternalFile &&
               CodecUtils.isImageSubtitleCodec(track.codec),
         );
-    final useAdaptive = !isTrack && wantsOriginal && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
+    // A quality picked by hand goes through the same Atlas master, pinned to that one level, so it
+    // keeps sidecar subtitles and the grid instead of a classic transcode that burns them in.
+    final useAdaptive = !isTrack && !selectedSubtitleNeedsBurnIn && AtlasAdaptiveStreaming.enabled;
     var isAdaptive = false;
     final int? maxStreamingBitrate = wantsOriginal
         ? null
@@ -411,6 +413,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
           playSessionId: negotiatedPlaySessionId,
           audioStreamIndex: requestedAudioStreamId,
           startTicks: msToJellyfinTicks(options.startPosition?.inMilliseconds ?? resumeOffsetMs ?? 0),
+          pinnedBitrate: wantsOriginal || preset.videoBitrateKbps == null ? null : preset.videoBitrateKbps! * 1000,
+          pinnedHeight: wantsOriginal ? null : preset.resolutionHeight,
         );
         // Reported as a transcode: the server runs (and pings, and stops) it as one,
         // even when the level being watched is the original stream copied.
@@ -499,6 +503,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     required String playSessionId,
     int? audioStreamIndex,
     int? startTicks,
+    int? pinnedBitrate,
+    int? pinnedHeight,
   }) {
     final webCaps = kIsWeb ? atlasWebAdaptiveCaps() : null;
     return buildJellyfinAtlasAdaptiveUrl(
@@ -517,6 +523,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       // Always open on the lowest rung for a fast first frame (see startEstimateBps).
       startBitrate: AtlasAdaptiveStreaming.startEstimateBps,
       startTicks: startTicks,
+      pinnedBitrate: pinnedBitrate,
+      pinnedHeight: pinnedHeight,
     );
   }
 

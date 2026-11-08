@@ -59,7 +59,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.FilteringMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
-import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -687,16 +686,15 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      // Atlas adaptive streaming: playback opens on the lowest rung. Step up only
-      // with 10s buffered (a new rendition has to be transcoded from scratch, and
-      // its first segments come slower than the ones already waiting), trusting
-      // 75% of the measured bandwidth. A stall right after a switch caps the
-      // estimate for a while (HintedBandwidthMeter.penalize) so it doesn't bounce.
-      val adaptiveSelection = AdaptiveTrackSelection.Factory(
-        /* minDurationForQualityIncreaseMs= */ 10_000,
+      // Atlas adaptive streaming: playback opens on the lowest rung and climbs one rung at a time
+      // (SteppedAdaptiveTrackSelection), since the server keeps only the next rung up warm. Step
+      // up with 6s buffered, trusting 80% of the measured bandwidth. A stall right after a switch
+      // still caps the estimate for a while (HintedBandwidthMeter.penalize).
+      val adaptiveSelection = SteppedAdaptiveTrackSelection.Factory(
+        /* minDurationForQualityIncreaseMs= */ 6_000,
         /* maxDurationForQualityDecreaseMs= */ 25_000,
         /* minDurationToRetainAfterDiscardMs= */ 25_000,
-        /* bandwidthFraction= */ 0.75f,
+        /* bandwidthFraction= */ 0.8f,
       )
       trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
         setParameters(
