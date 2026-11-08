@@ -686,15 +686,17 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SurfaceView added to content view")
 
       // Create track selector with text tracks enabled
-      // Atlas adaptive streaming: playback opens on the lowest rung and climbs one rung at a time
-      // (SteppedAdaptiveTrackSelection), since the server keeps only the next rung up warm. Step
-      // up with 6s buffered, trusting 80% of the measured bandwidth. A stall right after a switch
-      // still caps the estimate for a while (HintedBandwidthMeter.penalize).
-      val adaptiveSelection = SteppedAdaptiveTrackSelection.Factory(
+      // Atlas adaptive streaming: playback opens on the lowest rung. When the selection can afford a
+      // higher one (any rung, not just the next), it asks the server to warm that rung up and
+      // switches once it's ahead (AtlasAdaptiveTrackSelection + AtlasWarmGate). Step up with 6s
+      // buffered, trusting 80% of the measured bandwidth. A stall right after a switch still caps
+      // the estimate for a while (HintedBandwidthMeter.penalize).
+      val adaptiveSelection = AtlasAdaptiveTrackSelection.Factory(
         /* minDurationForQualityIncreaseMs= */ 6_000,
         /* maxDurationForQualityDecreaseMs= */ 25_000,
         /* minDurationToRetainAfterDiscardMs= */ 25_000,
         /* bandwidthFraction= */ 0.8f,
+        atlasWarmGate,
       )
       trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
         setParameters(
@@ -3451,6 +3453,8 @@ class ExoPlayerCore(private val activity: Activity) :
     // first rendition is picked from.
     bandwidthMeter?.hintBps =
       Uri.parse(uri).getQueryParameter("AtlasStartBitrate")?.toLongOrNull()?.takeIf { it > 0 } ?: 0L
+    // The warm-up endpoint lives next to the master; its levels arrive with the manifest.
+    atlasWarmGate.configure(uri, headers)
 
     // Reset FPS detection for new content
     detectedFrameRate = -1f
@@ -4016,6 +4020,7 @@ class ExoPlayerCore(private val activity: Activity) :
   }
 
   private var bandwidthMeter: HintedBandwidthMeter? = null
+  private val atlasWarmGate by lazy { AtlasWarmGate() }
   @Volatile private var lastBandwidthEstimate = 0L
   private var lastBandwidthLogMs = 0L
 
@@ -4033,7 +4038,14 @@ class ExoPlayerCore(private val activity: Activity) :
     ) {
       if (reason == androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK) {
         lastSeekAtMs = android.os.SystemClock.elapsedRealtime()
+        atlasWarmGate.reset()
       }
+    }
+
+    // Atlas: each rung's server level id is in its variant URL; hand them to the warm-up gate.
+    override fun onTimelineChanged(eventTime: AnalyticsListener.EventTime, reason: Int) {
+      val manifest = exoPlayer?.currentManifest as? androidx.media3.exoplayer.hls.HlsManifest ?: return
+      atlasWarmGate.setLevels(manifest.multivariantPlaylist.variants.map { it.format to it.url })
     }
 
     // A stall soon after stepping up (and not caused by a seek) means the new
@@ -4520,6 +4532,7 @@ class ExoPlayerCore(private val activity: Activity) :
     exoPlayer?.clearVideoSurface()
     exoPlayer?.removeListener(this)
     exoPlayer?.release()
+    atlasWarmGate.release()
     exoPlayer = null
     renderersFactory = null
     trackSelector = null
