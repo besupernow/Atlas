@@ -52,8 +52,9 @@ class AtlasAdaptiveTrackSelection(
   adaptationCheckpoints,
   Clock.DEFAULT,
 ) {
-  // canSelectFormat also runs inside the super constructor (the first pick), before these and
-  // [gate] are set; they then read as null / defaults, which means "pick freely".
+  // canSelectFormat also runs inside the super constructor, before these and [gate] are set; they
+  // then read as null / defaults ("pick freely"). That pick doesn't stick: the first
+  // updateSelectedTrack makes the real initial selection, with [gate] set.
   private var loadedFormat: Format? = null
   private var nextSegment: Long = -1
   private var wantedThisPass = false
@@ -81,10 +82,15 @@ class AtlasAdaptiveTrackSelection(
   override fun canSelectFormat(format: Format, trackBitrate: Int, effectiveBitrate: Long): Boolean {
     val affordable = super.canSelectFormat(format, trackBitrate, effectiveBitrate)
     val gate = gate
+    if (gate == null || !gate.isAtlas) return affordable
     val current = loadedFormat
-    if (gate == null || !gate.isActive || current == null || format.bitrate <= current.bitrate || !affordable) {
-      return affordable
+    if (current == null) {
+      // First pick of this playback: the lowest rung, whatever the estimate says. It's the one the
+      // server started transcoding when it handed out the playlist, so it's the fast start; the
+      // estimate (often left over from the last playback) only decides where to warm up next.
+      return format.bitrate == lowestBitrate()
     }
+    if (format.bitrate <= current.bitrate || !affordable) return affordable
     // An affordable step up. Already warm (or still running from before)? Switch now.
     if (gate.isReady(format)) return true
     // The selection walks from the highest rung down, so the first affordable one is the best this
@@ -94,6 +100,12 @@ class AtlasAdaptiveTrackSelection(
       gate.want(format, nextSegment)
     }
     return false
+  }
+
+  private fun lowestBitrate(): Int {
+    var lowest = Int.MAX_VALUE
+    for (i in 0 until length()) lowest = minOf(lowest, getFormat(i).bitrate)
+    return lowest
   }
 
   override fun evaluateQueueSize(playbackPositionUs: Long, queue: List<MediaChunk>): Int = queue.size

@@ -100,9 +100,18 @@ class AtlasWarmGate {
   val isActive: Boolean
     get() = endpoint != null && levels.isNotEmpty()
 
+  /**
+   * Whether this playback is an Atlas adaptive one (known as soon as it's opened, before the
+   * manifest and its levels have arrived).
+   */
+  val isAtlas: Boolean
+    get() = endpoint != null
+
   /** Whether the server has [format]'s rung transcoded far enough ahead to switch to it now. */
   fun isReady(format: Format): Boolean {
-    if (!isActive) return true
+    if (endpoint == null) return true
+    // Levels arrive with the manifest, a moment after the selection first runs: no going up before.
+    if (levels.isEmpty()) return false
     val level = levels[key(format)] ?: return true
     return level == readyLevel && SystemClock.elapsedRealtime() - readyAtMs < READY_TTL_MS
   }
@@ -224,6 +233,14 @@ class AtlasWarmGate {
         for ((name, value) in ep.headers) setRequestProperty(name, value)
       }
       connection.outputStream.close()
+      if (connection.responseCode == 404) {
+        // The server doesn't know this playback (it restarted since, or predates warm-ups). Asking
+        // again won't help: switch without warming for the rest of this playback.
+        Log.w(TAG, "[abr] server can't warm up $level (404); switching without warm-ups for this playback")
+        if (endpoint === ep) endpoint = null
+        reset()
+        return false
+      }
       if (connection.responseCode !in 200..299) {
         Log.w(TAG, "[abr] warm request for $level failed (${connection.responseCode})")
         return false
