@@ -689,13 +689,13 @@ class ExoPlayerCore(private val activity: Activity) :
       // Atlas adaptive streaming: playback opens on the lowest rung. When the selection can afford a
       // higher one (any rung, not just the next), it asks the server to warm that rung up and
       // switches once it's ahead (AtlasAdaptiveTrackSelection + AtlasWarmGate). Step up with 6s
-      // buffered, trusting 80% of the measured bandwidth. A stall right after a switch still caps
+      // buffered, trusting 85% of the measured bandwidth. A stall right after a switch still caps
       // the estimate for a while (HintedBandwidthMeter.penalize).
       val adaptiveSelection = AtlasAdaptiveTrackSelection.Factory(
         /* minDurationForQualityIncreaseMs= */ 6_000,
         /* maxDurationForQualityDecreaseMs= */ 25_000,
         /* minDurationToRetainAfterDiscardMs= */ 25_000,
-        /* bandwidthFraction= */ 0.8f,
+        /* bandwidthFraction= */ 0.85f,
         atlasWarmGate,
       )
       trackSelector = DefaultTrackSelector(activity, adaptiveSelection).apply {
@@ -841,7 +841,13 @@ class ExoPlayerCore(private val activity: Activity) :
           LoadControlPolicy.BUFFER_FOR_PLAYBACK_MS,
           LoadControlPolicy.BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
         )
-      }.build().let { ObservingLoadControl(it).also { observing -> observingLoadControl = observing } }
+      }.build().let {
+        ObservingLoadControl(it).also { observing ->
+          observingLoadControl = observing
+          // Atlas: pause buffering the old rung while the one it wants warms up (AtlasWarmGate).
+          observing.loadingHold = { bufferedUs -> atlasWarmGate.shouldHoldLoading(bufferedUs) }
+        }
+      }
       emitLog(
         "info",
         "init",

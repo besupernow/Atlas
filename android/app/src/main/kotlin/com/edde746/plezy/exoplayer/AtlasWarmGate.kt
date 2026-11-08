@@ -19,6 +19,10 @@ import java.util.concurrent.TimeUnit
  * a second until the server says the next few segments are on disk. Only then does [isReady] let
  * the selection switch, so the switch lands on segments that already exist.
  *
+ * While it waits, buffering the old rung pauses ([shouldHoldLoading], once there's enough buffered
+ * to ride it out). Otherwise the old rung, which transcodes faster, keeps running ahead of the new
+ * one and the warm-up can't catch up until the buffer is full: that was most of a minute.
+ *
  * Nothing is warmed unless the player actually wants to go up. If it stops wanting (the estimate
  * dropped, or it switched), polling stops and the server lets the unused warm-up die on its own.
  * Dropping down never waits for this.
@@ -39,11 +43,13 @@ class AtlasWarmGate {
   @Volatile private var endpoint: Endpoint? = null
   @Volatile private var levels: Map<String, String> = emptyMap()
 
-  // Written by the loading thread (want), read by the poll thread; guarded by `this`.
-  private var targetLevel: String? = null
+  // Written by the loading thread (want), read by the poll thread; guarded by `this` for writes.
+  // Volatile because the load control reads them on the playback thread without the lock.
+  @Volatile private var targetLevel: String? = null
   private var targetSegment: Long = 0
   private var targetSinceMs: Long = 0
-  private var lastWantMs: Long = 0
+  @Volatile private var lastWantMs: Long = 0
+  @Volatile private var lastHoldMs: Long = 0
   private var poll: ScheduledFuture<*>? = null
   private var givenUpLevel: String? = null
   private var givenUpAtMs: Long = 0
@@ -125,6 +131,21 @@ class AtlasWarmGate {
     }
   }
 
+  /**
+   * Whether buffering should pause right now: a warm-up is pending and there's enough buffered to
+   * wait for it. Called by the load control on every playback-loop iteration.
+   */
+  fun shouldHoldLoading(bufferedDurationUs: Long): Boolean {
+    if (bufferedDurationUs < HOLD_MIN_BUFFER_US) return false
+    val target = targetLevel ?: return false
+    if (target == readyLevel) return false
+    val now = SystemClock.elapsedRealtime()
+    // While held, the selection doesn't run, so the hold itself keeps the want alive.
+    if (now - maxOf(lastWantMs, lastHoldMs) > WANT_TTL_MS) return false
+    lastHoldMs = now
+    return true
+  }
+
   /** Forgets any warm-up in progress (new media, seek). */
   fun reset() {
     synchronized(this) {
@@ -149,7 +170,7 @@ class AtlasWarmGate {
     synchronized(this) {
       val target = targetLevel
       // Nobody has asked for this in a while: the player switched, or no longer wants to go up.
-      if (ep == null || target == null || now - lastWantMs > WANT_TTL_MS) {
+      if (ep == null || target == null || now - maxOf(lastWantMs, lastHoldMs) > WANT_TTL_MS) {
         poll?.cancel(false)
         poll = null
         targetLevel = null
@@ -176,6 +197,10 @@ class AtlasWarmGate {
         }
         readyLevel = level
         readyAtMs = SystemClock.elapsedRealtime()
+        // Done asking: the selection switches on its next pass. If it doesn't get to within the
+        // ready window, it wants again and this starts over.
+        poll?.cancel(false)
+        poll = null
       }
     }
   }
@@ -222,6 +247,9 @@ class AtlasWarmGate {
 
     /** A ready answer is trusted this long (the selection runs again well within it). */
     private const val READY_TTL_MS = 4_000L
+
+    /** Pause buffering for a warm-up only with at least this much buffered. */
+    private const val HOLD_MIN_BUFFER_US = 10_000_000L
 
     /** Stop polling once the selection hasn't asked for the target this long. */
     private const val WANT_TTL_MS = 4_000L

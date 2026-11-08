@@ -49,6 +49,13 @@ class ObservingLoadControl(private val delegate: LoadControl) : LoadControl {
   var startPlaybackVerdict: Boolean? = null
     private set
 
+  /**
+   * Atlas adaptive streaming: while this says so, buffering pauses (see [AtlasWarmGate.shouldHoldLoading]).
+   * Given the buffered duration; asked on every playback-loop iteration, so it must be cheap.
+   */
+  @Volatile
+  var loadingHold: ((bufferedDurationUs: Long) -> Boolean)? = null
+
   /** Forgets the recorded verdict, for a watchdog arming a fresh buffering window. */
   fun reset() {
     startPlaybackVerdict = null
@@ -62,7 +69,10 @@ class ObservingLoadControl(private val delegate: LoadControl) : LoadControl {
     return verdict
   }
 
-  override fun shouldContinueLoading(parameters: LoadControl.Parameters): Boolean = delegate.shouldContinueLoading(parameters)
+  override fun shouldContinueLoading(parameters: LoadControl.Parameters): Boolean {
+    if (loadingHold?.invoke(parameters.bufferedDurationUs) == true) return false
+    return delegate.shouldContinueLoading(parameters)
+  }
 
   override fun shouldContinuePreloading(
     playerId: PlayerId,
