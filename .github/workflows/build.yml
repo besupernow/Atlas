@@ -195,22 +195,46 @@ jobs:
         run: flutter build linux --release ${{ env.DART_DEFINES }}
         env:
           PKG_CONFIG_PATH: ${{ github.workspace }}/libmpv-prefix/lib/pkgconfig:${{ github.workspace }}/libmpv-prefix/lib/x86_64-linux-gnu/pkgconfig
-      - name: Bundle libmpv and libraries
+      - name: Bundle libmpv, GStreamer and libraries
         run: |
           BUNDLE_DIR=build/linux/x64/release/bundle
           LIBMPV_DIR=$(dirname "$(find libmpv-prefix -name 'libmpv.so' | head -1)")
           cp -a "$LIBMPV_DIR"/libmpv.so* "$BUNDLE_DIR/lib/"
           cp -a libmpv-prefix/lib/libshaderc_shared.so* "$BUNDLE_DIR/lib/"
-          # Plezy's scripts expect the binary to be called "plezy"; Atlas's is "atlas".
-          sed 's#"$BUNDLE_DIR/plezy"#"$BUNDLE_DIR/atlas"#' linux/packaging/bundle-libs.sh > "$RUNNER_TEMP/bundle-libs.sh"
-          bash "$RUNNER_TEMP/bundle-libs.sh" "$BUNDLE_DIR"
-          sed 's#/plezy"#/atlas"#; s#/opt/plezy#/opt/atlas#g' linux/packaging/plezy.sh > "$BUNDLE_DIR/atlas.sh"
+          bash linux/packaging/bundle-libs.sh "$BUNDLE_DIR"
+          cp linux/packaging/atlas.sh "$BUNDLE_DIR/atlas.sh"
           chmod +x "$BUNDLE_DIR/atlas.sh"
-          tar -czf atlas-linux-x64.tar.gz -C "$BUNDLE_DIR" .
+          mkdir -p packages
+          tar -czf packages/atlas-linux-x64.tar.gz -C "$BUNDLE_DIR" .
+      # Every library the bundle doesn't carry has to be a declared package dependency.
+      - name: Check the bundle's host dependencies
+        run: python3 linux/packaging/check-bundle-host-deps.py build/linux/x64/release/bundle
+      - name: Install packaging tools
+        run: |
+          sudo apt-get install -y --no-install-recommends rpm libarchive-tools imagemagick ruby-dev \
+            build-essential flatpak flatpak-builder
+          sudo gem install fpm --version 1.17.0 --no-document
+      # .deb (Ubuntu, Mint, Debian, Pop!_OS), .rpm (Fedora, openSUSE), .pkg.tar.zst (Arch).
+      - name: Build .deb, .rpm and Arch packages
+        run: |
+          python3 linux/packaging/build-packages.py
+          python3 linux/packaging/check-package-deps.py "$OUTPUT_DIR"
+        env:
+          OUTPUT_DIR: ${{ github.workspace }}/packages
+          PLEZY_SKIP_HOST_DEP_CHECK: "1"
+      # Flatpak: what Bazzite, SteamOS and other immutable systems install. Ubuntu 24.04 blocks the
+      # unprivileged user namespaces flatpak-builder's sandbox needs; this runner is throwaway.
+      - name: Build Flatpak
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+          python3 linux/packaging/build-flatpak.py --bundle build/linux/x64/release/bundle --arch x64 --output packages
+      - run: ls -la packages
       - uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: atlas-linux-x64.tar.gz
+          path: packages/atlas-linux-x64.*
   web:
     if: ${{ inputs.build_web }}
     runs-on: ubuntu-latest

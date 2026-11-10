@@ -13,12 +13,12 @@ OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", PROJECT_ROOT))
 ARCH_SUFFIX = os.environ.get("ARCH_SUFFIX", "x64")
 
 METADATA = {
-    "name": "plezy",
+    "name": "atlas",
     "license": "GPL-3.0",
-    "vendor": "edde746",
-    "maintainer": "edde746 <noreply@github.com>",
-    "url": "https://github.com/edde746/plezy",
-    "description": "A modern Plex and Jellyfin client for desktop and mobile",
+    "vendor": "besupernow",
+    "maintainer": "besupernow <noreply@github.com>",
+    "url": "https://github.com/besupernow/Atlas",
+    "description": "Atlas: the family's movies and shows (a Jellyfin client built on Plezy)",
 }
 
 ICON_SIZES = [16, 32, 48, 64, 128, 256, 512]
@@ -72,6 +72,11 @@ DISTROS = {
             "libva-drm2",
             "libva-wayland2",
             "libva-x11-2",
+            # The bundled GStreamer's software decoder (gst-libav) carries the build host's
+            # FFmpeg, whose libavutil links VDPAU and whose libplacebo links Vulkan: both are
+            # driver-coupled, so they're the host's.
+            "libvdpau1",
+            "libvulkan1",
             "libdrm2",
             "libgbm1",
             "libx11-6",
@@ -102,6 +107,8 @@ DISTROS = {
             "libglvnd",
             "libglvnd-egl",
             "libva",
+            "libvdpau",
+            "vulkan-loader",
             "libdrm",
             "mesa-libgbm",
             "libX11",
@@ -128,6 +135,8 @@ DISTROS = {
             "wayland",
             "libglvnd",
             "libva",
+            "libvdpau",
+            "vulkan-icd-loader",
             "libdrm",
             "mesa",
             "libx11",
@@ -153,12 +162,12 @@ def get_version() -> str:
 def generate_icons():
     """Generate icons at multiple sizes using ImageMagick."""
     print("Generating icons...")
-    source = PROJECT_ROOT / "assets/plezy.png"
+    source = PROJECT_ROOT / "assets/brand/icon-full-1024.png"
 
     for size in ICON_SIZES:
         dest_dir = SCRIPT_DIR / f"icons/{size}x{size}"
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / "plezy.png"
+        dest = dest_dir / "atlas.png"
 
         # Try magick (ImageMagick 7) first, then convert (ImageMagick 6)
         for cmd in ["magick", "convert"]:
@@ -173,14 +182,14 @@ def generate_icons():
 def get_file_mappings() -> list[str]:
     """Get file mappings for fpm."""
     mappings = [
-        f"{BUILD_DIR}/=/opt/plezy/",
-        f"{SCRIPT_DIR}/com.edde746.plezy.desktop=/usr/share/applications/com.edde746.plezy.desktop",
-        f"{SCRIPT_DIR}/plezy.sh=/usr/bin/plezy",
+        f"{BUILD_DIR}/=/opt/atlas/",
+        f"{SCRIPT_DIR}/com.besupernow.atlas.desktop=/usr/share/applications/com.besupernow.atlas.desktop",
+        f"{SCRIPT_DIR}/atlas.sh=/usr/bin/atlas",
     ]
 
     for size in ICON_SIZES:
         mappings.append(
-            f"{SCRIPT_DIR}/icons/{size}x{size}/plezy.png=/usr/share/icons/hicolor/{size}x{size}/apps/plezy.png"
+            f"{SCRIPT_DIR}/icons/{size}x{size}/atlas.png=/usr/share/icons/hicolor/{size}x{size}/apps/atlas.png"
         )
 
     return mappings
@@ -308,7 +317,7 @@ def main():
     print(f"Building {ARCH_SUFFIX} packages for {METADATA['name']} version {version}")
 
     # Make scripts executable
-    for script in ["plezy.sh", "after-install.sh", "after-remove.sh"]:
+    for script in ["atlas.sh", "after-install.sh", "after-remove.sh"]:
         (SCRIPT_DIR / script).chmod(0o755)
 
     # Generate icons

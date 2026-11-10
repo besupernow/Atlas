@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Atlas
+Comment=Your family's movies and shows
+Exec=atlas
+Icon=atlas
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=jellyfin;media;streaming;video;movies;tv;
+StartupWMClass=com.besupernow.atlas

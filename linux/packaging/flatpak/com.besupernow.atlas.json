@@ -1,9 +1,9 @@
 {
-  "app-id": "com.edde746.plezy",
+  "app-id": "com.besupernow.atlas",
   "runtime": "org.freedesktop.Platform",
   "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
-  "command": "plezy",
+  "command": "atlas",
   "finish-args": [
     "--share=network",
     "--share=ipc",
@@ -11,7 +11,7 @@
     "--socket=fallback-x11",
     "--socket=pulseaudio",
     "--device=all",
-    "--own-name=org.mpris.MediaPlayer2.com_edde746_plezy",
+    "--own-name=org.mpris.MediaPlayer2.com_besupernow_atlas",
     "--system-talk-name=org.freedesktop.NetworkManager",
     "--filesystem=xdg-run/os_media_controls_artwork:create",
     "--filesystem=xdg-run/discord-ipc-0",
@@ -33,25 +33,26 @@
   },
   "modules": [
     {
-      "name": "plezy",
+      "name": "atlas",
       "buildsystem": "simple",
       "build-commands": [
-        "cp -a bundle /app/plezy",
-        "install -Dm755 plezy /app/bin/plezy",
-        "install -Dm644 com.edde746.plezy.desktop /app/share/applications/com.edde746.plezy.desktop",
-        "install -Dm644 com.edde746.plezy.metainfo.xml /app/share/metainfo/com.edde746.plezy.metainfo.xml",
-        "install -Dm644 plezy.png /app/share/icons/hicolor/512x512/apps/com.edde746.plezy.png",
-        "chmod 755 /app/plezy/plezy.sh",
-        "if test -f /app/plezy/lib/crashpad_handler; then chmod 755 /app/plezy/lib/crashpad_handler; fi",
-        "python3 relocate-caches.py /app/plezy"
+        "cp -a bundle /app/atlas",
+        "install -Dm755 atlas /app/bin/atlas",
+        "install -Dm644 com.besupernow.atlas.desktop /app/share/applications/com.besupernow.atlas.desktop",
+        "install -Dm644 com.besupernow.atlas.metainfo.xml /app/share/metainfo/com.besupernow.atlas.metainfo.xml",
+        "install -Dm644 atlas.png /app/share/icons/hicolor/512x512/apps/com.besupernow.atlas.png",
+        "chmod 755 /app/atlas/atlas.sh",
+        "if test -f /app/atlas/lib/crashpad_handler; then chmod 755 /app/atlas/lib/crashpad_handler; fi",
+        "if test -f /app/atlas/lib/gstreamer-1.0/gst-plugin-scanner; then chmod 755 /app/atlas/lib/gstreamer-1.0/gst-plugin-scanner; fi",
+        "python3 relocate-caches.py /app/atlas"
       ],
       "sources": [
         { "type": "dir", "path": "bundle", "dest": "bundle" },
-        { "type": "file", "path": "plezy" },
+        { "type": "file", "path": "atlas" },
         { "type": "file", "path": "relocate-caches.py" },
-        { "type": "file", "path": "com.edde746.plezy.desktop" },
-        { "type": "file", "path": "com.edde746.plezy.metainfo.xml" },
-        { "type": "file", "path": "plezy.png" }
+        { "type": "file", "path": "com.besupernow.atlas.desktop" },
+        { "type": "file", "path": "com.besupernow.atlas.metainfo.xml" },
+        { "type": "file", "path": "atlas.png" }
       ]
     }
   ]
