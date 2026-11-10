@@ -223,6 +223,14 @@ extension AtlasAVPlayerPlugin: AVPictureInPictureControllerDelegate {
   func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
     pipChannel?.invokeMethod("onPipChanged", arguments: false)
   }
+
+  /// The "back to the app" button in the PiP window: the player is still there.
+  func pictureInPictureController(
+    _ controller: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+  ) {
+    completionHandler(core != nil)
+  }
 }
 
 // MARK: - Core

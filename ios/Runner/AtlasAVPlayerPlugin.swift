@@ -33,6 +33,10 @@ final class AtlasAVPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     let pipChannel = FlutterMethodChannel(name: "com.atlas/av_pip", binaryMessenger: registrar.messenger())
     let instance = AtlasAVPlayerPlugin()
     instance.pipChannel = pipChannel
+    // Coming back to the app ends Picture in Picture: the video goes back into the player.
+    NotificationCenter.default.addObserver(
+      instance, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification,
+      object: nil)
     registrar.addMethodCallDelegate(instance, channel: methodChannel)
     eventChannel.setStreamHandler(instance)
     pipChannel.setMethodCallHandler { [weak instance] call, result in
@@ -72,6 +76,11 @@ final class AtlasAVPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     default:
       result(nil)
     }
+  }
+
+  @objc private func appWillEnterForeground() {
+    guard let pipController, pipController.isPictureInPictureActive else { return }
+    pipController.stopPictureInPicture()
   }
 
   private func ensurePipController() -> AVPictureInPictureController? {
@@ -240,7 +249,18 @@ extension AtlasAVPlayerPlugin: AVPictureInPictureControllerDelegate {
   }
 
   func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
+    core?.updateFrame()
     pipChannel?.invokeMethod("onPipChanged", arguments: false)
+  }
+
+  /// The "back to the app" button in the PiP window: the player is still there, so say yes and let
+  /// the video animate back into it.
+  func pictureInPictureController(
+    _ controller: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+  ) {
+    core?.setVisible(true)
+    completionHandler(core != nil)
   }
 }
 
