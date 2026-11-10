@@ -155,7 +155,7 @@ def get_version() -> str:
     from pubspec_version import parse_pubspec_version
 
     pubspec = PROJECT_ROOT / "pubspec.yaml"
-    version, _build = parse_pubspec_version(pubspec.read_text(encoding="utf-8"))
+    version, _build = parse_pubspec_version(pubspec.read_text(encoding="utf-8"), require_build=False)
     return version.split("+", 1)[0]
 
 

@@ -48,7 +48,7 @@ def main():
     if image_tool is None:
         parser.error("ImageMagick is required to produce the 512px application icon")
 
-    version, _ = parse_pubspec_version((PROJECT_ROOT / "pubspec.yaml").read_text())
+    version, _ = parse_pubspec_version((PROJECT_ROOT / "pubspec.yaml").read_text(), require_build=False)
     args.output.mkdir(parents=True, exist_ok=True)
     output = args.output.resolve() / f"atlas-linux-{args.arch}.flatpak"
     template = SCRIPT_DIR / "flatpak"

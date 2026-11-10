@@ -12,13 +12,15 @@ _VERSION = re.compile(
     r"(?P<version>"
     r"(?:0|[1-9][0-9]*)\."
     r"(?:0|[1-9][0-9]*)\."
-    r"(?:0|[1-9][0-9]*)\+"
-    r"(?P<build>[0-9]+)"
+    r"(?:0|[1-9][0-9]*)"
+    r"(?:\+(?P<build>[0-9]+))?"
     r")"
 )
 
 
-def parse_pubspec_version(contents: str) -> tuple[str, str]:
+def parse_pubspec_version(contents: str, require_build: bool = True) -> tuple[str, str]:
+    """Return (version, build). With require_build=False a plain major.minor.patch is
+    accepted too, and build comes back as an empty string."""
     values = []
     for line in contents.splitlines():
         match = _TOP_LEVEL_VERSION.match(line)
@@ -32,13 +34,13 @@ def parse_pubspec_version(contents: str) -> tuple[str, str]:
         )
 
     match = _VERSION.fullmatch(values[0])
-    if not match:
+    if not match or (require_build and match.group("build") is None):
+        expected = "major.minor.patch+numeric-build" if require_build else "major.minor.patch[+numeric-build]"
         raise ValueError(
-            "top-level version must use major.minor.patch+numeric-build syntax; "
-            f"got {values[0]!r}"
+            f"top-level version must use {expected} syntax; got {values[0]!r}"
         )
 
-    return match.group("version"), match.group("build")
+    return match.group("version"), match.group("build") or ""
 
 
 def main() -> int:
