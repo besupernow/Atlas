@@ -41,7 +41,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>This app needs to connect to your media servers on your local network.</string>
+	<string>Atlas connects to your media server on your local network.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

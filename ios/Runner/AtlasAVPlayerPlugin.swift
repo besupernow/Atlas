@@ -334,6 +334,7 @@ final class AtlasAVPlayerCore: NSObject {
     layoutViews()
 
     player.automaticallyWaitsToMinimizeStalling = true
+    player.appliesMediaSelectionCriteriaAutomatically = false
     player.allowsExternalPlayback = true
 
     abr.log = { [weak self] text in
@@ -474,6 +475,7 @@ final class AtlasAVPlayerCore: NSObject {
     case .readyToPlay:
       guard !fileLoaded else { return }
       fileLoaded = true
+      disableAutomaticSubtitles(item)
       activateAudioSession()
       onEvent?("file-loaded", nil)
       emitDuration(item, gen)
@@ -493,6 +495,21 @@ final class AtlasAVPlayerCore: NSObject {
       fail(item.error?.localizedDescription ?? "Could not load the stream")
     default:
       break
+    }
+  }
+
+  /// Atlas: no subtitles from AVPlayer itself. It would otherwise pick a subtitle rendition (or
+  /// iOS's machine-generated captions) on its own, which shows up in Picture in Picture. The app
+  /// draws the subtitle the viewer chose from the sidecar files.
+  private func disableAutomaticSubtitles(_ item: AVPlayerItem) {
+    let asset = item.asset
+    if #available(iOS 16, *) {
+      Task { @MainActor [weak item] in
+        guard let group = try? await asset.loadMediaSelectionGroup(for: .legible) else { return }
+        item?.select(nil, in: group)
+      }
+    } else if let group = asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
+      item.select(nil, in: group)
     }
   }
 

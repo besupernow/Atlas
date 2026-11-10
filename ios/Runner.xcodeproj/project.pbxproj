@@ -555,7 +555,7 @@
 				DEVELOPMENT_TEAM = ZF29U8H845;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Plezy;
+				INFOPLIST_KEY_CFBundleDisplayName = Atlas;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -743,7 +743,7 @@
 				DEVELOPMENT_TEAM = ZF29U8H845;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Plezy;
+				INFOPLIST_KEY_CFBundleDisplayName = Atlas;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -772,7 +772,7 @@
 				DEVELOPMENT_TEAM = ZF29U8H845;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Plezy;
+				INFOPLIST_KEY_CFBundleDisplayName = Atlas;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (

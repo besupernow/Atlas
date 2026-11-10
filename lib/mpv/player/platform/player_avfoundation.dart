@@ -103,6 +103,10 @@ class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
     setExternalSubtitleMetadata(externalSubtitles);
     resetPlaybackProgress(startPosition);
     setSeekable(false);
+    // mpv reports `start-file` when a load begins; AVPlayer and GStreamer have no such event.
+    // The open's outcome only counts file-loaded / playback-restart after a start-file, so
+    // without this the screen waits on a first frame forever while the video plays behind it.
+    handlePlayerEvent('start-file', null);
 
     try {
       await setVisible(true);

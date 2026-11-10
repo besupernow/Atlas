@@ -427,11 +427,11 @@ class Translations$supporter$en {
 
 	// Translations
 
-	/// en: 'Plezy Supporter'
-	String get title => 'Plezy Supporter';
+	/// en: 'Atlas+ Supporter'
+	String get title => 'Atlas+ Supporter';
 
-	/// en: 'A one-time purchase that supports Plezy's development and unlocks cosmetic extras:'
-	String get intro => 'A one-time purchase that supports Plezy\'s development and unlocks cosmetic extras:';
+	/// en: 'A one-time purchase that supports Atlas+'s development and unlocks cosmetic extras:'
+	String get intro => 'A one-time purchase that supports Atlas+\'s development and unlocks cosmetic extras:';
 
 	/// en: 'Preset themes'
 	String get presetThemes => 'Preset themes';
@@ -448,8 +448,8 @@ class Translations$supporter$en {
 	/// en: 'App icons'
 	String get appIcons => 'App icons';
 
-	/// en: 'Choose an alternate Plezy icon'
-	String get appIconsDescription => 'Choose an alternate Plezy icon';
+	/// en: 'Choose an alternate Atlas+ icon'
+	String get appIconsDescription => 'Choose an alternate Atlas+ icon';
 
 	/// en: 'Buy for ${price}'
 	String buy({required Object price}) => 'Buy for ${price}';
@@ -463,8 +463,8 @@ class Translations$supporter$en {
 	/// en: 'Your purchase is waiting for payment or approval. The extras unlock as soon as the store completes it.'
 	String get pending => 'Your purchase is waiting for payment or approval. The extras unlock as soon as the store completes it.';
 
-	/// en: 'Thank you for supporting Plezy'
-	String get thankYouTitle => 'Thank you for supporting Plezy';
+	/// en: 'Thank you for supporting Atlas+'
+	String get thankYouTitle => 'Thank you for supporting Atlas+';
 
 	/// en: 'Your Supporter extras are unlocked.'
 	String get thankYouBody => 'Your Supporter extras are unlocked.';
@@ -492,8 +492,8 @@ class Translations$settings$en {
 	/// en: 'Settings'
 	String get title => 'Settings';
 
-	/// en: 'Support Plezy'
-	String get supportDeveloper => 'Support Plezy';
+	/// en: 'Support Atlas+'
+	String get supportDeveloper => 'Support Atlas+';
 
 	/// en: 'Donate via Liberapay to fund development'
 	String get supportDeveloperDescription => 'Donate via Liberapay to fund development';
@@ -4458,8 +4458,8 @@ class Translations$watchTogether$en {
 	/// en: 'Invite copied. Paste it into a message.'
 	String get inviteCopied => 'Invite copied. Paste it into a message.';
 
-	/// en: 'Join my Watch Together room in Plezy: open Watch Together, choose Join Room and enter ${code}.'
-	String inviteMessage({required Object code}) => 'Join my Watch Together room in Plezy: open Watch Together, choose Join Room and enter ${code}.';
+	/// en: 'Join my Watch Together room in Atlas+: open Watch Together, choose Join Room and enter ${code}.'
+	String inviteMessage({required Object code}) => 'Join my Watch Together room in Atlas+: open Watch Together, choose Join Room and enter ${code}.';
 
 	/// en: 'Open Watch Together session controls'
 	String get openSessionControls => 'Open Watch Together session controls';
@@ -4536,8 +4536,8 @@ class Translations$watchTogether$en {
 	/// en: 'You don't have this video'
 	String get unavailableTitle => 'You don\'t have this video';
 
-	/// en: 'Plezy couldn't find it in your libraries. Pick a copy yourself or search again.'
-	String get unavailableDescription => 'Plezy couldn\'t find it in your libraries. Pick a copy yourself or search again.';
+	/// en: 'Atlas+ couldn't find it in your libraries. Pick a copy yourself or search again.'
+	String get unavailableDescription => 'Atlas+ couldn\'t find it in your libraries. Pick a copy yourself or search again.';
 
 	/// en: 'Choose a Copy'
 	String get chooseCopy => 'Choose a Copy';
@@ -6107,8 +6107,8 @@ class Translations$deepLinks$en {
 
 	// Translations
 
-	/// en: 'This Plezy link isn't valid.'
-	String get invalid => 'This Plezy link isn\'t valid.';
+	/// en: 'This Atlas+ link isn't valid.'
+	String get invalid => 'This Atlas+ link isn\'t valid.';
 
 	/// en: 'No profile matches "${profile}".'
 	String profileNotFound({required Object profile}) => 'No profile matches "${profile}".';
@@ -7601,8 +7601,8 @@ class Translations$watchTogether$errors$en {
 	/// en: 'Too many attempts. Wait a moment and try again.'
 	String get rateLimited => 'Too many attempts. Wait a moment and try again.';
 
-	/// en: 'This version of Plezy can't use the relay. Update the app.'
-	String get clientBlocked => 'This version of Plezy can\'t use the relay. Update the app.';
+	/// en: 'This version of Atlas+ can't use the relay. Update the app.'
+	String get clientBlocked => 'This version of Atlas+ can\'t use the relay. Update the app.';
 
 	/// en: 'Only the host can do that.'
 	String get forbidden => 'Only the host can do that.';
@@ -8234,19 +8234,19 @@ extension on Translations {
 			'update.viewRelease' => 'View Release',
 			'update.latestVersion' => 'You are on the latest version',
 			'update.checkFailed' => 'Failed to check for updates',
-			'supporter.title' => 'Plezy Supporter',
-			'supporter.intro' => 'A one-time purchase that supports Plezy\'s development and unlocks cosmetic extras:',
+			'supporter.title' => 'Atlas+ Supporter',
+			'supporter.intro' => 'A one-time purchase that supports Atlas+\'s development and unlocks cosmetic extras:',
 			'supporter.presetThemes' => 'Preset themes',
 			'supporter.presetThemesDescription' => 'Ember, Glacier, Forest, Plum and Paper',
 			'supporter.customTheme' => 'Custom theme',
 			'supporter.customThemeDescription' => 'Pick every color yourself',
 			'supporter.appIcons' => 'App icons',
-			'supporter.appIconsDescription' => 'Choose an alternate Plezy icon',
+			'supporter.appIconsDescription' => 'Choose an alternate Atlas+ icon',
 			'supporter.buy' => ({required Object price}) => 'Buy for ${price}',
 			'supporter.loadingPrice' => 'Loading price...',
 			'supporter.restore' => 'Restore Purchases',
 			'supporter.pending' => 'Your purchase is waiting for payment or approval. The extras unlock as soon as the store completes it.',
-			'supporter.thankYouTitle' => 'Thank you for supporting Plezy',
+			'supporter.thankYouTitle' => 'Thank you for supporting Atlas+',
 			'supporter.thankYouBody' => 'Your Supporter extras are unlocked.',
 			'supporter.tileSubtitle' => 'Unlock themes and app icons with a one-time purchase',
 			'supporter.tileSubtitleThemesOnly' => 'Unlock themes with a one-time purchase',
@@ -8258,7 +8258,7 @@ extension on Translations {
 			'supporter.errors.restoreFailed' => 'Couldn\'t reach the store to restore your purchase. Try again.',
 			'supporter.errors.nothingToRestore' => 'No Supporter purchase was found for this store account.',
 			'settings.title' => 'Settings',
-			'settings.supportDeveloper' => 'Support Plezy',
+			'settings.supportDeveloper' => 'Support Atlas+',
 			'settings.supportDeveloperDescription' => 'Donate via Liberapay to fund development',
 			'settings.language' => 'Language',
 			'settings.theme' => 'Theme',
@@ -9746,7 +9746,7 @@ extension on Translations {
 			'watchTogether.codeCopied' => 'Room code copied',
 			'watchTogether.shareInvite' => 'Share Invite',
 			'watchTogether.inviteCopied' => 'Invite copied. Paste it into a message.',
-			'watchTogether.inviteMessage' => ({required Object code}) => 'Join my Watch Together room in Plezy: open Watch Together, choose Join Room and enter ${code}.',
+			'watchTogether.inviteMessage' => ({required Object code}) => 'Join my Watch Together room in Atlas+: open Watch Together, choose Join Room and enter ${code}.',
 			'watchTogether.openSessionControls' => 'Open Watch Together session controls',
 			'watchTogether.reconnecting' => 'Reconnecting...',
 			'watchTogether.reconnectingDescription' => 'The connection dropped. You rejoin the room automatically.',
@@ -9772,7 +9772,7 @@ extension on Translations {
 			'watchTogether.chooseAnotherCopy' => 'Choose Another Copy',
 			'watchTogether.dontPlay' => 'Don\'t Play',
 			'watchTogether.unavailableTitle' => 'You don\'t have this video',
-			'watchTogether.unavailableDescription' => 'Plezy couldn\'t find it in your libraries. Pick a copy yourself or search again.',
+			'watchTogether.unavailableDescription' => 'Atlas+ couldn\'t find it in your libraries. Pick a copy yourself or search again.',
 			'watchTogether.chooseCopy' => 'Choose a Copy',
 			'watchTogether.searchAgain' => 'Search Again',
 			'watchTogether.noCandidates' => 'No copies found in your libraries.',
@@ -9864,7 +9864,7 @@ extension on Translations {
 			'watchTogether.errors.relayFull' => 'Watch Together is busy right now. Try again later.',
 			'watchTogether.errors.unreachable' => 'Couldn\'t reach the Watch Together relay. Check your connection.',
 			'watchTogether.errors.rateLimited' => 'Too many attempts. Wait a moment and try again.',
-			'watchTogether.errors.clientBlocked' => 'This version of Plezy can\'t use the relay. Update the app.',
+			'watchTogether.errors.clientBlocked' => 'This version of Atlas+ can\'t use the relay. Update the app.',
 			'watchTogether.errors.forbidden' => 'Only the host can do that.',
 			'watchTogether.errors.notInRoom' => 'You\'re not in a room.',
 			'watchTogether.errors.alreadyInRoom' => 'You\'re already in a room.',
@@ -10412,7 +10412,7 @@ extension on Translations {
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'The server redirected to a different host. Enter the final ${product} URL directly.',
 			'addServer.redirectInsecure' => 'The server redirected from HTTPS to an insecure URL',
 			'addServer.redirectUnsupportedEnterFinal' => ({required Object product}) => 'The server redirected to an unsupported URL. Enter the final ${product} URL directly.',
-			'deepLinks.invalid' => 'This Plezy link isn\'t valid.',
+			'deepLinks.invalid' => 'This Atlas+ link isn\'t valid.',
 			'deepLinks.profileNotFound' => ({required Object profile}) => 'No profile matches "${profile}".',
 			'deepLinks.serverUnavailable' => 'Couldn\'t reach the server for this link.',
 			'deepLinks.notFound' => 'Couldn\'t find this title in your libraries.',

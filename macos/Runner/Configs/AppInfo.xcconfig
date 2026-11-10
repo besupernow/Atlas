@@ -1,6 +1,6 @@
 
-PRODUCT_NAME = Plezy
+PRODUCT_NAME = Atlas
 
-PRODUCT_BUNDLE_IDENTIFIER = com.edde746.plezy
+PRODUCT_BUNDLE_IDENTIFIER = com.besupernow.atlas
 
-PRODUCT_COPYRIGHT = Copyright © 2025 edde746
+PRODUCT_COPYRIGHT = Copyright © 2026 besupernow
