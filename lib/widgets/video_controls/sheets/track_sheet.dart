@@ -243,6 +243,26 @@ class _SourceSubtitleColumn extends StatelessWidget {
     return kept;
   }
 
+  /// Atlas keeps subtitles in these languages only (the Tdarr flow deletes the rest).
+  static const _atlasSubtitleLanguages = {
+    'en', 'eng', 'es', 'spa', 'fr', 'fre', 'fra', 'ko', 'kor', 'ja', 'jpn', 'de', 'ger', 'deu',
+  };
+
+  /// Atlas: the sidecar files (SRT, ASS, PGS) in the kept languages, no SDH. Embedded tracks only
+  /// show for a file that has no sidecars yet (Tdarr hasn't reached it). The one playing always stays.
+  static List<MediaSubtitleTrack> _atlasSubtitleChoices(List<MediaSubtitleTrack> tracks, int? selectedId) {
+    bool wanted(MediaSubtitleTrack track) {
+      final code = (track.languageCode ?? track.language ?? '').toLowerCase().split(RegExp('[-_]')).first;
+      return _atlasSubtitleLanguages.contains(code) && !_isHearingImpaired(track);
+    }
+
+    final hasSidecars = tracks.any((track) => track.isExternalFile && wanted(track));
+    return [
+      for (final track in tracks)
+        if (track.id == selectedId || (wanted(track) && (!hasSidecars || track.isExternalFile))) track,
+    ];
+  }
+
   static bool _isHearingImpaired(MediaSubtitleTrack track) {
     final text = '${track.title ?? ''} ${track.displayTitle ?? ''}'.toLowerCase();
     return text.contains('sdh') || text.contains('hearing') || RegExp(r'\bcc\b').hasMatch(text);
@@ -252,7 +272,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedChoice = _effectiveSelectedChoice();
     final selectedId = selectedChoice.sourceStreamId;
-    final tracks = _withoutDuplicates(this.tracks, selectedId);
+    final tracks = _withoutDuplicates(_atlasSubtitleChoices(this.tracks, selectedId), selectedId);
     final selectedIndex = selectedChoice.isOff ? 0 : tracks.indexWhere((t) => t.id == selectedId) + 1;
 
     return SheetSelectionColumn(

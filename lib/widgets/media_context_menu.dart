@@ -738,16 +738,8 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// Entries about the item's media files rather than the item itself:
   /// version choice, file info, external player.
   List<_MenuAction> _mediaSourceMenuActions(_MenuContext menu, MediaItem mediaItem) {
-    final mediaKind = mediaItem.kind;
-    final isMovieOrEpisode = mediaKind == MediaKind.movie || mediaKind == MediaKind.episode;
-    return [
-      if (PlatformDetector.supportsExternalPlayers() && isMovieOrEpisode)
-        _MenuAction(
-          value: 'play_external',
-          icon: Symbols.open_in_new_rounded,
-          label: t.externalPlayer.playInExternalPlayer,
-        ),
-    ];
+    // Atlas: no "Play in External Player"; everything plays in Atlas.
+    return const [];
   }
 
   /// Download, watchlist, add-to and delete entries — the item's place in
@@ -790,13 +782,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
       // an episode, a season and a whole show is what let #1781 happen: the
       // reporter hit the show-level entry believing it acted on the episode
       // he had highlighted.
-      if (menu.canDeleteFromServer)
-        _MenuAction(
-          value: 'delete_media',
-          icon: Symbols.delete_forever_rounded,
-          label: _deleteMenuLabel(mediaKind),
-          destructive: true,
-        ),
+      // Atlas: no deleting media from the server in the app; that's done on the server.
     ];
   }
 
@@ -1942,13 +1928,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     final MediaItem item => formatMediaTargetLabel(item),
     MediaPlaylist(:final displayTitle) => displayTitle,
     _ => '',
-  };
-
-  String _deleteMenuLabel(MediaKind? kind) => switch (kind) {
-    MediaKind.season => t.mediaMenu.deleteSeasonFromServer,
-    MediaKind.show => t.mediaMenu.deleteShowFromServer,
-    MediaKind.movie => t.mediaMenu.deleteMovieFromServer,
-    _ => t.mediaMenu.deleteEpisodeFromServer,
   };
 
   Future<void> _handleManageSyncRule(BuildContext context) => manageSyncRule(

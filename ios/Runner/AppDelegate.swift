@@ -56,6 +56,11 @@ import MediaPlayer
       AtlasAVPlayerPlugin.register(with: registrar)
     }
 
+    // Atlas: the native bottom bar.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AtlasNativeTabBar") {
+      AtlasNativeTabBarFactory.register(with: registrar)
+    }
+
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VideoDecodeCapabilitiesPlugin") {
       VideoDecodeCapabilitiesPlugin.register(with: registrar)
     }

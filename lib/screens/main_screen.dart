@@ -22,6 +22,7 @@ import '../services/app_exit_service.dart';
 import '../services/tvos_system_navigation_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_logger.dart';
+import '../widgets/atlas_native_tab_bar.dart';
 import '../widgets/auth_error_banner.dart';
 import '../widgets/app_icon.dart';
 import '../utils/platform_detector.dart';
@@ -185,7 +186,7 @@ class ProfileSelectionResumeGate {
 @visibleForTesting
 class ContentRefreshResumeGate {
   ContentRefreshResumeGate({this.staleAfter = const Duration(minutes: 5), DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+      : _now = now ?? DateTime.now;
 
   /// Minimum time spent backgrounded before a resume triggers a refresh.
   final Duration staleAfter;
@@ -222,8 +223,8 @@ class ContentRefreshResumeGate {
   required double reservedSideNavigationWidth,
 }) {
   return (
-    left: currentSideNavigationWidth,
-    width: (viewportWidth - reservedSideNavigationWidth).clamp(0.0, double.infinity).toDouble(),
+  left: currentSideNavigationWidth,
+  width: (viewportWidth - reservedSideNavigationWidth).clamp(0.0, double.infinity).toDouble(),
   );
 }
 
@@ -663,7 +664,7 @@ class _MainScreenState extends State<MainScreen>
       if (fromTimeout) {
         appLogger.w(
           'ActiveProfileBinder still binding after ${_startupSettleFallback.inSeconds}s '
-          '— priming services anyway; the settle will prime again.',
+              '— priming services anyway; the settle will prime again.',
         );
       }
       // Set the guard before the await so re-entrant listener fires can't
@@ -1420,8 +1421,8 @@ class _MainScreenState extends State<MainScreen>
       _lastBackPressAt = null;
       appLogger.d(
         'tvOS Menu reached MainScreen at the home root: '
-        'passthrough=$_shouldPassTvosMenuToSystem picker=$_isShowingProfileSelection '
-        'focus=${FocusManager.instance.primaryFocus?.debugLabel}',
+            'passthrough=$_shouldPassTvosMenuToSystem picker=$_isShowingProfileSelection '
+            'focus=${FocusManager.instance.primaryFocus?.debugLabel}',
       );
       return KeyEventResult.handled;
     }
@@ -1771,48 +1772,48 @@ class _MainScreenState extends State<MainScreen>
 
     controller
         .show<String>(
-          showDragHandle: true,
-          builder: (sheetContext) {
-            return Consumer2<LibrariesProvider, HiddenLibrariesProvider>(
-              builder: (context, librariesProvider, hiddenLibrariesProvider, _) {
-                if (!hiddenLibrariesProvider.isInitialized) {
-                  return LibraryQuickPickerSheet(
-                    libraries: const [],
-                    selectedLibraryKey: _selectedLibraryGlobalKey,
-                    isLoading: true,
-                    groupByServer: groupByServer,
-                    emptyMessage: t.libraries.noLibrariesFound,
-                    onSelected: (libraryGlobalKey) => controller.close(libraryGlobalKey),
-                  );
-                }
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Consumer2<LibrariesProvider, HiddenLibrariesProvider>(
+          builder: (context, librariesProvider, hiddenLibrariesProvider, _) {
+            if (!hiddenLibrariesProvider.isInitialized) {
+              return LibraryQuickPickerSheet(
+                libraries: const [],
+                selectedLibraryKey: _selectedLibraryGlobalKey,
+                isLoading: true,
+                groupByServer: groupByServer,
+                emptyMessage: t.libraries.noLibrariesFound,
+                onSelected: (libraryGlobalKey) => controller.close(libraryGlobalKey),
+              );
+            }
 
-                final allLibraries = librariesProvider.libraries;
-                final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
-                final visibleLibraries = allLibraries
-                    .where((library) =>
-                !hiddenKeys.contains(library.globalKey) &&
-                    (library.kind == MediaKind.movie || library.kind == MediaKind.show))
-                    .toList();
-                final emptyMessage = allLibraries.isEmpty
-                    ? t.libraries.noLibrariesFound
-                    : t.libraries.allLibrariesHidden;
+            final allLibraries = librariesProvider.libraries;
+            final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
+            final visibleLibraries = allLibraries
+                .where((library) =>
+            !hiddenKeys.contains(library.globalKey) &&
+                (library.kind == MediaKind.movie || library.kind == MediaKind.show))
+                .toList();
+            final emptyMessage = allLibraries.isEmpty
+                ? t.libraries.noLibrariesFound
+                : t.libraries.allLibrariesHidden;
 
-                return LibraryQuickPickerSheet(
-                  libraries: visibleLibraries,
-                  selectedLibraryKey: _selectedLibraryGlobalKey,
-                  isLoading: librariesProvider.isLoading,
-                  groupByServer: groupByServer,
-                  emptyMessage: emptyMessage,
-                  onSelected: (libraryGlobalKey) => controller.close(libraryGlobalKey),
-                );
-              },
+            return LibraryQuickPickerSheet(
+              libraries: visibleLibraries,
+              selectedLibraryKey: _selectedLibraryGlobalKey,
+              isLoading: librariesProvider.isLoading,
+              groupByServer: groupByServer,
+              emptyMessage: emptyMessage,
+              onSelected: (libraryGlobalKey) => controller.close(libraryGlobalKey),
             );
           },
-        )
+        );
+      },
+    )
         .then((libraryGlobalKey) {
-          if (!mounted || libraryGlobalKey == null) return;
-          _selectLibrary(libraryGlobalKey);
-        });
+      if (!mounted || libraryGlobalKey == null) return;
+      _selectLibrary(libraryGlobalKey);
+    });
   }
 
   /// Whether the Live TV tab is currently visible
@@ -1887,11 +1888,11 @@ class _MainScreenState extends State<MainScreen>
         final bar = hideLabels
             ? navigationBar
             : NavigationLabelScale(
-                labels: [for (final tab in tabs) tab.getLabel()],
-                labelWidth: itemWidth,
-                style: navigationBarLabelStyle(context),
-                child: navigationBar,
-              );
+          labels: [for (final tab in tabs) tab.getLabel()],
+          labelWidth: itemWidth,
+          style: navigationBarLabelStyle(context),
+          child: navigationBar,
+        );
         return bar;
 
         final isRtl = Directionality.of(context) == TextDirection.rtl;
@@ -1917,6 +1918,21 @@ class _MainScreenState extends State<MainScreen>
             ),
           ],
         );
+      },
+    );
+  }
+
+  /// Atlas: iPhone and iPad get UIKit's own tab bar instead of the Material one.
+  Widget _buildNativeTabBar(BuildContext context, {required bool showLabels}) {
+    final tabs = _getBottomNavigationTabs(context);
+    final selectedIndex = tabs.indexWhere((tab) => tab.id == _currentTab);
+    return AtlasNativeTabBar(
+      tabs: tabs,
+      selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
+      showLabels: showLabels,
+      onSelected: (i) => _selectTab(tabs[i].id),
+      onLongPress: (i) {
+        if (tabs[i].id == NavigationTabId.libraries) _showLibraryQuickPicker(context);
       },
     );
   }
@@ -2096,7 +2112,8 @@ class _MainScreenState extends State<MainScreen>
       },
       child: ScaffoldMessenger(
         key: ProfileNavigationScope.of(context).mainScaffoldMessengerKey,
-        child: PlatformDetector.shouldUseLandscapeNavigationRail(context)
+        // Atlas: iOS keeps its tab bar at the bottom in landscape too, like native apps do.
+        child: PlatformDetector.shouldUseLandscapeNavigationRail(context) && !AtlasNativeTabBar.supported
             ? _buildLandscapeShell(context)
             : _buildPortraitShell(context),
       ),
@@ -2192,6 +2209,7 @@ class _MainScreenState extends State<MainScreen>
               // this builder reruns on label toggles AND on every
               // MainScreen rebuild (offline bar appearing/disappearing).
               _scheduleNavBarMeasure(rail: false);
+              if (AtlasNativeTabBar.supported) return _buildNativeTabBar(context, showLabels: showNavBarLabels);
               return NavigationBarTheme(
                 data: NavigationBarTheme.of(context).copyWith(height: hideLabels ? 56 : null),
                 child: _buildBottomNavigationBar(context, hideLabels: hideLabels),
