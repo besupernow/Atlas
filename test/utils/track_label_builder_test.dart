@@ -134,53 +134,53 @@ void main() {
   });
 
   group('TrackLabelBuilder.subtitleLabel', () {
-    test('language leads with the codec on the secondary line', () {
+    test('language alone, no format line', () {
       expect(
         TrackLabelBuilder.subtitleLabel(language: 'en', codec: 'subrip', index: 0),
-        const TrackLabel('English', 'SRT'),
+        const TrackLabel('English'),
       );
       expect(
         TrackLabelBuilder.subtitleLabel(language: 'de', codec: 'hdmv_pgs_subtitle', index: 0),
-        const TrackLabel('German', 'PGS'),
+        const TrackLabel('German'),
       );
     });
 
     test('forced flag renders as a primary suffix', () {
       expect(
         TrackLabelBuilder.subtitleLabel(language: 'en', codec: 'subrip', forced: true, index: 0),
-        const TrackLabel('English (Forced)', 'SRT'),
+        const TrackLabel('English (Forced)'),
       );
     });
 
     test('a bare "Forced" title is folded into the suffix instead of repeating', () {
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'Forced', language: 'en', codec: 'subrip', forced: true, index: 0),
-        const TrackLabel('English (Forced)', 'SRT'),
+        const TrackLabel('English (Forced)'),
       );
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'Forced', language: 'en', codec: 'subrip', index: 0),
-        const TrackLabel('English (Forced)', 'SRT'),
+        const TrackLabel('English (Forced)'),
       );
     });
 
     test('no duplicate suffix when the title-primary already says forced', () {
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'Signs Forced', codec: 'ass', forced: true, index: 0),
-        const TrackLabel('Signs Forced', 'ASS'),
+        const TrackLabel('Signs Forced'),
       );
     });
 
     test('descriptive titles stay on the secondary line, even when language-prefixed', () {
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'English (SDH)', language: 'en', codec: 'subrip', index: 0),
-        const TrackLabel('English', 'English (SDH) · SRT'),
+        const TrackLabel('English', 'English (SDH)'),
       );
     });
 
     test('drops a title that restates the language', () {
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'English', language: 'en', codec: 'subrip', index: 0),
-        const TrackLabel('English', 'SRT'),
+        const TrackLabel('English'),
       );
     });
 
@@ -192,14 +192,14 @@ void main() {
     test('displayTitle fallback is codec-stripped like a title', () {
       expect(
         TrackLabelBuilder.subtitleLabel(displayTitle: 'Japanese Signs/Songs - ASS', codec: 'ass', index: 0),
-        const TrackLabel('Japanese Signs/Songs', 'ASS'),
+        const TrackLabel('Japanese Signs/Songs'),
       );
     });
 
     test('cleans raw Jellyfin/ExoPlayer subtitle metadata prefixes', () {
       expect(
         TrackLabelBuilder.subtitleLabel(title: 'title=German - SUBRIP', language: 'LANG=DEU', codec: 'srt', index: 0),
-        const TrackLabel('German', 'SRT'),
+        const TrackLabel('German'),
       );
       expect(
         TrackLabelBuilder.subtitleLabel(
@@ -208,7 +208,7 @@ void main() {
           codec: 'subrip',
           index: 1,
         ),
-        const TrackLabel('English', 'English - Default · SRT'),
+        const TrackLabel('English', 'English - Default'),
       );
     });
   });

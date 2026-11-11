@@ -168,7 +168,8 @@ class TrackLabelBuilder {
       title: cleanedTitle,
       displayTitle: cleanSubtitleTitle(displayTitle, codec: codec),
       rawLanguageValues: [language, languageCode],
-      techParts: [if (codec != null && codec.isNotEmpty) CodecUtils.formatSubtitleCodec(codec)],
+      // Atlas: no format line (SRT, ASS, PGS) under the language; it means nothing to the viewer.
+      techParts: const [],
       fallbackLabel: (n) => t.videoControls.subtitleTrack(n: n),
       index: index,
       forced: forced || titleSaysForced(cleanedTitle),

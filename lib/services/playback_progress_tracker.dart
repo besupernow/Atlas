@@ -15,6 +15,7 @@ import 'settings_service.dart';
 import 'track_selection_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/watch_state_notifier.dart';
+import '../widgets/atlas_subtitle_overlay.dart';
 
 /// Tracks playback progress and reports it to the active media server.
 ///
@@ -230,17 +231,17 @@ class PlaybackProgressTracker {
     this.burnedSubtitleStreamIndex,
     this.updateInterval = const Duration(seconds: 10),
   }) : assert(!isOffline || offlineWatchService != null, 'offlineWatchService is required when isOffline is true'),
-       assert(isOffline || client != null, 'client is required when isOffline is false') {
+        assert(isOffline || client != null, 'client is required when isOffline is false') {
     final reportingClient = client;
     _reportSession = isOffline || reportingClient == null
         ? null
         : PlaybackReportSession(
-            client: reportingClient,
-            itemId: metadata.id,
-            playSessionId: playSessionId,
-            playMethod: playMethod,
-            onDelivered: _onReportDelivered,
-          );
+      client: reportingClient,
+      itemId: metadata.id,
+      playSessionId: playSessionId,
+      playMethod: playMethod,
+      onDelivered: _onReportDelivered,
+    );
   }
 
   /// Starts the periodic report timer and sends the initial report.
@@ -475,16 +476,16 @@ class PlaybackProgressTracker {
         unawaited(
           _sendOnlineProgress(state, position, duration)
               .then((_) {
-                _resetBackoff();
-              })
+            _resetBackoff();
+          })
               .catchError((Object e) {
-                if (e is PlaybackSessionTerminatedException) {
-                  _handleServerTermination(e);
-                  return;
-                }
-                _recordProgressFailure(e);
-                unawaited(_queueOnlineFailureProgress(position, duration));
-              }),
+            if (e is PlaybackSessionTerminatedException) {
+              _handleServerTermination(e);
+              return;
+            }
+            _recordProgressFailure(e);
+            unawaited(_queueOnlineFailureProgress(position, duration));
+          }),
         );
       }
     } catch (e) {
@@ -523,7 +524,7 @@ class PlaybackProgressTracker {
     _ticksToSkip = (1 << (_consecutiveFailures - 1)).clamp(1, 6);
     appLogger.d(
       'Progress update failed ($_consecutiveFailures consecutive), '
-      'skipping next $_ticksToSkip tick(s)',
+          'skipping next $_ticksToSkip tick(s)',
       error: e,
     );
   }
@@ -536,11 +537,11 @@ class PlaybackProgressTracker {
   }
 
   void _notifyProgressIfNeeded(
-    Duration position,
-    Duration duration, {
-    bool force = false,
-    required bool serverAcknowledged,
-  }) {
+      Duration position,
+      Duration duration, {
+        bool force = false,
+        required bool serverAcknowledged,
+      }) {
     if (_scrobbled) return;
     if (position.inMilliseconds <= 0 || duration.inMilliseconds <= 0) return;
     if (force) {
@@ -568,11 +569,11 @@ class PlaybackProgressTracker {
   /// Send progress update to the active server through the unified
   /// [MediaServerClient.reportPlayback*] surface.
   Future<bool> _sendOnlineProgress(
-    String state,
-    Duration position,
-    Duration duration, {
-    bool allowScrobble = true,
-  }) async {
+      String state,
+      Duration position,
+      Duration duration, {
+        bool allowScrobble = true,
+      }) async {
     final c = client;
     final session = _reportSession;
     if (c == null || session == null) return false;
@@ -831,6 +832,17 @@ class PlaybackProgressTracker {
   }
 
   int? _currentSubtitleStreamIndex(MediaSourceInfo info) {
+    // Atlas adaptive streaming: a subtitle picked in the app is drawn by the overlay, and the player
+    // keeps the one it opened with. Report what the viewer picked, or the server remembers the
+    // opening subtitle for this item forever and turns it back on every time.
+    final adaptive = AtlasSubtitleSelection.of(player);
+    if (adaptive.active) {
+      final picked = adaptive.track;
+      if (picked == null) return -1;
+      final pickedIndex = _subtitleStreamIndexFromUri(picked.uri, info);
+      if (pickedIndex != null) return pickedIndex;
+    }
+
     final track = player.state.track.subtitle;
     if (track == null || track.id == 'no') {
       final burned = burnedSubtitleStreamIndex?.call();
@@ -855,6 +867,18 @@ class PlaybackProgressTracker {
     // row nor the row whose stream index happens to equal the native id is
     // this track. An unmatched track is withheld rather than guessed.
     return findPlexTrackForMpvSubtitle(track, info.subtitleTracks, allMpvTracks: player.state.tracks.subtitle)?.id;
+  }
+
+  /// The Jellyfin stream a subtitle URL serves: `/Videos/{item}/{source}/Subtitles/{index}/...`.
+  static int? _subtitleStreamIndexFromUri(String? uri, MediaSourceInfo info) {
+    if (uri == null) return null;
+    final match = RegExp(r'/Subtitles/(\d+)/').firstMatch(uri);
+    final index = match == null ? null : int.tryParse(match.group(1)!);
+    if (index == null) return null;
+    for (final track in info.subtitleTracks) {
+      if ((track.index ?? track.id) == index) return track.id;
+    }
+    return null;
   }
 
   /// Queue progress update locally (offline mode)

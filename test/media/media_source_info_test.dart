@@ -55,8 +55,8 @@ void main() {
         forced: true,
       );
 
-      expect(track.labelForIndex(0), const TrackLabel('English (Forced)', 'SRT'));
-      expect(track.label, const TrackLabel('English (Forced)', 'SRT'));
+      expect(track.labelForIndex(0), const TrackLabel('English (Forced)'));
+      expect(track.label, const TrackLabel('English (Forced)'));
     });
 
     test('resolves the language name even when the source title is blank', () {
@@ -71,7 +71,7 @@ void main() {
         forced: false,
       );
 
-      expect(track.labelForIndex(1), const TrackLabel('Japanese', 'ASS'));
+      expect(track.labelForIndex(1), const TrackLabel('Japanese'));
     });
 
     test('falls back to display title when nothing else is available', () {

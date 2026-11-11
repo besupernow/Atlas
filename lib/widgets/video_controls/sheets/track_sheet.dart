@@ -35,15 +35,15 @@ class TrackSheet extends StatelessWidget {
         final playerAudioTracks = TrackFilterHelper.extractAndFilterTracks<AudioTrack>(tracks, (t) => t?.audio ?? []);
         final subtitleTracks = TrackFilterHelper.extractAndFilterTracks<SubtitleTrack>(
           tracks,
-          (t) => t?.subtitle ?? [],
+              (t) => t?.subtitle ?? [],
         );
 
         final state = trackControlsState;
         final hasExternalSourceAudio = state.sourceAudioTracks.any((track) => track.isExternal);
         final useSourceAudio =
             (state.isTranscoding || hasExternalSourceAudio) &&
-            state.sourceAudioTracks.length > 1 &&
-            state.onSwitchAudioStreamId != null;
+                state.sourceAudioTracks.length > 1 &&
+                state.onSwitchAudioStreamId != null;
         final useSourceSubtitles = state.canUseSourceSubtitles;
         final showAudio = useSourceAudio || playerAudioTracks.length > 1;
         final showSubtitles = state.hasSubtitleControls(tracks);
@@ -218,10 +218,41 @@ class _SourceSubtitleColumn extends StatelessWidget {
     required this.showHeader,
   });
 
+  /// Atlas: one row per subtitle as the viewer sees it. A file with its subtitles both embedded
+  /// and as sidecars lists every language twice, and an SDH file reads the same as the plain one
+  /// once the format line is gone. Of each set, keep the one that's playing, else a plain
+  /// (non-SDH) one, else the first (the sidecar, which Jellyfin lists first).
+  static List<MediaSubtitleTrack> _withoutDuplicates(List<MediaSubtitleTrack> tracks, int? selectedId) {
+    final byLabel = <TrackLabel, int>{};
+    final kept = <MediaSubtitleTrack>[];
+    for (var i = 0; i < tracks.length; i++) {
+      final track = tracks[i];
+      final label = track.labelForIndex(i);
+      final existing = byLabel[label];
+      if (existing == null) {
+        byLabel[label] = kept.length;
+        kept.add(track);
+        continue;
+      }
+      final current = kept[existing];
+      if (current.id == selectedId) continue;
+      if (track.id == selectedId || (_isHearingImpaired(current) && !_isHearingImpaired(track))) {
+        kept[existing] = track;
+      }
+    }
+    return kept;
+  }
+
+  static bool _isHearingImpaired(MediaSubtitleTrack track) {
+    final text = '${track.title ?? ''} ${track.displayTitle ?? ''}'.toLowerCase();
+    return text.contains('sdh') || text.contains('hearing') || RegExp(r'\bcc\b').hasMatch(text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedChoice = _effectiveSelectedChoice();
     final selectedId = selectedChoice.sourceStreamId;
+    final tracks = _withoutDuplicates(this.tracks, selectedId);
     final selectedIndex = selectedChoice.isOff ? 0 : tracks.indexWhere((t) => t.id == selectedId) + 1;
 
     return SheetSelectionColumn(
@@ -236,7 +267,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
             key: scope.keyFor(index),
             isSelected: selectedChoice.isOff,
             onTap: () => scope.runExclusive(
-              () => trackControlsState.onSwitchSubtitle!(const PlaybackSourceSubtitleChoice.off()),
+                  () => trackControlsState.onSwitchSubtitle!(const PlaybackSourceSubtitleChoice.off()),
             ),
           );
         }
@@ -247,7 +278,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
           label: track.labelForIndex(index - 1),
           isSelected: track.id == selectedId,
           onTap: () => scope.runExclusive(
-            () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(track.id)),
+                () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(track.id)),
           ),
         );
       },
@@ -363,10 +394,10 @@ class _SubtitleColumn extends StatelessWidget {
     final unloadedSourceSidecars = sourceSidecars
         .where(
           (track) =>
-              !attachedSourceSidecarIds.contains(track.id) &&
-              track.id != selectedSourceId &&
-              track.id != selectedSecondarySourceId,
-        )
+      !attachedSourceSidecarIds.contains(track.id) &&
+          track.id != selectedSourceId &&
+          track.id != selectedSecondarySourceId,
+    )
         .toList(growable: false);
 
     // +1 for "Off". Source sidecars represented by native external tracks,
@@ -398,15 +429,15 @@ class _SubtitleColumn extends StatelessWidget {
             },
             onLongPress: supportsSecondary && hasSecondary
                 ? () {
-                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-                  }
+              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+            }
                 : null,
             onSecondaryTap: supportsSecondary && hasSecondary
                 ? () {
-                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-                  }
+              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+            }
                 : null,
           );
         }
@@ -420,7 +451,7 @@ class _SubtitleColumn extends StatelessWidget {
             label: sourceTrack.labelForIndex(trackIndex),
             isSelected: false,
             onTap: () => scope.runExclusive(
-              () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(sourceTrack.id)),
+                  () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(sourceTrack.id)),
             ),
           );
         }
@@ -462,27 +493,27 @@ class _SubtitleColumn extends StatelessWidget {
           },
           onLongPress: supportsSecondary
               ? () {
-                  if (isSecondary) {
-                    // Already secondary — clear it
-                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-                  } else if (!isPrimary) {
-                    // Set as secondary (don't close sheet so user sees badge update)
-                    player.selectSecondarySubtitleTrack(track);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
-                  }
-                }
+            if (isSecondary) {
+              // Already secondary — clear it
+              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+            } else if (!isPrimary) {
+              // Set as secondary (don't close sheet so user sees badge update)
+              player.selectSecondarySubtitleTrack(track);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
+            }
+          }
               : null,
           onSecondaryTap: supportsSecondary
               ? () {
-                  if (isSecondary) {
-                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-                  } else if (!isPrimary) {
-                    player.selectSecondarySubtitleTrack(track);
-                    trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
-                  }
-                }
+            if (isSecondary) {
+              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+            } else if (!isPrimary) {
+              player.selectSecondarySubtitleTrack(track);
+              trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
+            }
+          }
               : null,
         );
       },
