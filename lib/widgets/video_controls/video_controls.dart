@@ -2,6 +2,7 @@
 import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../../utils/atlas_developer_options.dart';
 import '../../media/ids.dart';
 
 import 'package:flutter/gestures.dart'
@@ -889,7 +890,9 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
   bool _skipButtonDismissed = false;
   Timer? _skipButtonDismissTimer;
   // Performance overlay
-  bool get _showPerformanceOverlay => _settings.read(SettingsService.showPerformanceOverlay);
+  // Atlas: only for admins with Developer options on, even if it was switched on before.
+  bool get _showPerformanceOverlay =>
+      _settings.read(SettingsService.showPerformanceOverlay) && AtlasDeveloperOptions.visible(context);
   bool get _autoHidePerformanceOverlay => _settings.read(SettingsService.autoHidePerformanceOverlay);
   // Long-press 2x speed state
   bool _isLongPressing = false;

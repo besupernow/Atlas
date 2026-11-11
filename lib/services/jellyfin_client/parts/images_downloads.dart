@@ -48,7 +48,18 @@ mixin _JellyfinImageDownloadMethods on _JellyfinClientInternals {
 
     // Direct-stream the selected original file. Jellyfin's `Static=true`
     // skips the transcoder so the byte-for-byte source lands on disk.
-    final videoUrl = buildDirectStreamUrl(item.id, container: bundle?.container, mediaSourceId: bundle?.pinnedSourceId);
+    // Atlas: only on desktop. Phones, tablets and TVs download a 720p ~2 Mbps copy instead; the
+    // originals are far too big for them.
+    final videoUrl = PlatformDetector.isDesktopOS()
+        ? buildDirectStreamUrl(item.id, container: bundle?.container, mediaSourceId: bundle?.pinnedSourceId)
+        : buildJellyfinAtlasDownloadUrl(
+      baseUrl: connection.baseUrl,
+      accessToken: connection.accessToken,
+      tokenQueryParam: connection.dialect.tokenQueryParam,
+      deviceId: connection.deviceId,
+      itemId: item.id,
+      mediaSourceId: bundle?.pinnedSourceId ?? selectedSourceId,
+    );
 
     // External subtitle sidecars are listed in the per-source MediaStreams.
     // PlaybackInfo gives us the canonical view including DeliveryUrl when

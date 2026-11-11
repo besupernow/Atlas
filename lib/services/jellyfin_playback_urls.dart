@@ -37,6 +37,40 @@ String buildJellyfinDirectStreamUrl({
   return '$baseUrl/$mediaSegment/$encodedItem/$streamPath?${_encodeQuery(params)}';
 }
 
+/// Atlas: a download-sized copy for phones, tablets and TVs: a progressive transcode to 720p
+/// H.264 at about 2 Mbps with stereo AAC, in fragmented MP4 so every player here opens it.
+/// Jellyfin copies the video as-is when the source already fits under those limits.
+String buildJellyfinAtlasDownloadUrl({
+  required String baseUrl,
+  required String accessToken,
+  required String tokenQueryParam,
+  required String deviceId,
+  required String itemId,
+  String? mediaSourceId,
+  int maxHeight = 720,
+  int videoBitrate = 2000000,
+  int audioBitrate = 128000,
+}) {
+  final params = <String, String>{
+    'Static': 'false',
+    tokenQueryParam: accessToken,
+    'DeviceId': deviceId,
+    'MediaSourceId': ?mediaSourceId,
+    'Container': 'mp4',
+    'VideoCodec': 'h264',
+    'AudioCodec': 'aac',
+    'MaxHeight': '$maxHeight',
+    'MaxWidth': '${(maxHeight * 16 / 9).round()}',
+    'VideoBitrate': '$videoBitrate',
+    'MaxStreamingBitrate': '${videoBitrate + audioBitrate}',
+    'AudioBitrate': '$audioBitrate',
+    'MaxAudioChannels': '2',
+    'TranscodingMaxAudioChannels': '2',
+    'Profile': 'high',
+  };
+  return '$baseUrl/Videos/${Uri.encodeComponent(itemId)}/stream.mp4?${_encodeQuery(params)}';
+}
+
 String? _safeContainerExtension(String? container) {
   final value = container?.trim();
   if (value == null || value.isEmpty) return null;

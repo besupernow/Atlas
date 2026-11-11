@@ -12,6 +12,7 @@ import 'package:path/path.dart' as path;
 
 import 'package:provider/provider.dart';
 
+import '../../../utils/atlas_developer_options.dart';
 import '../../../models/shader_preset.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_file_info.dart';
@@ -415,8 +416,11 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   // tone-mapping row it gates resolve the same way under the test override.
   bool get _probesHdrSupport => PlayerNative.usesLinuxVideoPlane && widget.supportsHdrControl == null;
 
+  /// Atlas: debug-build test entries also need Developer options (an admin who turned it on).
+  bool get _developer => kDebugMode && AtlasDeveloperOptions.visible(context);
+
   bool get _showDebugDvConversionMode {
-    if (!kDebugMode) return false;
+    if (!_developer) return false;
     if (Platform.isAndroid) return widget.player.playerType == 'exoplayer';
     return (Platform.isIOS || Platform.isMacOS) && widget.player.playerType == 'mpv';
   }
@@ -1059,12 +1063,13 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
             },
           ),
 
-        // Performance Overlay Toggle
-        _SettingsToggleItem(
-          pref: SettingsService.showPerformanceOverlay,
-          icon: Symbols.analytics_rounded,
-          title: t.videoSettings.performanceOverlay,
-        ),
+        // Performance Overlay Toggle (Atlas: a developer option)
+        if (AtlasDeveloperOptions.visible(context))
+          _SettingsToggleItem(
+            pref: SettingsService.showPerformanceOverlay,
+            icon: Symbols.analytics_rounded,
+            title: t.videoSettings.performanceOverlay,
+          ),
 
         // File Info for the playing item (#2229), the same breakdown as the
         // library's File Info entry. Read-only, so Watch Together guests get it.
@@ -1101,7 +1106,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
           ),
 
         // Debug: Trigger MPV Fallback (Android ExoPlayer only)
-        if (kDebugMode && Platform.isAndroid && widget.player.playerType == 'exoplayer')
+        if (_developer && Platform.isAndroid && widget.player.playerType == 'exoplayer')
           FocusableListTile(
             leading: AppIcon(Symbols.swap_horiz_rounded, fill: 1, color: tokens(context).textMuted),
             title: const Text('Trigger MPV Fallback'),
@@ -1111,7 +1116,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
             },
           ),
 
-        if (kDebugMode)
+        if (_developer)
           for (final status in const [403, 500, 404, 503])
             FocusableListTile(
               leading: AppIcon(Symbols.bug_report_rounded, fill: 1, color: tokens(context).textMuted),

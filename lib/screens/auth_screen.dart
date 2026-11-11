@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/atlas_developer_options.dart';
 import '../connection/connection.dart';
 import '../connection/connection_registry.dart';
 import '../connection/plex_account_setup.dart';
@@ -94,10 +95,10 @@ class _AuthScreenState extends State<AuthScreen> {
   /// pre-select. A PIN-protected single user also goes through the picker —
   /// see [initialPlexHomeProfileFromCache].
   Future<void> _selectInitialProfile(
-    PlexHomeService plexHome,
-    ActiveProfileProvider activeProfiles,
-    PlexAccountConnection accountConn,
-  ) async {
+      PlexHomeService plexHome,
+      ActiveProfileProvider activeProfiles,
+      PlexAccountConnection accountConn,
+      ) async {
     await activeProfiles.initialize();
     final profile = initialPlexHomeProfileFromCache(plexHome, accountConn);
     if (profile == null) {
@@ -278,54 +279,54 @@ class _AuthScreenState extends State<AuthScreen> {
             padding: .fromLTRB(24, 24, 24, 24 + MediaQuery.paddingOf(context).bottom),
             child: isDesktop
                 ? Row(
+              crossAxisAlignment: .center,
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: .center,
                     crossAxisAlignment: .center,
                     children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: .center,
-                          crossAxisAlignment: .center,
-                          children: [
-                            Image.asset('assets/plezy.png', width: 120, height: 120),
-                            const SizedBox(height: 24),
-                            Text(
-                              t.app.title,
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .bold),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: Center(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: .min,
-                              crossAxisAlignment: .stretch,
-                              children: [_buildAuthBody()],
-                            ),
-                          ),
-                        ),
+                      Image.asset('assets/plezy.png', width: 120, height: 120),
+                      const SizedBox(height: 24),
+                      Text(
+                        t.app.title,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .bold),
+                        textAlign: TextAlign.center,
                       ),
                     ],
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: .min,
-                      crossAxisAlignment: .stretch,
-                      children: [
-                        Image.asset('assets/plezy.png', width: 120, height: 120),
-                        const SizedBox(height: 24),
-                        Text(
-                          t.app.title,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .bold),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 48),
-                        _buildAuthBody(),
-                      ],
+                  ),
+                ),
+                const SizedBox(width: 48),
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: .min,
+                        crossAxisAlignment: .stretch,
+                        children: [_buildAuthBody()],
+                      ),
                     ),
                   ),
+                ),
+              ],
+            )
+                : SingleChildScrollView(
+              child: Column(
+                mainAxisSize: .min,
+                crossAxisAlignment: .stretch,
+                children: [
+                  Image.asset('assets/plezy.png', width: 120, height: 120),
+                  const SizedBox(height: 24),
+                  Text(
+                    t.app.title,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: .bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 48),
+                  _buildAuthBody(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -457,7 +458,7 @@ class _AuthScreenState extends State<AuthScreen> {
             label: Text(t.auth.connectToMediaBrowser(product: embyDialect.productName)),
           ),
         ),
-        if (kDebugMode) ...[
+        if (kDebugMode && AtlasDeveloperOptions.visible(context)) ...[
           const SizedBox(height: 12),
           FocusableButton(
             onPressed: _handleDebugTap,

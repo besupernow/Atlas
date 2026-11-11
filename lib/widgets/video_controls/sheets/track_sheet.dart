@@ -17,6 +17,7 @@ import 'subtitle_search_sheet.dart';
 import '../models/track_controls_state.dart';
 import '../helpers/track_filter_helper.dart';
 import '../helpers/track_selection_helper.dart';
+import '../../atlas_subtitle_overlay.dart';
 
 /// Combined bottom sheet for selecting audio and subtitle tracks side-by-side.
 class TrackSheet extends StatelessWidget {
@@ -100,6 +101,7 @@ class TrackSheet extends StatelessWidget {
                     trackControlsState: state,
                     selection: sel,
                     showHeader: showHeader,
+                    overlayDrawsSubtitles: atlasOverlayDrawsSubtitles(player),
                   );
                 }
                 return _SubtitleColumn(
@@ -211,11 +213,16 @@ class _SourceSubtitleColumn extends StatelessWidget {
   final TrackSelection selection;
   final bool showHeader;
 
+  /// Atlas adaptive streaming: the app draws the subtitle, and the player keeps whatever it opened
+  /// with, so the engine can't confirm the pick.
+  final bool overlayDrawsSubtitles;
+
   const _SourceSubtitleColumn({
     required this.tracks,
     required this.trackControlsState,
     required this.selection,
     required this.showHeader,
+    this.overlayDrawsSubtitles = false,
   });
 
   /// Atlas: one row per subtitle as the viewer sees it. A file with its subtitles both embedded
@@ -319,7 +326,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
     if (explicit == null) return off;
     if (explicit.isOff) return explicit;
     if (!tracks.any((track) => track.id == explicit.sourceStreamId)) return off;
-    if (trackControlsState.burnsSelectedSubtitle) return explicit;
+    if (trackControlsState.burnsSelectedSubtitle || overlayDrawsSubtitles) return explicit;
     final engineSubtitle = selection.subtitle;
     return engineSubtitle != null && engineSubtitle.id != SubtitleTrack.off.id ? explicit : off;
   }

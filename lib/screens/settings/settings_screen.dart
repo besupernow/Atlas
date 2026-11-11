@@ -62,6 +62,7 @@ import 'appearance_settings_screen.dart';
 import 'general_settings_screen.dart';
 import 'keyboard_shortcuts_screen.dart';
 import 'logs_screen.dart';
+import '../../utils/atlas_developer_options.dart';
 import 'playback_settings_screen.dart';
 import '../profile/profile_switch_screen.dart';
 import 'services_settings_screen.dart';
@@ -584,73 +585,90 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
   }
 
   Widget _buildAdvancedSection() {
-    return SettingsGroup(
-      title: t.settings.advanced,
-      children: [
-        SettingSwitchTile(
-          focusNode: _focusTracker.get(_kCrashReporting),
-          pref: settings.SettingsService.crashReporting,
-          icon: Symbols.monitoring_rounded,
-          title: t.settings.crashReporting,
-          subtitle: t.settings.crashReportingDescription,
-        ),
-        SettingSwitchTile(
-          focusNode: _focusTracker.get(_kDebugLogging),
-          pref: settings.SettingsService.enableDebugLogging,
-          icon: Symbols.bug_report_rounded,
-          title: t.settings.debugLogging,
-          subtitle: t.settings.debugLoggingDescription,
-        ),
-        SettingSwitchTile(
-          focusNode: _focusTracker.get(_kAutoHidePerformanceOverlay),
-          pref: settings.SettingsService.autoHidePerformanceOverlay,
-          icon: Symbols.speed_rounded,
-          title: t.settings.autoHidePerformanceOverlay,
-          subtitle: t.settings.autoHidePerformanceOverlayDescription,
-        ),
-        SettingNavigationTile(
-          focusNode: _focusTracker.get(_kViewLogs),
-          icon: Symbols.article_rounded,
-          title: t.settings.viewLogs,
-          subtitle: t.settings.viewLogsDescription,
-          destinationBuilder: (context) => const LogsScreen(),
-        ),
-        if (!kIsWeb)
-          SettingNavigationTile(
-            focusNode: _focusTracker.get(_kClearImageCache),
-            icon: Symbols.cleaning_services_rounded,
-            title: t.settings.clearImageCache,
-            subtitle: t.settings.clearImageCacheDescription,
-            onTap: () => _showClearImageCacheDialog(),
-          ),
-        SettingNavigationTile(
-          focusNode: _focusTracker.get(_kResetSettings),
-          icon: Symbols.restore_rounded,
-          title: t.settings.resetSettings,
-          subtitle: t.settings.resetSettingsDescription,
-          onTap: () => _showResetSettingsDialog(),
-        ),
-        if (kDebugMode)
-          SettingNavigationTile(
-            icon: Symbols.error_rounded,
-            title: 'Test Sentry',
-            subtitle: 'Send a test error',
-            onTap: () {
-              throw Exception("Example exception");
-            },
-          ),
-        if (kDebugMode)
-          SettingNavigationTile(
-            icon: Symbols.timer_rounded,
-            title: 'Test ANR',
-            subtitle: 'Block the main thread for 10 seconds',
-            onTap: () {
-              showSnackBar(context, 'Blocking main thread...');
-              final end = DateTime.now().add(const Duration(seconds: 10));
-              while (DateTime.now().isBefore(end)) {}
-            },
-          ),
-      ],
+    // Atlas: debug entries are for admins with Developer options on (see AtlasDeveloperOptions).
+    return SettingsBuilder(
+      prefs: const [AtlasDeveloperOptions.pref],
+      builder: (context) {
+        final isAdmin = AtlasDeveloperOptions.isAdmin(context);
+        final developer = AtlasDeveloperOptions.visible(context);
+        return SettingsGroup(
+          title: t.settings.advanced,
+          children: [
+            SettingSwitchTile(
+              focusNode: _focusTracker.get(_kCrashReporting),
+              pref: settings.SettingsService.crashReporting,
+              icon: Symbols.monitoring_rounded,
+              title: t.settings.crashReporting,
+              subtitle: t.settings.crashReportingDescription,
+            ),
+            if (!kIsWeb)
+              SettingNavigationTile(
+                focusNode: _focusTracker.get(_kClearImageCache),
+                icon: Symbols.cleaning_services_rounded,
+                title: t.settings.clearImageCache,
+                subtitle: t.settings.clearImageCacheDescription,
+                onTap: () => _showClearImageCacheDialog(),
+              ),
+            SettingNavigationTile(
+              focusNode: _focusTracker.get(_kResetSettings),
+              icon: Symbols.restore_rounded,
+              title: t.settings.resetSettings,
+              subtitle: t.settings.resetSettingsDescription,
+              onTap: () => _showResetSettingsDialog(),
+            ),
+            if (isAdmin)
+              const SettingSwitchTile(
+                pref: AtlasDeveloperOptions.pref,
+                icon: Symbols.code_rounded,
+                title: 'Developer options',
+                subtitle: 'Show debug settings and menus. Only admins see this.',
+              ),
+            if (developer) ...[
+              SettingSwitchTile(
+                focusNode: _focusTracker.get(_kDebugLogging),
+                pref: settings.SettingsService.enableDebugLogging,
+                icon: Symbols.bug_report_rounded,
+                title: t.settings.debugLogging,
+                subtitle: t.settings.debugLoggingDescription,
+              ),
+              SettingSwitchTile(
+                focusNode: _focusTracker.get(_kAutoHidePerformanceOverlay),
+                pref: settings.SettingsService.autoHidePerformanceOverlay,
+                icon: Symbols.speed_rounded,
+                title: t.settings.autoHidePerformanceOverlay,
+                subtitle: t.settings.autoHidePerformanceOverlayDescription,
+              ),
+              SettingNavigationTile(
+                focusNode: _focusTracker.get(_kViewLogs),
+                icon: Symbols.article_rounded,
+                title: t.settings.viewLogs,
+                subtitle: t.settings.viewLogsDescription,
+                destinationBuilder: (context) => const LogsScreen(),
+              ),
+              if (kDebugMode)
+                SettingNavigationTile(
+                  icon: Symbols.error_rounded,
+                  title: 'Test Sentry',
+                  subtitle: 'Send a test error',
+                  onTap: () {
+                    throw Exception("Example exception");
+                  },
+                ),
+              if (kDebugMode)
+                SettingNavigationTile(
+                  icon: Symbols.timer_rounded,
+                  title: 'Test ANR',
+                  subtitle: 'Block the main thread for 10 seconds',
+                  onTap: () {
+                    showSnackBar(context, 'Blocking main thread...');
+                    final end = DateTime.now().add(const Duration(seconds: 10));
+                    while (DateTime.now().isBefore(end)) {}
+                  },
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 
