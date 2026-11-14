@@ -82,13 +82,13 @@ class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
 
   @override
   Future<void> open(
-      Media media, {
-        bool play = true,
-        bool isLive = false,
-        List<SubtitleTrack>? externalSubtitles,
-        Duration? timelineDuration,
-        Duration timelineOffset = Duration.zero,
-      }) async {
+    Media media, {
+    bool play = true,
+    bool isLive = false,
+    List<SubtitleTrack>? externalSubtitles,
+    Duration? timelineDuration,
+    Duration timelineOffset = Duration.zero,
+  }) async {
     if (disposed) return;
     await _ensureInitialized();
     final startPosition = media.start ?? timelineOffset;
@@ -121,14 +121,14 @@ class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
               .where((s) => s.uri?.isNotEmpty == true)
               .map(
                 (s) => {
-              'uri': s.uri,
-              'title': s.title,
-              'language': s.language,
-              'codec': s.codec,
-              'isDefault': s.isDefault,
-              'isForced': s.isForced,
-            },
-          )
+                  'uri': s.uri,
+                  'title': s.title,
+                  'language': s.language,
+                  'codec': s.codec,
+                  'isDefault': s.isDefault,
+                  'isForced': s.isForced,
+                },
+              )
               .toList(),
       });
     } catch (_) {
@@ -228,7 +228,7 @@ class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
           }
         }
       default:
-      // mpv properties (hwdec, sub-font, af, ...) have no AVPlayer meaning.
+        // mpv properties (hwdec, sub-font, af, ...) have no AVPlayer meaning.
         break;
     }
   }
@@ -281,10 +281,10 @@ class PlayerAvFoundation extends PlayerBase implements NativeSubtitleRendering {
   @override
   // ignore: no-empty-block - no filter chain on AVPlayer
   Future<void> setAudioChannelLimit(
-      AudioChannelLimit limit, {
-        required int centerBoostDb,
-        required bool normalize,
-      }) async {}
+    AudioChannelLimit limit, {
+    required int centerBoostDb,
+    required bool normalize,
+  }) async {}
 
   @override
   // ignore: no-empty-block - the system decides passthrough

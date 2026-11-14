@@ -11,9 +11,9 @@ const int _kMaxRows = 3;
 
 bool _isCurrent(DownloadStatus s) =>
     s == DownloadStatus.downloading ||
-        s == DownloadStatus.queued ||
-        s == DownloadStatus.paused ||
-        s == DownloadStatus.failed;
+    s == DownloadStatus.queued ||
+    s == DownloadStatus.paused ||
+    s == DownloadStatus.failed;
 
 /// Opens the compact "current downloads" popup (max 3 rows) from the Home
 /// app bar. Its footer button opens the full Downloads screen.
@@ -69,9 +69,7 @@ Future<void> showDownloadsPanel(BuildContext context) {
                         autofocus: true,
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
-                          Navigator.of(rootContext).push(
-                            MaterialPageRoute(builder: (_) => const DownloadsScreen()),
-                          );
+                          Navigator.of(rootContext).push(MaterialPageRoute(builder: (_) => const DownloadsScreen()));
                         },
                         child: const Text('All Downloads'),
                       ),
@@ -102,9 +100,8 @@ class _DownloadRow extends StatelessWidget {
     final failed = progress.status == DownloadStatus.failed;
 
     final String status = switch (progress.status) {
-      DownloadStatus.failed => progress.errorMessage?.trim().isNotEmpty == true
-          ? progress.errorMessage!.trim()
-          : 'Download failed',
+      DownloadStatus.failed =>
+        progress.errorMessage?.trim().isNotEmpty == true ? progress.errorMessage!.trim() : 'Download failed',
       DownloadStatus.queued => 'Queued',
       DownloadStatus.paused => 'Paused · ${progress.progress}%',
       _ => '${progress.progress}%',
@@ -118,7 +115,12 @@ class _DownloadRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 6),
                 if (!failed)
                   ClipRRect(
@@ -133,9 +135,7 @@ class _DownloadRow extends StatelessWidget {
                   status,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: failed ? theme.colorScheme.error : theme.hintColor,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: failed ? theme.colorScheme.error : theme.hintColor),
                 ),
               ],
             ),

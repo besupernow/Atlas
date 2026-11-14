@@ -135,10 +135,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       _AtlasGroup('Lifestyle', 41, 50),
       _AtlasGroup('Music', 51, 60),
     ]),
-    _AtlasGroup('Sports', 61, 80, [
-      _AtlasGroup('Live Sports', 61, 70),
-      _AtlasGroup('Sports Talk', 71, 80),
-    ]),
+    _AtlasGroup('Sports', 61, 80, [_AtlasGroup('Live Sports', 61, 70), _AtlasGroup('Sports Talk', 71, 80)]),
   ];
   static const String _kNoGroup = 'Other';
 
@@ -436,10 +433,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       canProcessRules = canProcessRules || dvr.supportsRuleProcessing;
     }
     return (
-    // Atlas: the guide is the only tab; Recordings opens from a button.
-    tabs: [LiveTvTab.guide],
-    canProcessRules: canProcessRules,
-    hasRecordings: hasDvr,
+      // Atlas: the guide is the only tab; Recordings opens from a button.
+      tabs: [LiveTvTab.guide],
+      canProcessRules: canProcessRules,
+      hasRecordings: hasDvr,
     );
   }
 
@@ -561,9 +558,9 @@ class _LiveTvScreenState extends State<LiveTvScreen>
           final storeKey = liveTv.favoriteStoreKey;
           final liveServerKey = _liveServerScopeKey(serverInfo);
           favoriteScopeByLiveServer[liveServerKey] = (
-          source: source,
-          storeKey: storeKey,
-          mode: liveTv.favoritePersistenceMode,
+            source: source,
+            storeKey: storeKey,
+            mode: liveTv.favoritePersistenceMode,
           );
           favoriteStoreBySource[source] = storeKey;
 
@@ -734,7 +731,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     });
     appLogger.d(
       'Live TV: loaded ${merged.length} favorite channels'
-          '${failedStores.isEmpty ? '' : ' (${failedStores.length} store(s) deferred)'}',
+      '${failedStores.isEmpty ? '' : ' (${failedStores.length} store(s) deferred)'}',
     );
   }
 
@@ -767,7 +764,9 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   }
 
   void _rememberChannel(LiveTvChannel channel) {
-    SharedPreferences.getInstance().then((p) => p.setString(_lastChannelPref, liveTvChannelScopeKey(channel))).catchError((_) => false);
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_lastChannelPref, liveTvChannelScopeKey(channel)))
+        .catchError((_) => false);
   }
 
   /// Guide tap/select. TV: straight to full screen. Touch: load in the mini player.
@@ -832,50 +831,50 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     unawaited(_previewKey.currentState?.suspend());
     Navigator.of(context)
         .push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: Text(t.liveTv.recordings),
-            // Remote: Up from the first recording lands on Refresh; Down
-            // goes back into the list; Back closes the page from either.
-            actions: [
-              if (_canProcessRules)
-                FocusableButton(
-                  onPressed: _processRecordingRules,
-                  onNavigateRight: _recordingsRefreshFocus.requestFocus,
-                  onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
-                  onBack: () => Navigator.of(context).maybePop(),
-                  child: IconButton(
-                    icon: const Icon(Symbols.bolt_rounded),
-                    tooltip: t.liveTv.processRecordingRules,
-                    onPressed: _processRecordingRules,
+          MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: Text(t.liveTv.recordings),
+                // Remote: Up from the first recording lands on Refresh; Down
+                // goes back into the list; Back closes the page from either.
+                actions: [
+                  if (_canProcessRules)
+                    FocusableButton(
+                      onPressed: _processRecordingRules,
+                      onNavigateRight: _recordingsRefreshFocus.requestFocus,
+                      onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
+                      onBack: () => Navigator.of(context).maybePop(),
+                      child: IconButton(
+                        icon: const Icon(Symbols.bolt_rounded),
+                        tooltip: t.liveTv.processRecordingRules,
+                        onPressed: _processRecordingRules,
+                      ),
+                    ),
+                  FocusableButton(
+                    focusNode: _recordingsRefreshFocus,
+                    onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
+                    onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
+                    onBack: () => Navigator.of(context).maybePop(),
+                    child: IconButton(
+                      icon: const Icon(Symbols.refresh_rounded),
+                      tooltip: t.common.refresh,
+                      onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
+                    ),
                   ),
-                ),
-              FocusableButton(
-                focusNode: _recordingsRefreshFocus,
-                onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
-                onNavigateDown: () => _recordingsRefreshFocus.focusInDirection(TraversalDirection.down),
-                onBack: () => Navigator.of(context).maybePop(),
-                child: IconButton(
-                  icon: const Icon(Symbols.refresh_rounded),
-                  tooltip: t.common.refresh,
-                  onPressed: () => unawaited(_recordingsTabKey.currentState?.reload()),
-                ),
+                  const SizedBox(width: 8),
+                ],
               ),
-              const SizedBox(width: 8),
-            ],
+              body: RecordingsTab(
+                key: _recordingsTabKey,
+                onNavigateUp: _recordingsRefreshFocus.requestFocus,
+                onBack: () => Navigator.of(context).maybePop(),
+              ),
+            ),
           ),
-          body: RecordingsTab(
-            key: _recordingsTabKey,
-            onNavigateUp: _recordingsRefreshFocus.requestFocus,
-            onBack: () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ),
-    )
+        )
         .whenComplete(() {
-      if (mounted && _tabVisible) _previewKey.currentState?.resume();
-    });
+          if (mounted && _tabVisible) _previewKey.currentState?.resume();
+        });
   }
 
   static const _kFavFilterPref = 'atlas_live_tv_favorites_filter';
@@ -940,21 +939,21 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     unawaited(
       _favoritesMutationQueue
           .run(() async {
-        if (pendingLoad != null) await pendingLoad;
-        if (!mounted) return;
-        if (!_favoritesWritable) {
-          showErrorSnackBar(context, t.liveTv.favoritesLoadFailed);
-          return;
-        }
-        mutation();
-        await _persistFavorites();
-      })
+            if (pendingLoad != null) await pendingLoad;
+            if (!mounted) return;
+            if (!_favoritesWritable) {
+              showErrorSnackBar(context, t.liveTv.favoritesLoadFailed);
+              return;
+            }
+            mutation();
+            await _persistFavorites();
+          })
           .catchError((Object error, StackTrace stackTrace) {
-        appLogger.e('Failed to mutate favorite channels', error: error, stackTrace: stackTrace);
-        if (mounted) {
-          showErrorSnackBar(context, t.liveTv.favoritesUpdateFailed);
-        }
-      }),
+            appLogger.e('Failed to mutate favorite channels', error: error, stackTrace: stackTrace);
+            if (mounted) {
+              showErrorSnackBar(context, t.liveTv.favoritesUpdateFailed);
+            }
+          }),
     );
   }
 
@@ -1043,7 +1042,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       final channels = switch (scope.mode) {
         FavoriteChannelPersistenceMode.sharedFullList => storeChannels,
         FavoriteChannelPersistenceMode.serverSlice =>
-            storeChannels.where((favorite) => favorite.source == scope.source).toList(),
+          storeChannels.where((favorite) => favorite.source == scope.source).toList(),
       };
       writes.add(client.liveTv.setFavoriteChannels(channels));
     }
@@ -1130,48 +1129,48 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   Widget _buildTabContent(LiveTvTab tab, List<LiveTvChannel> guideChannels) {
     return switch (tab) {
       LiveTvTab.guide =>
-      guideChannels.isEmpty && _channels.isNotEmpty
-          ? LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: EmptyStateWidget(
-                icon: Symbols.star_outline_rounded,
-                message: t.liveTv.noFavoriteChannels,
-                subtitle: t.liveTv.noFavoriteChannelsHint,
-                actionLabel: t.liveTv.showAllChannels,
-                actionIcon: Symbols.list_rounded,
-                actionFocusNode: _guideEmptyStateActionFocusNode,
-                onAction: _showAllChannelsFromEmptyState,
-                onActionNavigateUp: _focusFilterRow,
-                onActionBack: _goSidebar,
+        guideChannels.isEmpty && _channels.isNotEmpty
+            ? LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: EmptyStateWidget(
+                        icon: Symbols.star_outline_rounded,
+                        message: t.liveTv.noFavoriteChannels,
+                        subtitle: t.liveTv.noFavoriteChannelsHint,
+                        actionLabel: t.liveTv.showAllChannels,
+                        actionIcon: Symbols.list_rounded,
+                        actionFocusNode: _guideEmptyStateActionFocusNode,
+                        onAction: _showAllChannelsFromEmptyState,
+                        onActionNavigateUp: _focusFilterRow,
+                        onActionBack: _goSidebar,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : GuideTab(
+                key: _guideTabKey,
+                channels: guideChannels,
+                isFavoriteChannel: _isFavoriteChannel,
+                onToggleFavorite: _toggleFavorite,
+                onNavigateUp: _upFromGuide,
+                onVisibleGroupChanged: _onVisibleGroupChanged,
+                compact: true,
+                groupLabelOf: _groups.isEmpty ? null : _headerFor,
+                onBack: _goSidebar,
+                onMenuKey: _toggleFavoritesFilter,
+                onChannelTap: _onGuideChannelTap,
+                onChannelFocused: _onGuideChannelFocused,
+                initialChannel: _previewChannel,
+                onProgramsLoaded: (programs) {
+                  if (!mounted) return;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _guidePrograms = programs);
+                  });
+                },
               ),
-            ),
-          ),
-        ),
-      )
-          : GuideTab(
-        key: _guideTabKey,
-        channels: guideChannels,
-        isFavoriteChannel: _isFavoriteChannel,
-        onToggleFavorite: _toggleFavorite,
-        onNavigateUp: _upFromGuide,
-        onVisibleGroupChanged: _onVisibleGroupChanged,
-        compact: true,
-        groupLabelOf: _groups.isEmpty ? null : _headerFor,
-        onBack: _goSidebar,
-        onMenuKey: _toggleFavoritesFilter,
-        onChannelTap: _onGuideChannelTap,
-        onChannelFocused: _onGuideChannelFocused,
-        initialChannel: _previewChannel,
-        onProgramsLoaded: (programs) {
-          if (!mounted) return;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _guidePrograms = programs);
-          });
-        },
-      ),
       LiveTvTab.whatsOn => WhatsOnTab(
         key: _whatsOnTabKey,
         channels: _channels,
@@ -1224,15 +1223,15 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     }
     String clock(int? epoch) => epoch == null
         ? ''
-        : MaterialLocalizations.of(context).formatTimeOfDay(
-      TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(epoch * 1000)),
-    );
+        : MaterialLocalizations.of(
+            context,
+          ).formatTimeOfDay(TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(epoch * 1000)));
     final episode = current == null
         ? null
         : [
-      if (current.parentIndex != null && current.index != null) 'S${current.parentIndex} E${current.index}',
-      if (current.grandparentTitle != null) current.title,
-    ].join(' · ');
+            if (current.parentIndex != null && current.index != null) 'S${current.parentIndex} E${current.index}',
+            if (current.grandparentTitle != null) current.title,
+          ].join(' · ');
     final programTitle = current == null ? null : (current.grandparentTitle ?? current.title);
     final summary = current?.summary?.trim();
 
@@ -1309,50 +1308,52 @@ class _LiveTvScreenState extends State<LiveTvScreen>
           SizedBox(width: compact ? 200 : (wide ? 240 : 168), child: preview),
           SizedBox(width: compact ? 18 : (wide ? 20 : 12)),
           Expanded(
-            child: compact ? compactInfo : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: theme.hintColor, fontWeight: FontWeight.w600),
-                ),
-                SizedBox(height: compact ? 2 : 4),
-                Text(
-                  programTitle ?? (ch?.displayName ?? ''),
-                  maxLines: compact ? 1 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: (wide ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
-                    fontWeight: FontWeight.w700,
+            child: compact
+                ? compactInfo
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: theme.hintColor, fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: compact ? 2 : 4),
+                      Text(
+                        programTitle ?? (ch?.displayName ?? ''),
+                        maxLines: compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: (wide ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (!compact && episode != null && episode.isNotEmpty && episode != programTitle)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(episode, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      if (!compact && current != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '${clock(current.beginsAt)} – ${clock(current.endsAt)}',
+                            style: TextStyle(color: theme.hintColor, fontSize: 12),
+                          ),
+                        ),
+                      if (!compact && summary != null && summary.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            summary,
+                            maxLines: wide ? 3 : 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: theme.hintColor, fontSize: wide ? 14 : 12),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-                if (!compact && episode != null && episode.isNotEmpty && episode != programTitle)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(episode, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                if (!compact && current != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '${clock(current.beginsAt)} – ${clock(current.endsAt)}',
-                      style: TextStyle(color: theme.hintColor, fontSize: 12),
-                    ),
-                  ),
-                if (!compact && summary != null && summary.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      summary,
-                      maxLines: wide ? 3 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: theme.hintColor, fontSize: wide ? 14 : 12),
-                    ),
-                  ),
-              ],
-            ),
           ),
         ],
       ),
@@ -1482,7 +1483,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                   borderRadius: BorderRadius.circular(999),
                   onTap: () => onSelect(g),
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: small ? 14 : 16, vertical: vertical ? 10 : (small ? 5 : 8)),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: small ? 14 : 16,
+                      vertical: vertical ? 10 : (small ? 5 : 8),
+                    ),
                     child: Text(
                       g ?? 'All',
                       style: TextStyle(
@@ -1578,9 +1582,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                             label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                            ),
+                            style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w600),
                           ),
                         ),
                     ],
@@ -1599,12 +1601,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       // icon-only Search / Favorites on the right.
       return Row(
         children: [
-          Expanded(
-            child: _buildGroupRow(
-              small: true,
-              rightTarget: () => _searchPillFocus.requestFocus(),
-            ),
-          ),
+          Expanded(child: _buildGroupRow(small: true, rightTarget: () => _searchPillFocus.requestFocus())),
           const SizedBox(width: 4),
           pill(
             node: _searchPillFocus,

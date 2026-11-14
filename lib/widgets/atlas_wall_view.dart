@@ -75,13 +75,13 @@ class AtlasWallView extends StatelessWidget {
                     constraints: BoxConstraints(maxWidth: wide ? 920 : 480),
                     child: wide
                         ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: _content(context, size: _Size.wide)),
-                        const SizedBox(width: 64),
-                        _qr(context, size: 220),
-                      ],
-                    )
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(child: _content(context, size: _Size.wide)),
+                              const SizedBox(width: 64),
+                              _qr(context, size: 220),
+                            ],
+                          )
                         : _content(context, size: _Size.narrow),
                   ),
                 ),
@@ -124,7 +124,10 @@ class AtlasWallView extends StatelessWidget {
                             builder: (context, c) => FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
-                              child: SizedBox(width: c.maxWidth, child: _content(context, size: _Size.tv)),
+                              child: SizedBox(
+                                width: c.maxWidth,
+                                child: _content(context, size: _Size.tv),
+                              ),
                             ),
                           ),
                         ),
@@ -178,10 +181,7 @@ class AtlasWallView extends StatelessWidget {
           style: theme.textTheme.bodyLarge?.copyWith(fontSize: bodySize, color: muted, height: 1.4),
         ),
         if (notice != null) ...[const SizedBox(height: 16), AtlasBanner(text: notice!, isError: false)],
-        if (error != null) ...[
-          const SizedBox(height: 16),
-          AtlasBanner(text: error!, onAction: tv ? null : onRetry),
-        ],
+        if (error != null) ...[const SizedBox(height: 16), AtlasBanner(text: error!, onAction: tv ? null : onRetry)],
         SizedBox(height: tv ? 26 : 32),
         _step(theme, 1, 'On your signed-in device, open Atlas and go to Settings > Devices & access.', bodySize),
         const SizedBox(height: 12),
@@ -191,7 +191,10 @@ class AtlasWallView extends StatelessWidget {
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.only(left: 30),
-          child: Text(_statusText, style: theme.textTheme.bodyMedium?.copyWith(fontSize: tv ? 14 : null, color: muted)),
+          child: Text(
+            _statusText,
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: tv ? 14 : null, color: muted),
+          ),
         ),
         SizedBox(height: tv ? 28 : 40),
         Text(
@@ -200,8 +203,8 @@ class AtlasWallView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (tv)
-        // Plain row: left/right moves between the buttons, and nothing else
-        // on the page takes focus, so the remote can't get lost.
+          // Plain row: left/right moves between the buttons, and nothing else
+          // on the page takes focus, so the remote can't get lost.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -302,14 +305,17 @@ class AtlasWallView extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
           child: code == null
-              ? SizedBox.square(dimension: size, child: const Center(child: LoadingIndicatorBox(size: 26)))
+              ? SizedBox.square(
+                  dimension: size,
+                  child: const Center(child: LoadingIndicatorBox(size: 26)),
+                )
               : QrImageView(
-            data: '$kAtlasGateBase/join?code=$code',
-            size: size,
-            padding: EdgeInsets.zero,
-            version: QrVersions.auto,
-            backgroundColor: Colors.white,
-          ),
+                  data: '$kAtlasGateBase/join?code=$code',
+                  size: size,
+                  padding: EdgeInsets.zero,
+                  version: QrVersions.auto,
+                  backgroundColor: Colors.white,
+                ),
         ),
         const SizedBox(height: 14),
         SizedBox(
@@ -325,13 +331,13 @@ class AtlasWallView extends StatelessWidget {
   }
 
   Widget _button(
-      BuildContext context, {
-        required String label,
-        required VoidCallback? onPressed,
-        bool primary = false,
-        bool autofocus = false,
-        bool expand = false,
-      }) {
+    BuildContext context, {
+    required String label,
+    required VoidCallback? onPressed,
+    bool primary = false,
+    bool autofocus = false,
+    bool expand = false,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final button = FilledButton(
       style: FilledButton.styleFrom(

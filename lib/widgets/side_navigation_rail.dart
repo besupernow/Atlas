@@ -33,6 +33,8 @@ import '../providers/multi_server_provider.dart';
 import '../services/fullscreen_state_manager.dart';
 import '../theme/mono_tokens.dart';
 import '../widgets/backend_badge.dart';
+import '../app/app_mode.dart';
+import '../app/app_mode_switch.dart';
 import '../i18n/strings.g.dart';
 
 enum _LibraryNavSection { visible, hidden }
@@ -476,6 +478,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   static const _kSearch = 'search';
   static const _kDownloads = 'downloads';
   static const _kSettings = 'settings';
+  static const _kAppMode = 'appMode';
   static const _kReconnect = 'reconnect';
   static const _kFullscreen = 'fullscreen';
   static const _kHiddenLibraries = 'hiddenLibraries';
@@ -506,14 +509,28 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   /// macOS has the system green button; mobile/TV have no OS fullscreen toggle.
   bool get _showFullscreenToggle => Platform.isWindows || Platform.isLinux;
 
+  /// Atlas: the TV switch to music mode, right above Settings (when the servers have music).
+  bool _showModeSwitch = false;
+
   @override
   void initState() {
     super.initState();
     _focusTracker = FocusMemoryTracker(debugLabelPrefix: 'nav');
+    AppModeController.instance.addListener(_onAppModeChanged);
+  }
+
+  /// Back from music mode on TV: focus lands on the switch it was left from, so the D-pad
+  /// always has somewhere to start.
+  void _onAppModeChanged() {
+    if (AppModeController.instance.isMusic || !_showModeSwitch) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusTracker.get(_kAppMode).requestFocus();
+    });
   }
 
   @override
   void dispose() {
+    AppModeController.instance.removeListener(_onAppModeChanged);
     _collapseTimer?.cancel();
     _focusTracker.dispose();
     super.dispose();
@@ -683,6 +700,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
       if (hasExplore) _kExplore,
       _kSearch,
       if (_showDownloads) _kDownloads,
+      if (_showModeSwitch) _kAppMode,
       _kSettings,
       _kReconnect,
       if (hasHiddenLibraries) _kHiddenLibraries,
@@ -771,6 +789,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         _kSearch,
       ],
       if (_showDownloads) _kDownloads,
+      if (_showModeSwitch) _kAppMode,
       _kSettings,
       if (_showFullscreenToggle) _kFullscreen,
     ];
@@ -884,6 +903,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     // mini-player for that.
     final musicService = context.watch<MusicPlaybackService?>();
     final nowPlayingTrack = widget.isOfflineMode || !PlatformDetector.isTV() ? null : musicService?.currentTrack;
+    _showModeSwitch = !widget.isOfflineMode && PlatformDetector.isTV() && AppModeSwitch.available(context);
 
     // Listen to fullscreen + the groupLibrariesByServer / showExploreTab
     // settings so the rail rebuilds when they are toggled in Appearance, and to
@@ -1032,7 +1052,8 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                           icon: ContentTypeHelper.getLibraryIcon(lib.kind.id),
                                           selectedIcon: ContentTypeHelper.getLibraryIcon(lib.kind.id),
                                           label: lib.title,
-                                          isSelected: widget.selectedTab == NavigationTabId.libraries &&
+                                          isSelected:
+                                              widget.selectedTab == NavigationTabId.libraries &&
                                               widget.selectedLibraryKey == lib.globalKey,
                                           onTap: () => widget.onLibrarySelected(lib.globalKey),
                                           focusNode: _focusTracker.get(_flatKey(lib)),
@@ -1085,6 +1106,18 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                         isSelected: widget.selectedTab == NavigationTabId.downloads,
                                         onTap: () => widget.onDestinationSelected(NavigationTabId.downloads),
                                         focusNode: _focusTracker.get(_kDownloads),
+                                        isCollapsed: isCollapsed,
+                                      ),
+                                      const SizedBox(height: _itemGap),
+                                    ],
+                                    if (_showModeSwitch) ...[
+                                      _buildNavItem(
+                                        icon: AppModeSwitch.icon(AppMode.video),
+                                        selectedIcon: AppModeSwitch.icon(AppMode.video),
+                                        label: AppModeSwitch.label(AppMode.video),
+                                        isSelected: false,
+                                        onTap: AppModeSwitch.toggle,
+                                        focusNode: _focusTracker.get(_kAppMode),
                                         isCollapsed: isCollapsed,
                                       ),
                                       const SizedBox(height: _itemGap),

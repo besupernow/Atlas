@@ -48,8 +48,8 @@ SeerrPlexTokenSupplier buildSeerrPlexTokenSupplier({
 /// session to [adoptSession].
 class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierMixin {
   SeerrAccountProvider({SeerrSessionStore? store, SeerrAuthService? authService})
-      : _store = store ?? const SeerrSessionStore(),
-        authService = authService ?? SeerrAuthService();
+    : _store = store ?? const SeerrSessionStore(),
+      authService = authService ?? SeerrAuthService();
 
   final SeerrSessionStore _store;
   final SeerrAuthService authService;
@@ -137,7 +137,7 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
 
       final headers = {
         'Authorization':
-        'MediaBrowser Token="${jellyfin.accessToken}", Client="Atlas", Device="Atlas", '
+            'MediaBrowser Token="${jellyfin.accessToken}", Client="Atlas", Device="Atlas", '
             'DeviceId="${jellyfin.deviceId}", Version="1.0"',
       };
       final authorize = Uri.parse(
@@ -227,15 +227,15 @@ class SeerrAccountProvider extends ChangeNotifier with DisposableChangeNotifierM
     _catalogClient = session == null
         ? null
         : SeerrClient(
-      session,
-      onSessionInvalidated: () => _handleSessionInvalidated(userUuid, generation),
-      onSessionUpdated: (next) => _handleSessionUpdated(userUuid, generation, next),
-      plexTokenSupplier: () async => _plexTokenSupplier?.call(),
-      authService: authService,
-      // The auth service's client factory is a test seam (null in
-      // production); sharing it lets one MockClient serve both.
-      httpClient: authService.httpClientFactory?.call(),
-    );
+            session,
+            onSessionInvalidated: () => _handleSessionInvalidated(userUuid, generation),
+            onSessionUpdated: (next) => _handleSessionUpdated(userUuid, generation, next),
+            plexTokenSupplier: () async => _plexTokenSupplier?.call(),
+            authService: authService,
+            // The auth service's client factory is a test seam (null in
+            // production); sharing it lets one MockClient serve both.
+            httpClient: authService.httpClientFactory?.call(),
+          );
     safeNotifyListeners();
   }
 

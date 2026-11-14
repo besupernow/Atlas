@@ -109,10 +109,10 @@ class LibraryBrowseTab extends BaseLibraryTab<MediaItem> {
 /// because a genre lists the library's own type (shows, not episodes), and
 /// the folder grouping shows no filters at all.
 Future<void> saveGenreBrowseSelection(
-    MediaLibrary library,
-    LibraryGenre genre, {
-      required bool canGroupByFolders,
-    }) async {
+  MediaLibrary library,
+  LibraryGenre genre, {
+  required bool canGroupByFolders,
+}) async {
   final serverId = library.serverId;
   if (serverId != null) {
     // Plex genre ids are opaque: without the name, the filter summary reads
@@ -788,20 +788,20 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       client
           .fetchLibraryFiltersWithValues(library.id, libraryKind: library.kind)
           .then((result) {
-        if (!isCurrentLibraryLoad(generation, libraryGlobalKey)) return;
-        setState(() {
-          _filters = result.filters;
-          _mediaBrowserFilterValues = result.cachedValues;
-        });
-      })
+            if (!isCurrentLibraryLoad(generation, libraryGlobalKey)) return;
+            setState(() {
+              _filters = result.filters;
+              _mediaBrowserFilterValues = result.cachedValues;
+            });
+          })
           .catchError((Object e, StackTrace st) {
-        if (!isCurrentLibraryLoad(generation, libraryGlobalKey)) return;
-        appLogger.w(
-          'MediaBrowser library filters failed; browse content remains available',
-          error: e,
-          stackTrace: st,
-        );
-      }),
+            if (!isCurrentLibraryLoad(generation, libraryGlobalKey)) return;
+            appLogger.w(
+              'MediaBrowser library filters failed; browse content remains available',
+              error: e,
+              stackTrace: st,
+            );
+          }),
     );
   }
 
@@ -871,9 +871,9 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       limit: limit,
     );
     return (baseQuery.kind == null || baseQuery.kind == MediaKind.folder) &&
-        baseQuery.includeKinds.isEmpty &&
-        _selectedGrouping == browseGroupingAll &&
-        widget.library.defaultBrowseKinds.isNotEmpty
+            baseQuery.includeKinds.isEmpty &&
+            _selectedGrouping == browseGroupingAll &&
+            widget.library.defaultBrowseKinds.isNotEmpty
         ? baseQuery.copyWith(includeKinds: widget.library.defaultBrowseKinds)
         : baseQuery;
   }
@@ -1097,9 +1097,9 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
     controller
         .push<String>(
-      builder: (_) =>
-          _buildGroupingBottomSheet(onBack: () => controller.pop(), onSelected: (value) => controller.close(value)),
-    )
+          builder: (_) =>
+              _buildGroupingBottomSheet(onBack: () => controller.pop(), onSelected: (value) => controller.close(value)),
+        )
         .then(_handleGroupingSelection);
   }
 
@@ -1309,7 +1309,7 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     bool pendingDescending = _isSortDescending;
     bool pendingCleared = false;
     open(
-          (context) => SortBottomSheet(
+      (context) => SortBottomSheet(
         sortOptions: _sortOptions,
         selectedSort: _selectedSort,
         isSortDescending: _isSortDescending,
@@ -1718,32 +1718,32 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
               bottom: false,
               child: _isPhone(context)
                   ? ListenableSelector<String>(
-                listenable: _currentFirstVisibleIndex,
-                selector: () => _alphaLetterFor(_currentFirstVisibleIndex.value),
-                builder: (context, currentLetter, _) => ValueListenableBuilder<bool>(
-                  valueListenable: _isScrollActive,
-                  builder: (context, scrolling, _) => AlphaScrollHandle(
-                    firstCharacters: _firstCharacters,
-                    onJump: _jumpToIndex,
-                    currentLetter: currentLetter,
-                    descending: _isTitleSortDescending,
-                    isScrolling: scrolling,
-                  ),
-                ),
-              )
+                      listenable: _currentFirstVisibleIndex,
+                      selector: () => _alphaLetterFor(_currentFirstVisibleIndex.value),
+                      builder: (context, currentLetter, _) => ValueListenableBuilder<bool>(
+                        valueListenable: _isScrollActive,
+                        builder: (context, scrolling, _) => AlphaScrollHandle(
+                          firstCharacters: _firstCharacters,
+                          onJump: _jumpToIndex,
+                          currentLetter: currentLetter,
+                          descending: _isTitleSortDescending,
+                          isScrolling: scrolling,
+                        ),
+                      ),
+                    )
                   : ListenableSelector<String>(
-                listenable: _currentFirstVisibleIndex,
-                selector: () => _alphaLetterFor(_currentFirstVisibleIndex.value),
-                builder: (context, currentLetter, _) => AlphaJumpBar(
-                  firstCharacters: _firstCharacters,
-                  onJump: _jumpToIndex,
-                  currentLetter: currentLetter,
-                  descending: _isTitleSortDescending,
-                  focusNode: _alphaJumpBarFocusNode,
-                  onNavigateLeft: _navigateToGridNearScroll,
-                  onBack: _navigateToGridNearScroll,
-                ),
-              ),
+                      listenable: _currentFirstVisibleIndex,
+                      selector: () => _alphaLetterFor(_currentFirstVisibleIndex.value),
+                      builder: (context, currentLetter, _) => AlphaJumpBar(
+                        firstCharacters: _firstCharacters,
+                        onJump: _jumpToIndex,
+                        currentLetter: currentLetter,
+                        descending: _isTitleSortDescending,
+                        focusNode: _alphaJumpBarFocusNode,
+                        onNavigateLeft: _navigateToGridNearScroll,
+                        onBack: _navigateToGridNearScroll,
+                      ),
+                    ),
             ),
           ),
       ],
@@ -2091,11 +2091,11 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     );
     final rowHeight =
         _measuredListRowHeight ??
-            MediaCardListLayout.estimatedRowHeight(
-              density: density,
-              usesWideAspectRatio: usesWideAspectRatio,
-              shape: shape,
-            );
+        MediaCardListLayout.estimatedRowHeight(
+          density: density,
+          usesWideAspectRatio: usesWideAspectRatio,
+          shape: shape,
+        );
     _scrollMetrics = LibraryAlphaScrollMetrics(
       columnCount: 1,
       rowHeight: rowHeight,
@@ -2133,8 +2133,8 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     // cell shape (artists render circular inside the square cell).
     final isMusicGrouping =
         _selectedGrouping == browseGroupingArtists ||
-            _selectedGrouping == browseGroupingAlbums ||
-            _selectedGrouping == browseGroupingTracks;
+        _selectedGrouping == browseGroupingAlbums ||
+        _selectedGrouping == browseGroupingTracks;
     // Clip libraries (MediaBrowser home videos, Plex "Other Videos") hold
     // homogeneous 16:9 items, so the flat grid uses wide cells; poster cells
     // would letterbox every card (#2036).
@@ -2176,15 +2176,15 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       },
       listEpoch: (ViewMode.list, itemCount, libraryDensity, useWideRatio, _shouldShowAlphaJumpBar, isPhone),
       gridEpochBuilder: (geometry) => (
-      ViewMode.grid,
-      geometry.columnCount,
-      itemCount,
-      useFullCardLayout,
-      useWideRatio,
-      browseShape,
-      libraryDensity,
-      _shouldShowAlphaJumpBar,
-      isPhone,
+        ViewMode.grid,
+        geometry.columnCount,
+        itemCount,
+        useFullCardLayout,
+        useWideRatio,
+        browseShape,
+        libraryDensity,
+        _shouldShowAlphaJumpBar,
+        isPhone,
       ),
       itemBuilder: (context, position) {
         final index = position.index;
@@ -2238,15 +2238,15 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
   }
 
   Widget _buildMediaCardItem(
-      int index, {
-        required bool isFirstRow,
-        required bool isFirstColumn,
-        bool isLastColumn = false,
-        bool disableScale = false,
-        bool fullBleedImage = false,
-        int columnCount = 1,
-        int itemCount = 0,
-      }) {
+    int index, {
+    required bool isFirstRow,
+    required bool isFirstColumn,
+    bool isLastColumn = false,
+    bool disableScale = false,
+    bool fullBleedImage = false,
+    int columnCount = 1,
+    int itemCount = 0,
+  }) {
     final item = loadedItems[index];
 
     // Show skeleton placeholder for unloaded items

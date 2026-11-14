@@ -224,16 +224,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> with ManualRefresha
               : (selected == null || _items.isEmpty)
               ? const Center(child: Text('Nothing here yet'))
               : GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 170,
-              childAspectRatio: 0.52,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: _items.length,
-            itemBuilder: (context, i) => FocusableMediaCard(item: _items[i]),
-          ),
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 170,
+                    childAspectRatio: 0.52,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: _items.length,
+                  itemBuilder: (context, i) => FocusableMediaCard(item: _items[i]),
+                ),
         ),
       ],
     );
@@ -412,11 +412,7 @@ class _CategoryTileState extends State<_CategoryTile> {
                   widget.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: fg,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: fg),
                 ),
               ),
               if (widget.showChevron) Icon(Icons.chevron_right_rounded, color: fg),

@@ -156,7 +156,7 @@ extension _VideoPlayerEpisodeNavigationMethods on VideoPlayerScreenState {
       // list may order versions differently, so the bare index is a guess and
       // the source id is per-episode.
       final currentVersionSignature =
-      _effectiveSelectedMediaIndex >= 0 && _effectiveSelectedMediaIndex < _availableVersions.length
+          _effectiveSelectedMediaIndex >= 0 && _effectiveSelectedMediaIndex < _availableVersions.length
           ? _availableVersions[_effectiveSelectedMediaIndex].signature
           : null;
       // Users who curate per-episode selections server-side (e.g. via Plex Auto
@@ -172,20 +172,20 @@ extension _VideoPlayerEpisodeNavigationMethods on VideoPlayerScreenState {
       final primarySubtitlePreference = followServerSelections
           ? null
           : subtitlePreferenceForItemChange(
-        hasCommittedSelection: committedSubtitleSelection != null,
-        committedTrack: committedSubtitleSelection?.primaryTrack,
-        nativeTrack: currentPlayer.state.track.subtitle,
-        declinedPreference: committedSubtitleSelection?.declinedPreference,
-        sessionPreference: _sessionSubtitlePreference,
-      );
+              hasCommittedSelection: committedSubtitleSelection != null,
+              committedTrack: committedSubtitleSelection?.primaryTrack,
+              nativeTrack: currentPlayer.state.track.subtitle,
+              declinedPreference: committedSubtitleSelection?.declinedPreference,
+              sessionPreference: _sessionSubtitlePreference,
+            );
       final secondarySubtitlePreference = followServerSelections
           ? null
           : subtitlePreferenceForItemChange(
-        hasCommittedSelection: committedSubtitleSelection != null,
-        committedTrack: committedSubtitleSelection?.secondaryTrack,
-        nativeTrack: currentPlayer.state.track.secondarySubtitle,
-        sessionPreference: _sessionSecondarySubtitlePreference,
-      );
+              hasCommittedSelection: committedSubtitleSelection != null,
+              committedTrack: committedSubtitleSelection?.secondaryTrack,
+              nativeTrack: currentPlayer.state.track.secondarySubtitle,
+              sessionPreference: _sessionSecondarySubtitlePreference,
+            );
       return await _reloadMediaInPlace(
         metadata: episodeMetadata,
         selectedMediaIndex: _effectiveSelectedMediaIndex,

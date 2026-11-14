@@ -74,7 +74,10 @@ class AtlasShareApi {
   static Never _fail(http.Response r) {
     try {
       final body = jsonDecode(r.body) as Map<String, dynamic>;
-      throw AtlasShareException(body['error'] as String? ?? 'error', body['message'] as String? ?? 'Something went wrong.');
+      throw AtlasShareException(
+        body['error'] as String? ?? 'error',
+        body['message'] as String? ?? 'Something went wrong.',
+      );
     } on AtlasShareException {
       rethrow;
     } catch (_) {
@@ -92,10 +95,10 @@ class AtlasShareApi {
   }) async {
     final r = await http
         .post(
-      Uri.parse('$kAtlasShareBase/create'),
-      headers: {..._json, 'X-Emby-Token': jellyfinToken},
-      body: jsonEncode({'itemId': itemId, 'hours': hours, 'singleUse': singleUse}),
-    )
+          Uri.parse('$kAtlasShareBase/create'),
+          headers: {..._json, 'X-Emby-Token': jellyfinToken},
+          body: jsonEncode({'itemId': itemId, 'hours': hours, 'singleUse': singleUse}),
+        )
         .timeout(const Duration(seconds: 20));
     if (r.statusCode != 200) _fail(r);
     final body = jsonDecode(r.body) as Map<String, dynamic>;

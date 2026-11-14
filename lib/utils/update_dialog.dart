@@ -7,12 +7,12 @@ import '../widgets/dialog_action_button.dart';
 import 'dialogs.dart';
 
 Future<void> showUpdateAvailableDialog(
-    BuildContext context,
-    Map<String, dynamic> updateInfo, {
-      required String title,
-      required String dismissLabel,
-      bool showSkipVersion = false,
-    }) {
+  BuildContext context,
+  Map<String, dynamic> updateInfo, {
+  required String title,
+  required String dismissLabel,
+  bool showSkipVersion = false,
+}) {
   return showScopedDialog<void>(
     context: context,
     builder: (dialogContext) {

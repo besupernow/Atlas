@@ -36,15 +36,15 @@ class TrackSheet extends StatelessWidget {
         final playerAudioTracks = TrackFilterHelper.extractAndFilterTracks<AudioTrack>(tracks, (t) => t?.audio ?? []);
         final subtitleTracks = TrackFilterHelper.extractAndFilterTracks<SubtitleTrack>(
           tracks,
-              (t) => t?.subtitle ?? [],
+          (t) => t?.subtitle ?? [],
         );
 
         final state = trackControlsState;
         final hasExternalSourceAudio = state.sourceAudioTracks.any((track) => track.isExternal);
         final useSourceAudio =
             (state.isTranscoding || hasExternalSourceAudio) &&
-                state.sourceAudioTracks.length > 1 &&
-                state.onSwitchAudioStreamId != null;
+            state.sourceAudioTracks.length > 1 &&
+            state.onSwitchAudioStreamId != null;
         final useSourceSubtitles = state.canUseSourceSubtitles;
         final showAudio = useSourceAudio || playerAudioTracks.length > 1;
         final showSubtitles = state.hasSubtitleControls(tracks);
@@ -252,7 +252,20 @@ class _SourceSubtitleColumn extends StatelessWidget {
 
   /// Atlas keeps subtitles in these languages only (the Tdarr flow deletes the rest).
   static const _atlasSubtitleLanguages = {
-    'en', 'eng', 'es', 'spa', 'fr', 'fre', 'fra', 'ko', 'kor', 'ja', 'jpn', 'de', 'ger', 'deu',
+    'en',
+    'eng',
+    'es',
+    'spa',
+    'fr',
+    'fre',
+    'fra',
+    'ko',
+    'kor',
+    'ja',
+    'jpn',
+    'de',
+    'ger',
+    'deu',
   };
 
   /// Atlas: the sidecar files (SRT, ASS, PGS) in the kept languages, no SDH. Embedded tracks only
@@ -294,7 +307,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
             key: scope.keyFor(index),
             isSelected: selectedChoice.isOff,
             onTap: () => scope.runExclusive(
-                  () => trackControlsState.onSwitchSubtitle!(const PlaybackSourceSubtitleChoice.off()),
+              () => trackControlsState.onSwitchSubtitle!(const PlaybackSourceSubtitleChoice.off()),
             ),
           );
         }
@@ -305,7 +318,7 @@ class _SourceSubtitleColumn extends StatelessWidget {
           label: track.labelForIndex(index - 1),
           isSelected: track.id == selectedId,
           onTap: () => scope.runExclusive(
-                () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(track.id)),
+            () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(track.id)),
           ),
         );
       },
@@ -421,10 +434,10 @@ class _SubtitleColumn extends StatelessWidget {
     final unloadedSourceSidecars = sourceSidecars
         .where(
           (track) =>
-      !attachedSourceSidecarIds.contains(track.id) &&
-          track.id != selectedSourceId &&
-          track.id != selectedSecondarySourceId,
-    )
+              !attachedSourceSidecarIds.contains(track.id) &&
+              track.id != selectedSourceId &&
+              track.id != selectedSecondarySourceId,
+        )
         .toList(growable: false);
 
     // +1 for "Off". Source sidecars represented by native external tracks,
@@ -456,15 +469,15 @@ class _SubtitleColumn extends StatelessWidget {
             },
             onLongPress: supportsSecondary && hasSecondary
                 ? () {
-              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-            }
+                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+                  }
                 : null,
             onSecondaryTap: supportsSecondary && hasSecondary
                 ? () {
-              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-            }
+                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+                  }
                 : null,
           );
         }
@@ -478,7 +491,7 @@ class _SubtitleColumn extends StatelessWidget {
             label: sourceTrack.labelForIndex(trackIndex),
             isSelected: false,
             onTap: () => scope.runExclusive(
-                  () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(sourceTrack.id)),
+              () => trackControlsState.onSwitchSubtitle!(PlaybackSourceSubtitleChoice.source(sourceTrack.id)),
             ),
           );
         }
@@ -520,27 +533,27 @@ class _SubtitleColumn extends StatelessWidget {
           },
           onLongPress: supportsSecondary
               ? () {
-            if (isSecondary) {
-              // Already secondary — clear it
-              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-            } else if (!isPrimary) {
-              // Set as secondary (don't close sheet so user sees badge update)
-              player.selectSecondarySubtitleTrack(track);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
-            }
-          }
+                  if (isSecondary) {
+                    // Already secondary — clear it
+                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+                  } else if (!isPrimary) {
+                    // Set as secondary (don't close sheet so user sees badge update)
+                    player.selectSecondarySubtitleTrack(track);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
+                  }
+                }
               : null,
           onSecondaryTap: supportsSecondary
               ? () {
-            if (isSecondary) {
-              player.selectSecondarySubtitleTrack(SubtitleTrack.off);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
-            } else if (!isPrimary) {
-              player.selectSecondarySubtitleTrack(track);
-              trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
-            }
-          }
+                  if (isSecondary) {
+                    player.selectSecondarySubtitleTrack(SubtitleTrack.off);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(SubtitleTrack.off);
+                  } else if (!isPrimary) {
+                    player.selectSecondarySubtitleTrack(track);
+                    trackControlsState.onSecondarySubtitleTrackChanged?.call(track);
+                  }
+                }
               : null,
         );
       },

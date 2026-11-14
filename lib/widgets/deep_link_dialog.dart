@@ -105,8 +105,8 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
       final detail = e.toString().replaceFirst('ClientException: ', '');
       if (mounted) {
         setState(
-              () => _publicError =
-          "Couldn't reach the share service: ${detail.length > 140 ? '${detail.substring(0, 140)}…' : detail}",
+          () => _publicError =
+              "Couldn't reach the share service: ${detail.length > 140 ? '${detail.substring(0, 140)}…' : detail}",
         );
       }
     } finally {
@@ -149,7 +149,7 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
           children: [
             Text(
               'Anyone with the link can watch ${widget.item.title ?? 'this'} in their browser without an account. '
-                  'It plays only this title, and closing the player ends their visit.',
+              'It plays only this title, and closing the player ends their visit.',
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
@@ -160,9 +160,9 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
               runSpacing: 8,
               children: [
                 for (final hours in kShareDurationsHours)
-                // FocusableButton gives the chips the same D-pad focus ring
-                // as everything else (a bare chip's focus tint is invisible
-                // on a TV).
+                  // FocusableButton gives the chips the same D-pad focus ring
+                  // as everything else (a bare chip's focus tint is invisible
+                  // on a TV).
                   FocusableButton(
                     onPressed: _creating ? null : () => setState(() => _hours = hours),
                     child: ChoiceChip(
@@ -231,7 +231,7 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
         title: 'Public link',
         link: publicLink.url,
         hint:
-        'Anyone with this link can watch without an account until ${_expiryText(context, publicLink.expiresAt)}. '
+            'Anyone with this link can watch without an account until ${_expiryText(context, publicLink.expiresAt)}. '
             '${publicLink.singleUse ? 'It stops working once it has been opened.' : 'It works as many times as needed until then.'}',
       );
     }
@@ -252,25 +252,25 @@ class _ItemLinkDialogState extends State<ItemLinkDialog> {
       option: profile == null && !_canSharePublicly
           ? null
           : Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (profile != null)
-            FocusableSwitchListTile(
-              value: _asProfile,
-              onChanged: (value) => setState(() => _asProfile = value),
-              title: Text(t.deepLinks.openAsProfile(name: profile.displayName)),
-              contentPadding: EdgeInsets.zero,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (profile != null)
+                  FocusableSwitchListTile(
+                    value: _asProfile,
+                    onChanged: (value) => setState(() => _asProfile = value),
+                    title: Text(t.deepLinks.openAsProfile(name: profile.displayName)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                if (_canSharePublicly) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() => _publicOptions = true),
+                    icon: const Icon(Icons.public_rounded),
+                    label: const Text('Share publicly?'),
+                  ),
+                ],
+              ],
             ),
-          if (_canSharePublicly) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => setState(() => _publicOptions = true),
-              icon: const Icon(Icons.public_rounded),
-              label: const Text('Share publicly?'),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -335,15 +335,15 @@ class _LinkDialog extends StatelessWidget {
           child: link == null
               ? const Center(child: CircularProgressIndicator())
               : ClipRRect(
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
-            child: QrImageView(data: link, size: qrSize, version: QrVersions.auto, backgroundColor: Colors.white),
-          ),
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  child: QrImageView(data: link, size: qrSize, version: QrVersions.auto, backgroundColor: Colors.white),
+                ),
         ),
         const SizedBox(height: 20),
         if (wide)
-        // One line whatever the link: the hidden line fixes the height and
-        // the link scales down inside it rather than wrap, which would
-        // strand a few characters.
+          // One line whatever the link: the hidden line fixes the height and
+          // the link scales down inside it rather than wrap, which would
+          // strand a few characters.
           SizedBox(
             width: double.infinity,
             child: Stack(

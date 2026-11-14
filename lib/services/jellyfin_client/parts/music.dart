@@ -19,7 +19,8 @@ mixin _JellyfinMusicMethods on _JellyfinClientInternals {
         'Recursive': 'true',
         'SortBy': 'PremiereDate,ProductionYear,SortName',
         'SortOrder': 'Descending',
-        'Fields': _musicAlbumRowFields,
+        // Atlas: ChildCount lets the discography tell singles and EPs from albums.
+        'Fields': '$_musicAlbumRowFields,ChildCount',
         'EnableUserData': 'false',
         ...jellyfinImageQueryParameters,
       },
@@ -28,14 +29,14 @@ mixin _JellyfinMusicMethods on _JellyfinClientInternals {
     return _mapItems(_itemsArray(response.data));
   }
 
-  /// MediaBrowser `BaseItemDto`s carry no single/EP/live/compilation
-  /// taxonomy, so the discography is a single albums group — the neutral
-  /// contract's MediaBrowser-family shape.
+  /// MediaBrowser `BaseItemDto`s carry no single/EP/live/compilation tag.
+  /// Atlas: sorted into those sections from each album's title, track count
+  /// and length ([classifyReleaseByShape]).
   @override
   Future<List<ArtistDiscographyGroup>> fetchArtistDiscography(MediaItem artist) async {
     final albums = await fetchArtistAlbums(artist);
     if (albums.isEmpty) return const <ArtistDiscographyGroup>[];
-    return [ArtistDiscographyGroup(kind: DiscographyGroupKind.albums, items: albums)];
+    return buildArtistDiscographyGroups(albums, classifyReleaseByShape);
   }
 
   /// Tracks of [albumId] in disc/track order. `AlbumIds` (not `ParentId`) so

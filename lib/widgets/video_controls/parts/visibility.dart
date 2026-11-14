@@ -1,6 +1,5 @@
 part of '../video_controls.dart';
 
-
 extension _PlexVideoControlsVisibilityMethods on _PlexVideoControlsState {
   /// Called when hasFirstFrame changes - start auto-hide timer when first frame is ready
   void _onFirstFrameReady() {

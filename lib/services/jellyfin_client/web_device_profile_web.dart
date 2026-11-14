@@ -28,14 +28,32 @@ Map<String, Object?>? buildWebDeviceProfile({
   final flac = _can('audio/flac') || _can('audio/mp4; codecs="flac"');
   final vorbis = _can('audio/ogg; codecs="vorbis"');
 
-  final mp4Video = [if (h264) 'h264', if (hevc) ...['hevc', 'h265'], if (av1) 'av1'];
-  final mp4Audio = [if (aac) 'aac', if (mp3) 'mp3', if (ac3) 'ac3', if (eac3) 'eac3', if (opus) 'opus', if (flac) 'flac'];
+  final mp4Video = [
+    if (h264) 'h264',
+    if (hevc) ...['hevc', 'h265'],
+    if (av1) 'av1',
+  ];
+  final mp4Audio = [
+    if (aac) 'aac',
+    if (mp3) 'mp3',
+    if (ac3) 'ac3',
+    if (eac3) 'eac3',
+    if (opus) 'opus',
+    if (flac) 'flac',
+  ];
   final webmVideo = [if (vp8) 'vp8', if (vp9) 'vp9', if (av1) 'av1'];
   final webmAudio = [if (opus) 'opus', if (vorbis) 'vorbis'];
   final mkv = _can('video/x-matroska');
 
   final hlsVideo = [if (h264) 'h264', if (hevc) 'hevc', if (av1) 'av1'];
-  final hlsAudio = [if (aac) 'aac', if (mp3) 'mp3', if (opus) 'opus', if (flac) 'flac', if (ac3) 'ac3', if (eac3) 'eac3'];
+  final hlsAudio = [
+    if (aac) 'aac',
+    if (mp3) 'mp3',
+    if (opus) 'opus',
+    if (flac) 'flac',
+    if (ac3) 'ac3',
+    if (eac3) 'eac3',
+  ];
 
   return <String, Object?>{
     'Name': 'Atlas Web',
@@ -50,12 +68,7 @@ Map<String, Object?>? buildWebDeviceProfile({
           'AudioCodec': mp4Audio.join(','),
         },
       if (webmVideo.isNotEmpty)
-        {
-          'Type': 'Video',
-          'Container': 'webm',
-          'VideoCodec': webmVideo.join(','),
-          'AudioCodec': webmAudio.join(','),
-        },
+        {'Type': 'Video', 'Container': 'webm', 'VideoCodec': webmVideo.join(','), 'AudioCodec': webmAudio.join(',')},
       if (mkv && (mp4Video.isNotEmpty || webmVideo.isNotEmpty))
         {
           'Type': 'Video',
@@ -66,7 +79,12 @@ Map<String, Object?>? buildWebDeviceProfile({
       if (audioProfile)
         {
           'Type': 'Audio',
-          'Container': [if (mp3) 'mp3', if (flac) 'flac', if (aac) ...['aac', 'm4a'], if (opus) 'webma'].join(','),
+          'Container': [
+            if (mp3) 'mp3',
+            if (flac) 'flac',
+            if (aac) ...['aac', 'm4a'],
+            if (opus) 'webma',
+          ].join(','),
         },
     ],
     'TranscodingProfiles': <Map<String, Object?>>[

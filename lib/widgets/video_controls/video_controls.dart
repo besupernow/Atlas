@@ -1,4 +1,4 @@
-﻿import 'dart:async' show StreamSubscription, Timer, unawaited;
+import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -7,14 +7,14 @@ import '../../media/ids.dart';
 
 import 'package:flutter/gestures.dart'
     show
-    PointerCancelEvent,
-    PointerDeviceKind,
-    PointerDownEvent,
-    PointerMoveEvent,
-    PointerScrollEvent,
-    PointerSignalEvent,
-    PointerUpEvent,
-    kDoubleTapTimeout;
+        PointerCancelEvent,
+        PointerDeviceKind,
+        PointerDownEvent,
+        PointerMoveEvent,
+        PointerScrollEvent,
+        PointerSignalEvent,
+        PointerUpEvent,
+        kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:rate_limiter/rate_limiter.dart';
@@ -113,38 +113,38 @@ part 'parts/visibility.dart';
 /// subtitle profile plus `SubtitleStreamIndex`), so the codec is the only
 /// discriminator here.
 List<MediaSubtitleTrack> selectableSourceSubtitleTracks(
-    List<MediaSubtitleTrack> tracks, {
-      required bool isTranscoding,
-      required Set<int> sidecarSourceIds,
-    }) {
+  List<MediaSubtitleTrack> tracks, {
+  required bool isTranscoding,
+  required Set<int> sidecarSourceIds,
+}) {
   if (!isTranscoding) {
     return tracks
         .where((track) {
-      final requiresSidecar =
-          track.isExternalFile || (!track.usesExternalDelivery && track.key != null && track.key!.isNotEmpty);
-      return !requiresSidecar || sidecarSourceIds.contains(track.id);
-    })
+          final requiresSidecar =
+              track.isExternalFile || (!track.usesExternalDelivery && track.key != null && track.key!.isNotEmpty);
+          return !requiresSidecar || sidecarSourceIds.contains(track.id);
+        })
         .toList(growable: false);
   }
   return tracks
       .where((track) {
-    if (sidecarSourceIds.contains(track.id)) return true;
-    // A row the client has to fetch itself is selectable only once its sidecar resolved: when that
-    // build failed nothing can put it on screen and reloading cannot help.
-    //
-    // Bitmaps are not fetched at all. The transcode profile offers image formats as `Embed` with
-    // no `External` entry, so the server burns them into the picture - external files included -
-    // and they never get a sidecar by design. Gating those on one made the active track vanish
-    // from the picker while its captions were still burned into the video, with no row left to
-    // switch or turn off. So burn eligibility is decided by the codec, not by where the row came
-    // from.
-    final burnedByServer = CodecUtils.isImageSubtitleCodec(track.codec);
-    final requiresSidecar =
-        !burnedByServer &&
+        if (sidecarSourceIds.contains(track.id)) return true;
+        // A row the client has to fetch itself is selectable only once its sidecar resolved: when that
+        // build failed nothing can put it on screen and reloading cannot help.
+        //
+        // Bitmaps are not fetched at all. The transcode profile offers image formats as `Embed` with
+        // no `External` entry, so the server burns them into the picture - external files included -
+        // and they never get a sidecar by design. Gating those on one made the active track vanish
+        // from the picker while its captions were still burned into the video, with no row left to
+        // switch or turn off. So burn eligibility is decided by the codec, not by where the row came
+        // from.
+        final burnedByServer = CodecUtils.isImageSubtitleCodec(track.codec);
+        final requiresSidecar =
+            !burnedByServer &&
             (track.isExternalFile || (!track.usesExternalDelivery && track.key != null && track.key!.isNotEmpty));
-    if (requiresSidecar) return false;
-    return CodecUtils.isTranscodableSubtitleCodec(track.codec);
-  })
+        if (requiresSidecar) return false;
+        return CodecUtils.isTranscodableSubtitleCodec(track.codec);
+      })
       .toList(growable: false);
 }
 
@@ -181,14 +181,14 @@ ShaderPreset resolveShaderTogglePreset({
 
 @visibleForTesting
 ({
-List<MediaVersion> availableVersions,
-bool serverSupportsTranscoding,
-bool isTranscoding,
-List<MediaAudioTrack> sourceAudioTracks,
-int? selectedAudioStreamId,
-List<MediaSubtitleTrack> sourceSubtitleTracks,
-PlaybackSourceSubtitleChoice? selectedSubtitleChoice,
-bool canSwitch,
+  List<MediaVersion> availableVersions,
+  bool serverSupportsTranscoding,
+  bool isTranscoding,
+  List<MediaAudioTrack> sourceAudioTracks,
+  int? selectedAudioStreamId,
+  List<MediaSubtitleTrack> sourceSubtitleTracks,
+  PlaybackSourceSubtitleChoice? selectedSubtitleChoice,
+  bool canSwitch,
 })
 effectiveVersionQualityControls({
   required bool isOfflinePlayback,
@@ -202,25 +202,25 @@ effectiveVersionQualityControls({
 }) {
   if (isOfflinePlayback) {
     return (
-    availableVersions: const <MediaVersion>[],
-    serverSupportsTranscoding: false,
-    isTranscoding: false,
-    sourceAudioTracks: const <MediaAudioTrack>[],
-    selectedAudioStreamId: null,
-    sourceSubtitleTracks: const <MediaSubtitleTrack>[],
-    selectedSubtitleChoice: null,
-    canSwitch: false,
+      availableVersions: const <MediaVersion>[],
+      serverSupportsTranscoding: false,
+      isTranscoding: false,
+      sourceAudioTracks: const <MediaAudioTrack>[],
+      selectedAudioStreamId: null,
+      sourceSubtitleTracks: const <MediaSubtitleTrack>[],
+      selectedSubtitleChoice: null,
+      canSwitch: false,
     );
   }
   return (
-  availableVersions: availableVersions,
-  serverSupportsTranscoding: serverSupportsTranscoding,
-  isTranscoding: isTranscoding,
-  sourceAudioTracks: sourceAudioTracks,
-  selectedAudioStreamId: selectedAudioStreamId,
-  sourceSubtitleTracks: sourceSubtitleTracks,
-  selectedSubtitleChoice: selectedSubtitleChoice,
-  canSwitch: true,
+    availableVersions: availableVersions,
+    serverSupportsTranscoding: serverSupportsTranscoding,
+    isTranscoding: isTranscoding,
+    sourceAudioTracks: sourceAudioTracks,
+    selectedAudioStreamId: selectedAudioStreamId,
+    sourceSubtitleTracks: sourceSubtitleTracks,
+    selectedSubtitleChoice: selectedSubtitleChoice,
+    canSwitch: true,
   );
 }
 
@@ -271,9 +271,9 @@ bool playerDirectionalNavigationEnabled() => videoPlayerNavigationPreference() |
 /// `skipTraversal` keeps these full-screen invisible nodes out of the Tab ring:
 /// they are entered by autofocus and explicit requests, never by traversal.
 DirectionalShortcutFocusNode playerSurfaceFocusNode(
-    String debugLabel, {
-      bool Function(LogicalKeyboardKey key)? alsoOwns,
-    }) {
+  String debugLabel, {
+  bool Function(LogicalKeyboardKey key)? alsoOwns,
+}) {
   return DirectionalShortcutFocusNode(
     debugLabel: debugLabel,
     skipTraversal: true,
@@ -327,9 +327,9 @@ class PlayerNavigationCoordinator {
     required this.navigateHome,
     bool Function()? isActive,
   }) : _physicalEscapeExitsFullscreen = physicalEscapeExitsFullscreen ?? _alwaysTrue,
-        _exitPlayerBeforeChrome = exitPlayerBeforeChrome ?? _alwaysFalse,
-        _backLeavesPrompt = backLeavesPrompt ?? _alwaysFalse,
-        isActive = isActive ?? _alwaysActive;
+       _exitPlayerBeforeChrome = exitPlayerBeforeChrome ?? _alwaysFalse,
+       _backLeavesPrompt = backLeavesPrompt ?? _alwaysFalse,
+       isActive = isActive ?? _alwaysActive;
 
   static bool _alwaysActive() => true;
   static bool _alwaysTrue() => true;
@@ -466,11 +466,11 @@ PlayerBackDisposition resolvePlayerBackDisposition({
 /// and [LogicalKeyboardKey.browserHome] is a dedicated navigation key with no
 /// editing role at all.
 PlayerNavigationKey classifyPlayerNavigationKey(
-    KeyEvent event, {
-      required bool isAppleTV,
-      bool? hasModifiers,
-      bool? textEditingActive,
-    }) {
+  KeyEvent event, {
+  required bool isAppleTV,
+  bool? hasModifiers,
+  bool? textEditingActive,
+}) {
   final key = event.logicalKey;
   if (key == LogicalKeyboardKey.escape) {
     return event.isPhysicalKeyboardEvent && !isAppleTV ? PlayerNavigationKey.physicalEscape : PlayerNavigationKey.back;
@@ -479,10 +479,10 @@ PlayerNavigationKey classifyPlayerNavigationKey(
 
   final modifiersPressed =
       hasModifiers ??
-          (HardwareKeyboard.instance.isShiftPressed ||
-              HardwareKeyboard.instance.isControlPressed ||
-              HardwareKeyboard.instance.isAltPressed ||
-              HardwareKeyboard.instance.isMetaPressed);
+      (HardwareKeyboard.instance.isShiftPressed ||
+          HardwareKeyboard.instance.isControlPressed ||
+          HardwareKeyboard.instance.isAltPressed ||
+          HardwareKeyboard.instance.isMetaPressed);
   // Resolved lazily: only the two editing keys below pay for the focus lookup.
   bool textEditorOwnsKey() => event.isPhysicalKeyboardEvent && (textEditingActive ?? isTextEditingFocused());
 
@@ -500,12 +500,12 @@ PlayerNavigationKey classifyPlayerNavigationKey(
 /// loading/error body is still establishing focus. The matching key-up still
 /// performs the action through the normal [Focus.onKeyEvent] path.
 bool primePlayerNavigationFocusForEvent(
-    KeyEvent event, {
-      required FocusNode focusNode,
-      required bool playerReady,
-      required bool isCurrentRoute,
-      required bool isAppleTV,
-    }) {
+  KeyEvent event, {
+  required FocusNode focusNode,
+  required bool playerReady,
+  required bool isCurrentRoute,
+  required bool isAppleTV,
+}) {
   if (!isCurrentRoute || playerReady || event is! KeyDownEvent) return false;
   if (classifyPlayerNavigationKey(event, isAppleTV: isAppleTV) == PlayerNavigationKey.none) {
     return false;
@@ -515,10 +515,10 @@ bool primePlayerNavigationFocusForEvent(
 }
 
 KeyEventResult handlePlayerNavigationKeyAction(
-    KeyEvent event,
-    PlayerNavigationKey navigationKey,
-    VoidCallback onAction,
-    ) {
+  KeyEvent event,
+  PlayerNavigationKey navigationKey,
+  VoidCallback onAction,
+) {
   if (navigationKey == PlayerNavigationKey.none) return KeyEventResult.ignored;
 
   // macOS may also translate Backspace / Escape / browser Back into a route
@@ -550,12 +550,12 @@ bool shouldSkipDuplicateTimelineSeek({required Duration? lastDispatchedSeek, req
 bool shouldStartHiddenDirectionalSeek(KeyEvent event) => event.isActionable;
 
 typedef PlaybackSourceChangeCallback =
-Future<PlaybackSourceChangeOutcome> Function({
-int? newMediaIndex,
-TranscodeQualityPreset? newPreset,
-int? newAudioStreamId,
-PlaybackSourceSubtitleChoice? newSubtitleChoice,
-});
+    Future<PlaybackSourceChangeOutcome> Function({
+      int? newMediaIndex,
+      TranscodeQualityPreset? newPreset,
+      int? newAudioStreamId,
+      PlaybackSourceSubtitleChoice? newSubtitleChoice,
+    });
 
 enum PlaybackSourceChangeOutcome { applied, unchanged, busy, unavailable, superseded, failed }
 
@@ -837,9 +837,9 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
   final DeviceAdjustmentService _deviceAdjustmentService = DeviceAdjustmentService.instance;
   DateTime? _suppressTouchTapUntil;
   final ValueNotifier<_EdgeAdjustmentIndicatorState> _edgeAdjustmentIndicator = ValueNotifier((
-  visible: false,
-  side: null,
-  value: 0.0,
+    visible: false,
+    side: null,
+    value: 0.0,
   ));
   double? _edgeAdjustmentStartValue;
   bool _edgeAdjustmentWasActive = false;
@@ -941,7 +941,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
     );
     _skipMarkerFocusNode = FocusNode(debugLabel: 'SkipMarkerButton');
     _seekThrottle = throttle(
-          (Duration pos) {
+      (Duration pos) {
         unawaited(_seekToTimelinePosition(pos));
       },
       const Duration(milliseconds: 200),
@@ -1276,123 +1276,123 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                     child: !_controlsMounted
                         ? const SizedBox.shrink()
                         : IgnorePointer(
-                      ignoring: !_showControls,
-                      child: FocusScope(
-                        // Prevent focus from entering controls when hidden
-                        canRequestFocus: _showControls,
-                        child: AnimatedOpacity(
-                          opacity: _controlsOpaque ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          onEnd: () {
-                            if (!_showControls) {
-                              widget.chromeController.markControlsHidden();
-                              if (_controlsMounted) {
-                                setState(() => _controlsMounted = false);
-                              }
-                            } else {
-                              // The fade-in genuinely completed, so a later
-                              // hide() can rely on a real fade-out retiring
-                              // controlsPresented via markControlsHidden.
-                              widget.chromeController.markControlsOpaque();
-                            }
-                          },
-                          child: Builder(
-                            builder: (context) {
-                              return GestureDetector(
-                                onTapUp: (details) =>
-                                    _handleControlsOverlayTap(details, renderBoxSizeOf(context)),
-                                onLongPressStart: (_) => _handleLongPressStart(),
-                                onLongPressEnd: (_) => _handleLongPressEnd(),
-                                onLongPressCancel: _handleLongPressCancel,
-                                behavior: HitTestBehavior.deferToChild,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: widget.hasFirstFrame ?? _fallbackHasFirstFrame,
-                                  builder: (context, hasFrame, child) {
-                                    // Solid black while loading, scrim once frames flow.
-                                    // Both states share one widget type: hasFrame flips
-                                    // on every in-place episode switch / live-TV zap, and
-                                    // a runtimeType change here would re-inflate the whole
-                                    // controls subtree and drop its state.
-                                    return RasterizedGradient(
-                                      gradient: hasFrame
-                                          ? LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.black.withValues(alpha: 0.7),
-                                          Colors.transparent,
-                                          Colors.transparent,
-                                          Colors.black.withValues(alpha: 0.7),
-                                        ],
-                                        stops: const [0.0, 0.2, 0.8, 1.0],
-                                      )
-                                          : const LinearGradient(colors: [Colors.black, Colors.black]),
-                                      child: child,
+                            ignoring: !_showControls,
+                            child: FocusScope(
+                              // Prevent focus from entering controls when hidden
+                              canRequestFocus: _showControls,
+                              child: AnimatedOpacity(
+                                opacity: _controlsOpaque ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                onEnd: () {
+                                  if (!_showControls) {
+                                    widget.chromeController.markControlsHidden();
+                                    if (_controlsMounted) {
+                                      setState(() => _controlsMounted = false);
+                                    }
+                                  } else {
+                                    // The fade-in genuinely completed, so a later
+                                    // hide() can rely on a real fade-out retiring
+                                    // controlsPresented via markControlsHidden.
+                                    widget.chromeController.markControlsOpaque();
+                                  }
+                                },
+                                child: Builder(
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTapUp: (details) =>
+                                          _handleControlsOverlayTap(details, renderBoxSizeOf(context)),
+                                      onLongPressStart: (_) => _handleLongPressStart(),
+                                      onLongPressEnd: (_) => _handleLongPressEnd(),
+                                      onLongPressCancel: _handleLongPressCancel,
+                                      behavior: HitTestBehavior.deferToChild,
+                                      child: ValueListenableBuilder<bool>(
+                                        valueListenable: widget.hasFirstFrame ?? _fallbackHasFirstFrame,
+                                        builder: (context, hasFrame, child) {
+                                          // Solid black while loading, scrim once frames flow.
+                                          // Both states share one widget type: hasFrame flips
+                                          // on every in-place episode switch / live-TV zap, and
+                                          // a runtimeType change here would re-inflate the whole
+                                          // controls subtree and drop its state.
+                                          return RasterizedGradient(
+                                            gradient: hasFrame
+                                                ? LinearGradient(
+                                                    begin: Alignment.topCenter,
+                                                    end: Alignment.bottomCenter,
+                                                    colors: [
+                                                      Colors.black.withValues(alpha: 0.7),
+                                                      Colors.transparent,
+                                                      Colors.transparent,
+                                                      Colors.black.withValues(alpha: 0.7),
+                                                    ],
+                                                    stops: const [0.0, 0.2, 0.8, 1.0],
+                                                  )
+                                                : const LinearGradient(colors: [Colors.black, Colors.black]),
+                                            child: child,
+                                          );
+                                        },
+                                        child: isMobile
+                                            ? _holdChromeWhilePressed(
+                                                child: Builder(
+                                                  builder: (context) {
+                                                    final playbackState = context.watch<PlaybackStateProvider>();
+                                                    final canShowQueue =
+                                                        playbackState.isQueueActive && widget.canNavigateMediaItems;
+                                                    final hasStripContent = _chapters.isNotEmpty || canShowQueue;
+                                                    return MobileVideoControls(
+                                                      player: widget.player,
+                                                      metadata: widget.metadata,
+                                                      chapters: _chapters,
+                                                      chaptersLoaded: _chaptersLoaded,
+                                                      showChapterMarkersOnTimeline: _showChapterMarkersOnTimeline,
+                                                      seekTimeSmall: _seekTimeSmall,
+                                                      trackChapterControls: _buildTrackChapterControlsWidget(
+                                                        hideChaptersAndQueue: hasStripContent,
+                                                      ),
+                                                      onSeek: _throttledSeek,
+                                                      onSeekEnd: _finalizeSeek,
+                                                      onScrubStart: _holdTimelineScrub,
+                                                      onScrubEnd: _releaseTimelineScrub,
+                                                      onSeekRequested: widget.onSeekRequested,
+                                                      onSeekCompleted: widget.onSeekCompleted,
+                                                      onPlayPause: () => unawaited(_playOrPause()),
+                                                      onCancelAutoHide: widget.chromeController.cancelAutoHide,
+                                                      onStartAutoHide: _startHideTimer,
+                                                      onBack: widget.onBack,
+                                                      onNext: _abandoningBurst(widget.onNext),
+                                                      onPrevious: _abandoningBurst(widget.onPrevious),
+                                                      canControl: widget.canControl,
+                                                      hasFirstFrame: widget.hasFirstFrame,
+                                                      thumbnailDataBuilder: widget.thumbnailDataBuilder,
+                                                      isLive: widget.isLive,
+                                                      liveChannelName: widget.liveChannelName,
+                                                      captureBuffer: widget.captureBuffer,
+                                                      isAtLiveEdge: widget.isAtLiveEdge,
+                                                      liveEpochForPosition: widget.liveEpochForPosition,
+                                                      onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),
+                                                      serverId: widget.metadata.serverId,
+                                                      showQueueTab: canShowQueue,
+                                                      onQueueItemSelected: canShowQueue ? _onQueueItemSelected : null,
+                                                      chromeController: widget.chromeController,
+                                                      onStripVisibilityChanged: (visible) {
+                                                        if (visible) {
+                                                          widget.chromeController.setContentStripVisible(true);
+                                                        } else {
+                                                          widget.chromeController.setContentStripVisible(false);
+                                                        }
+                                                      },
+                                                      isInEdgeAdjustmentZone: _isGlobalPositionInEdgeAdjustmentZone,
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            : _buildDesktopControlsListener(),
+                                      ),
                                     );
                                   },
-                                  child: isMobile
-                                      ? _holdChromeWhilePressed(
-                                    child: Builder(
-                                      builder: (context) {
-                                        final playbackState = context.watch<PlaybackStateProvider>();
-                                        final canShowQueue =
-                                            playbackState.isQueueActive && widget.canNavigateMediaItems;
-                                        final hasStripContent = _chapters.isNotEmpty || canShowQueue;
-                                        return MobileVideoControls(
-                                          player: widget.player,
-                                          metadata: widget.metadata,
-                                          chapters: _chapters,
-                                          chaptersLoaded: _chaptersLoaded,
-                                          showChapterMarkersOnTimeline: _showChapterMarkersOnTimeline,
-                                          seekTimeSmall: _seekTimeSmall,
-                                          trackChapterControls: _buildTrackChapterControlsWidget(
-                                            hideChaptersAndQueue: hasStripContent,
-                                          ),
-                                          onSeek: _throttledSeek,
-                                          onSeekEnd: _finalizeSeek,
-                                          onScrubStart: _holdTimelineScrub,
-                                          onScrubEnd: _releaseTimelineScrub,
-                                          onSeekRequested: widget.onSeekRequested,
-                                          onSeekCompleted: widget.onSeekCompleted,
-                                          onPlayPause: () => unawaited(_playOrPause()),
-                                          onCancelAutoHide: widget.chromeController.cancelAutoHide,
-                                          onStartAutoHide: _startHideTimer,
-                                          onBack: widget.onBack,
-                                          onNext: _abandoningBurst(widget.onNext),
-                                          onPrevious: _abandoningBurst(widget.onPrevious),
-                                          canControl: widget.canControl,
-                                          hasFirstFrame: widget.hasFirstFrame,
-                                          thumbnailDataBuilder: widget.thumbnailDataBuilder,
-                                          isLive: widget.isLive,
-                                          liveChannelName: widget.liveChannelName,
-                                          captureBuffer: widget.captureBuffer,
-                                          isAtLiveEdge: widget.isAtLiveEdge,
-                                          liveEpochForPosition: widget.liveEpochForPosition,
-                                          onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),
-                                          serverId: widget.metadata.serverId,
-                                          showQueueTab: canShowQueue,
-                                          onQueueItemSelected: canShowQueue ? _onQueueItemSelected : null,
-                                          chromeController: widget.chromeController,
-                                          onStripVisibilityChanged: (visible) {
-                                            if (visible) {
-                                              widget.chromeController.setContentStripVisible(true);
-                                            } else {
-                                              widget.chromeController.setContentStripVisible(false);
-                                            }
-                                          },
-                                          isInEdgeAdjustmentZone: _isGlobalPositionInEdgeAdjustmentZone,
-                                        );
-                                      },
-                                    ),
-                                  )
-                                      : _buildDesktopControlsListener(),
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                   // Transient skip badge: mobile double-tap and keyboard/remote
                   // seeking both use it so neither has to raise the full chrome.

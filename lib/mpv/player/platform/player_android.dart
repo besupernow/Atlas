@@ -175,13 +175,13 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
 
   @override
   Future<void> open(
-      Media media, {
-        bool play = true,
-        bool isLive = false,
-        List<SubtitleTrack>? externalSubtitles,
-        Duration? timelineDuration,
-        Duration timelineOffset = Duration.zero,
-      }) async {
+    Media media, {
+    bool play = true,
+    bool isLive = false,
+    List<SubtitleTrack>? externalSubtitles,
+    Duration? timelineDuration,
+    Duration timelineOffset = Duration.zero,
+  }) async {
     if (disposed) return;
     await _ensureInitialized();
     final startPosition = media.start ?? timelineOffset;
@@ -215,15 +215,15 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
               .where((s) => s.uri?.isNotEmpty == true)
               .map(
                 (s) => {
-              'uri': s.uri,
-              'title': s.title,
-              'language': s.language,
-              'codec': s.codec,
-              'isDefault': s.isDefault,
-              'isForced': s.isForced,
-              'isContainer': s.isContainer,
-            },
-          )
+                  'uri': s.uri,
+                  'title': s.title,
+                  'language': s.language,
+                  'codec': s.codec,
+                  'isDefault': s.isDefault,
+                  'isForced': s.isForced,
+                  'isContainer': s.isContainer,
+                },
+              )
               .toList(),
       });
     } catch (_) {
@@ -315,9 +315,9 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
       case 'speed':
         await setRate(double.tryParse(value) ?? 1.0);
         break;
-    // Not an mpv property. mpv read-ahead is owned by the mpv.conf editor; this tier is
-    // a named ExoPlayer read-ahead depth rather than a duration because the byte cap can
-    // bind first (#1816).
+      // Not an mpv property. mpv read-ahead is owned by the mpv.conf editor; this tier is
+      // a named ExoPlayer read-ahead depth rather than a duration because the byte cap can
+      // bind first (#1816).
       case 'exo-buffer-tier':
         _bufferTier = value;
         break;
@@ -331,8 +331,8 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
       case 'dv-conversion-mode':
         _dvConversionMode = value;
         await _applyWhenInitialized(
-              () => invoke('setDvConversionMode', {'mode': value}),
-              () => _dvConversionMode == value,
+          () => invoke('setDvConversionMode', {'mode': value}),
+          () => _dvConversionMode == value,
         );
         break;
       case 'sub-visibility':
@@ -365,8 +365,8 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
     if (disposed) return;
     _audioNormalizationEnabled = enabled;
     await _applyWhenInitialized(
-          () => invoke('setAudioNormalization', {'enabled': enabled}),
-          () => _audioNormalizationEnabled == enabled,
+      () => invoke('setAudioNormalization', {'enabled': enabled}),
+      () => _audioNormalizationEnabled == enabled,
     );
     // Keep mpv's normalization `af` flowing through setMpvProperty so the
     // plugin's pendingMpvProperties replay normalizes if exo falls back to mpv.
@@ -375,10 +375,10 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
 
   @override
   Future<void> setAudioChannelLimit(
-      AudioChannelLimit limit, {
-        required int centerBoostDb,
-        required bool normalize,
-      }) async {
+    AudioChannelLimit limit, {
+    required int centerBoostDb,
+    required bool normalize,
+  }) async {
     if (disposed) return;
     final effective = limit.onExoPlayer;
     final enabled = effective == AudioChannelLimit.stereo;
@@ -386,8 +386,8 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
     _downmixCenterBoostDb = centerBoostDb;
     _downmixNormalize = normalize;
     await _applyWhenInitialized(
-          () => invoke('setAudioDownmix', {'enabled': enabled, 'centerBoostDb': centerBoostDb, 'normalize': normalize}),
-          () => _downmixEnabled == enabled && _downmixCenterBoostDb == centerBoostDb && _downmixNormalize == normalize,
+      () => invoke('setAudioDownmix', {'enabled': enabled, 'centerBoostDb': centerBoostDb, 'normalize': normalize}),
+      () => _downmixEnabled == enabled && _downmixCenterBoostDb == centerBoostDb && _downmixNormalize == normalize,
     );
     // Keep the mpv properties flowing through setMpvProperty so the plugin's
     // pendingMpvProperties replay applies the same limit if exo falls back to
@@ -400,8 +400,8 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
     if (disposed) return;
     _audioPassthroughEnabled = enabled;
     await _applyWhenInitialized(
-          () => invoke('setAudioPassthrough', {'enabled': enabled}),
-          () => _audioPassthroughEnabled == enabled,
+      () => invoke('setAudioPassthrough', {'enabled': enabled}),
+      () => _audioPassthroughEnabled == enabled,
     );
     // Deliberately no 'audio-spdif' write: unlike normalization and downmix, the
     // mpv value is not this list. mpv force-passthroughs every codec named there
@@ -430,9 +430,9 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
         final stats = await getStats();
         final mode = stats['dvConversionDebugMode'];
         return mode?.toString().toLowerCase();
-    // ExoPlayer detects the rate from rendered frames (`videoFps`); its mpv
-    // fallback core reports mpv's own keys. Neither is observable, so the
-    // display-matching read goes through one stats round trip.
+      // ExoPlayer detects the rate from rendered frames (`videoFps`); its mpv
+      // fallback core reports mpv's own keys. Neither is observable, so the
+      // display-matching read goes through one stats round trip.
       case 'container-fps':
         final stats = await getStats();
         final fps = stats['container-fps'] ?? stats['videoFps'];
@@ -544,13 +544,13 @@ class PlayerAndroid extends PlayerBase implements NativeSubtitleRendering {
 
   @override
   Future<bool> setVideoFrameRate(
-      double fps,
-      int durationMs, {
-        int extraDelayMs = 0,
-        int videoWidth = 0,
-        int videoHeight = 0,
-        bool matchResolution = false,
-      }) async {
+    double fps,
+    int durationMs, {
+    int extraDelayMs = 0,
+    int videoWidth = 0,
+    int videoHeight = 0,
+    bool matchResolution = false,
+  }) async {
     if (disposed || !initialized) return false;
     final result = await invoke<bool>('setVideoFrameRate', {
       'fps': fps,

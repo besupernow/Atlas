@@ -890,14 +890,35 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   }
 
   void _replaceOnDeck(List<MediaItem> onDeck, {required bool hasMore}) {
-    _onDeck = onDeck;
+    _onDeck = _withoutMusic(onDeck);
     _hasMoreContinueWatching = hasMore;
     ++_commitRevision;
   }
 
   void _replaceHubs(List<MediaHub> hubs) {
-    _hubs = hubs;
+    _hubs = _hubsWithoutMusic(hubs);
     ++_commitRevision;
+  }
+
+  /// Atlas: the home screen is for movies and TV; music lives in the music mode.
+  static bool _isMusic(MediaItem item) => item.kind.isMusic;
+
+  static List<MediaItem> _withoutMusic(List<MediaItem> items) =>
+      items.any(_isMusic) ? items.where((item) => !_isMusic(item)).toList() : items;
+
+  /// Rows that are all music go; rows that mix (rare) keep only their video items.
+  static List<MediaHub> _hubsWithoutMusic(List<MediaHub> hubs) {
+    if (!hubs.any((hub) => hub.items.any(_isMusic))) return hubs;
+    final kept = <MediaHub>[];
+    for (final hub in hubs) {
+      if (!hub.items.any(_isMusic)) {
+        kept.add(hub);
+        continue;
+      }
+      final items = hub.items.where((item) => !_isMusic(item)).toList();
+      if (items.isNotEmpty) kept.add(hub.copyWith(items: items, size: items.length));
+    }
+    return kept;
   }
 
   // --- Event reactions -----------------------------------------------------

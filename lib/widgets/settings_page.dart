@@ -35,7 +35,7 @@ class SettingsPage extends StatelessWidget {
     this.automaticallyImplyLeading = true,
     this.onBackPressed,
   }) : children = null,
-        padding = null;
+       padding = null;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +48,10 @@ class SettingsPage extends StatelessWidget {
       final side = (width - kTvSettingsMaxWidth) / 2;
       pageSlivers = [
         for (final s in pageSlivers)
-          SliverPadding(padding: EdgeInsets.symmetric(horizontal: side), sliver: s),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: side),
+            sliver: s,
+          ),
       ];
     }
     return FocusedScrollScaffold(

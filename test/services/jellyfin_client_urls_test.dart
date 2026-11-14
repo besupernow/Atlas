@@ -40,20 +40,20 @@ JellyfinConnection _conn({String accessToken = 'tok-abc', String baseUrl = 'http
     );
 
 JellyfinClient _clientWithPlaybackInfo(
-  Future<http.Response> Function(http.Request request) playbackInfo, {
-  List<Map<String, dynamic>>? itemSources,
-}) {
+    Future<http.Response> Function(http.Request request) playbackInfo, {
+      List<Map<String, dynamic>>? itemSources,
+    }) {
   final sources =
       itemSources ??
-      [
-        {
-          'Id': 'src-1',
-          'Container': 'mkv',
-          'MediaStreams': [
-            {'Index': 0, 'Type': 'Video'},
-          ],
-        },
-      ];
+          [
+            {
+              'Id': 'src-1',
+              'Container': 'mkv',
+              'MediaStreams': [
+                {'Index': 0, 'Type': 'Video'},
+              ],
+            },
+          ];
   return JellyfinClient.forTesting(
     connection: _conn(),
     httpClient: MockClient((request) {
@@ -73,7 +73,7 @@ _initializeJellyfinAudioCarry({int? selectedAudioStreamId, AudioTrack? preferred
   late Uri playbackInfoUri;
   late String playbackInfoBody;
   final client = _clientWithPlaybackInfo(
-    (request) async {
+        (request) async {
       playbackInfoUri = request.url;
       playbackInfoBody = request.body;
       return jsonResponse({
@@ -109,9 +109,9 @@ _initializeJellyfinAudioCarry({int? selectedAudioStreamId, AudioTrack? preferred
       ),
     );
     return (
-      result: result,
-      playbackInfoUri: playbackInfoUri,
-      playbackInfoBody: jsonDecode(playbackInfoBody) as Map<String, dynamic>,
+    result: result,
+    playbackInfoUri: playbackInfoUri,
+    playbackInfoBody: jsonDecode(playbackInfoBody) as Map<String, dynamic>,
     );
   } finally {
     client.close();
@@ -314,7 +314,7 @@ void main() {
       // extension is the only hint they get, and disc images (ISO) are
       // unplayable without it (#2375).
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({'MediaSources': []}),
+            (_) async => jsonResponse({'MediaSources': []}),
         itemSources: [
           {'Id': 'src-1', 'Container': 'iso', 'VideoType': 'Iso', 'MediaStreams': []},
         ],
@@ -361,7 +361,7 @@ void main() {
       // External players load subtitles only from the launch intent (#2464).
       // The embedded row stays behind: the player reads it from the container.
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({'MediaSources': []}),
+            (_) async => jsonResponse({'MediaSources': []}),
         itemSources: [
           {
             'Id': 'src-1',
@@ -808,7 +808,7 @@ void main() {
     /// canonicalizes it; the download sidecar has to agree or the pinned copy has no subtitles.
     test('resolveDownload builds sidecar URLs from the endpoint format, not the reported codec', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {
               'Id': 'src-1',
@@ -874,7 +874,7 @@ void main() {
 
     test('resolveDownload keeps the static stream when subtitle metadata is malformed', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {'Id': 'src-1'},
           ],
@@ -893,7 +893,7 @@ void main() {
 
     test('resolveDownload does not hide PlaybackInfo authentication failures', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => http.Response('{}', 401, headers: {'content-type': 'application/json'}),
+            (_) async => http.Response('{}', 401, headers: {'content-type': 'application/json'}),
       );
       addTearDown(scoped.close);
 
@@ -942,7 +942,7 @@ void main() {
     ]) {
       test('getPlaybackInitialization maps a negotiation HTTP $status to ${reason.name}', () async {
         final scoped = _clientWithPlaybackInfo(
-          (_) async => http.Response('{}', status, headers: {'content-type': 'application/json'}),
+              (_) async => http.Response('{}', status, headers: {'content-type': 'application/json'}),
         );
         addTearDown(scoped.close);
 
@@ -999,7 +999,7 @@ void main() {
       final playbackInfoUris = <Uri>[];
       final playbackInfoBodies = <String>[];
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUris.add(request.url);
           playbackInfoBodies.add(request.body);
           return jsonResponse({
@@ -1208,9 +1208,9 @@ void main() {
 
       expect(result.isTranscoding, isTrue);
       final profile =
-          ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
-                  as Map<String, dynamic>)['SubtitleProfiles']
-              as List;
+      ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
+      as Map<String, dynamic>)['SubtitleProfiles']
+      as List;
       expect(
         profile.cast<Map<String, Object?>>().where((entry) => entry['Method'] == 'External'),
         isNotEmpty,
@@ -1280,9 +1280,9 @@ void main() {
 
       expect(result.isTranscoding, isTrue);
       final profile =
-          ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
-                  as Map<String, dynamic>)['SubtitleProfiles']
-              as List;
+      ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
+      as Map<String, dynamic>)['SubtitleProfiles']
+      as List;
       expect(
         profile.cast<Map<String, Object?>>().where((entry) => entry['Method'] == 'External'),
         isNotEmpty,
@@ -1352,9 +1352,9 @@ void main() {
 
       expect(result.isTranscoding, isTrue);
       final profile =
-          ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
-                  as Map<String, dynamic>)['SubtitleProfiles']
-              as List;
+      ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
+      as Map<String, dynamic>)['SubtitleProfiles']
+      as List;
       expect(
         profile.cast<Map<String, Object?>>().where((entry) => entry['Method'] == 'External'),
         isEmpty,
@@ -1510,7 +1510,7 @@ void main() {
       // URLs, so the rows must not keep an identity that makes track matching
       // wait for a sidecar (issue #1696).
       final scoped = _clientWithPlaybackInfo(
-        (_) async {
+            (_) async {
           return jsonResponse({
             'MediaSources': [
               {
@@ -1639,7 +1639,7 @@ void main() {
                   'DefaultAudioStreamIndex': 1,
                   // Jellyfin never returns a direct-play URL, only this one.
                   'TranscodingUrl':
-                      '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=play-session-transcode',
+                  '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=play-session-transcode',
                   'MediaStreams': [
                     {'Index': 1, 'Type': 'Audio', 'Codec': 'aac', 'Language': 'eng', 'DisplayTitle': 'English - AAC'},
                     {
@@ -1708,7 +1708,7 @@ void main() {
       Uri? playbackInfoUri;
       String? playbackInfoBody;
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUri = request.url;
           playbackInfoBody = request.body;
           return jsonResponse({
@@ -1874,7 +1874,7 @@ void main() {
                 {
                   'Id': 'src-1',
                   'TranscodingUrl':
-                      '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=play-session-transcode',
+                  '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=play-session-transcode',
                   'MediaStreams': [
                     {'Index': 0, 'Type': 'Video'},
                   ],
@@ -1982,7 +1982,7 @@ void main() {
       Uri? playbackInfoUri;
       String? playbackInfoBody;
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUri = request.url;
           playbackInfoBody = request.body;
           return jsonResponse({
@@ -2069,7 +2069,7 @@ void main() {
       Uri? playbackInfoUri;
       String? playbackInfoBody;
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUri = request.url;
           playbackInfoBody = request.body;
           return jsonResponse({
@@ -2127,7 +2127,7 @@ void main() {
       Uri? playbackInfoUri;
       String? playbackInfoBody;
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUri = request.url;
           playbackInfoBody = request.body;
           return jsonResponse({
@@ -2181,7 +2181,7 @@ void main() {
       Uri? playbackInfoUri;
       String? playbackInfoBody;
       final scoped = _clientWithPlaybackInfo(
-        (request) async {
+            (request) async {
           playbackInfoUri = request.url;
           playbackInfoBody = request.body;
           return jsonResponse({
@@ -2232,9 +2232,9 @@ void main() {
 
     test(
       'playback initialization ignores a mismatched negotiated source and keeps the selected static stream',
-      () async {
+          () async {
         final scoped = _clientWithPlaybackInfo(
-          (_) async {
+              (_) async {
             return jsonResponse({
               'PlaySessionId': 'wrong-session',
               'MediaSources': [
@@ -2377,7 +2377,7 @@ void main() {
 
     test('applicable source without negotiated URL falls back to static direct play', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {'Id': 'src-1'},
           ],
@@ -2405,7 +2405,7 @@ void main() {
 
     test('a source that direct-plays within the cap is not a transcode refusal', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {'Id': 'src-1', 'Bitrate': 1500000, 'SupportsDirectPlay': true},
           ],
@@ -2433,7 +2433,7 @@ void main() {
 
     test('a source above the cap without a transcode is still a refusal', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {'Id': 'src-1', 'Bitrate': 8000000},
           ],
@@ -2478,33 +2478,33 @@ void main() {
 
     test('video download keeps the static stream for unusable negotiation sources', () async {
       final cases =
-          <({Map<String, dynamic> response, List<Map<String, dynamic>>? itemSources, String? expectedSourceId})>[
-            (
-              response: {'MediaSources': <Object?>[]},
-              itemSources: [
-                {'Container': 'mkv', 'MediaStreams': <Object?>[]},
-              ],
-              expectedSourceId: null,
-            ),
-            (
-              response: {
-                'MediaSources': ['invalid'],
-              },
-              itemSources: [
-                {'Container': 'mkv', 'MediaStreams': <Object?>[]},
-              ],
-              expectedSourceId: null,
-            ),
-            (
-              response: {
-                'MediaSources': [
-                  {'Id': 'other', 'MediaStreams': <Object?>[]},
-                ],
-              },
-              itemSources: null,
-              expectedSourceId: 'src-1',
-            ),
-          ];
+      <({Map<String, dynamic> response, List<Map<String, dynamic>>? itemSources, String? expectedSourceId})>[
+        (
+        response: {'MediaSources': <Object?>[]},
+        itemSources: [
+          {'Container': 'mkv', 'MediaStreams': <Object?>[]},
+        ],
+        expectedSourceId: null,
+        ),
+        (
+        response: {
+          'MediaSources': ['invalid'],
+        },
+        itemSources: [
+          {'Container': 'mkv', 'MediaStreams': <Object?>[]},
+        ],
+        expectedSourceId: null,
+        ),
+        (
+        response: {
+          'MediaSources': [
+            {'Id': 'other', 'MediaStreams': <Object?>[]},
+          ],
+        },
+        itemSources: null,
+        expectedSourceId: 'src-1',
+        ),
+      ];
       final item = testMediaItem(
         id: 'item-1',
         backend: MediaBackend.jellyfin,
@@ -2514,7 +2514,7 @@ void main() {
 
       for (final testCase in cases) {
         final scoped = _clientWithPlaybackInfo(
-          (_) async => jsonResponse(testCase.response),
+              (_) async => jsonResponse(testCase.response),
           itemSources: testCase.itemSources,
         );
         addTearDown(scoped.close);
@@ -2527,7 +2527,7 @@ void main() {
 
     test('matching download source with empty streams is a complete empty-sidecar plan', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async => jsonResponse({
+            (_) async => jsonResponse({
           'MediaSources': [
             {'Id': 'src-1', 'MediaStreams': []},
           ],
@@ -2797,7 +2797,7 @@ void main() {
           externalFormats,
           isNot(contains(format)),
           reason:
-              'Declaring $format as External makes Jellyfin match it as an external image '
+          'Declaring $format as External makes Jellyfin match it as an external image '
               'subtitle and hand back a stream the client cannot render on a transcode. '
               'With no image entry the server falls through to Encode and burns it in, '
               'which is the only way a bitmap subtitle reaches the viewer while transcoding.',
@@ -2924,7 +2924,7 @@ void main() {
 
     test('getPlaybackInitialization builds fallback URL for external subtitle without DeliveryUrl', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async {
+            (_) async {
           return jsonResponse({
             'MediaSources': [
               {'Id': 'src-1'},
@@ -2964,7 +2964,7 @@ void main() {
 
     test('getPlaybackInitialization keeps the token off subtitle URLs on another host', () async {
       final scoped = _clientWithPlaybackInfo(
-        (_) async {
+            (_) async {
           return jsonResponse({
             'MediaSources': [
               {'Id': 'src-1'},
@@ -3090,7 +3090,7 @@ void main() {
                 {
                   'Container': 'ts',
                   'TranscodingUrl':
-                      '/Videos/channel-1/live.m3u8?MediaSourceId=source-url&LiveStreamId=live-url&PlaySessionId=play-url',
+                  '/Videos/channel-1/live.m3u8?MediaSourceId=source-url&LiveStreamId=live-url&PlaySessionId=play-url',
                 },
               ],
             });
@@ -3466,7 +3466,7 @@ void main() {
       expect(albumBrowse['IncludeItemTypes'], 'MusicAlbum');
       expect(trackBrowse['IncludeItemTypes'], 'Audio');
       expect(trackBrowse.containsKey('EnableUserData'), isFalse);
-      expect(artistAlbums['Fields'], 'PremiereDate,OriginalTitle,SortName,DateCreated');
+      expect(artistAlbums['Fields'], 'PremiereDate,OriginalTitle,SortName,DateCreated,ChildCount');
       expect(artistAlbums['EnableUserData'], 'false');
       expect(albumTracks['Fields'], 'UserData,PremiereDate,OriginalTitle,SortName');
     });
@@ -3493,6 +3493,35 @@ void main() {
       expect(groups, hasLength(1));
       expect(groups.single.kind, DiscographyGroupKind.albums);
       expect(groups.single.items.map((item) => item.id), ['album-1', 'album-2']);
+    });
+
+    test('fetchArtistDiscography sorts singles, EPs and live albums into their own sections', () async {
+      final scoped = JellyfinClient.forTesting(
+        connection: _conn(),
+        httpClient: MockClient((req) async {
+          return jsonResponse({
+            'Items': [
+              {'Id': 'album', 'Type': 'MusicAlbum', 'Name': 'Big Record', 'ChildCount': 12},
+              {'Id': 'single', 'Type': 'MusicAlbum', 'Name': 'Song - Single', 'ChildCount': 1},
+              {'Id': 'short', 'Type': 'MusicAlbum', 'Name': 'Two Songs', 'ChildCount': 2},
+              {'Id': 'live', 'Type': 'MusicAlbum', 'Name': 'Live at the Garden', 'ChildCount': 15},
+            ],
+            'TotalRecordCount': 4,
+          });
+        }),
+      );
+      addTearDown(scoped.close);
+
+      final groups = await scoped.fetchArtistDiscography(
+        testMediaItem(id: 'artist-1', backend: MediaBackend.jellyfin, kind: MediaKind.artist),
+      );
+
+      expect(groups.map((group) => group.kind), [
+        DiscographyGroupKind.albums,
+        DiscographyGroupKind.singlesAndEps,
+        DiscographyGroupKind.live,
+      ]);
+      expect(groups[1].items.map((item) => item.id), ['single', 'short']);
     });
 
     test('fetchLibraryFiltersWithValues adds unwatched boolean filter', () async {
@@ -3767,7 +3796,7 @@ void main() {
       final orderedClient = JellyfinClient.forTesting(
         connection: _conn(),
         httpClient: MockClient(
-          (req) async => jsonResponse({
+              (req) async => jsonResponse({
             'Items': [
               {
                 'Id': 'special',
@@ -5411,7 +5440,7 @@ void main() {
           return jsonResponse({
             'Items': List.generate(
               200,
-              (i) => {'Id': 'episode-$i', 'Name': 'Episode $i', 'Type': 'Episode', 'IndexNumber': i + 1},
+                  (i) => {'Id': 'episode-$i', 'Name': 'Episode $i', 'Type': 'Episode', 'IndexNumber': i + 1},
             ),
             'TotalRecordCount': 201,
           });
@@ -5460,14 +5489,14 @@ void main() {
         if (req.url.path == '/Items') {
           final requestedMediaType = req.url.queryParameters['MediaTypes']?.toLowerCase();
           final items =
-              [
-                {'Id': 'video-1', 'Name': 'Video Playlist', 'Type': 'Playlist', 'MediaType': 'Video'},
-                {'Id': 'audio-1', 'Name': 'Audio Playlist', 'Type': 'Playlist', 'MediaType': 'Audio'},
-                {'Id': 'photo-1', 'Name': 'Photo Playlist', 'Type': 'Playlist', 'MediaType': 'Photo'},
-              ].where((item) {
-                if (requestedMediaType == null) return true;
-                return (item['MediaType'] as String).toLowerCase() == requestedMediaType;
-              }).toList();
+          [
+            {'Id': 'video-1', 'Name': 'Video Playlist', 'Type': 'Playlist', 'MediaType': 'Video'},
+            {'Id': 'audio-1', 'Name': 'Audio Playlist', 'Type': 'Playlist', 'MediaType': 'Audio'},
+            {'Id': 'photo-1', 'Name': 'Photo Playlist', 'Type': 'Playlist', 'MediaType': 'Photo'},
+          ].where((item) {
+            if (requestedMediaType == null) return true;
+            return (item['MediaType'] as String).toLowerCase() == requestedMediaType;
+          }).toList();
           return jsonResponse({'Items': items, 'TotalRecordCount': items.length});
         }
         return http.Response('not found', 404);
@@ -5488,7 +5517,7 @@ void main() {
       final requests = <Uri>[];
       final allItems = List.generate(
         100,
-        (i) => {
+            (i) => {
           'Id': '${i.isEven ? 'video' : 'audio'}-$i',
           'Name': 'Playlist $i',
           'Type': 'Playlist',
@@ -5526,7 +5555,7 @@ void main() {
       final requests = <Uri>[];
       final allItems = List.generate(
         600,
-        (i) => {
+            (i) => {
           'Id': '${i.isEven ? 'video' : 'audio'}-$i',
           'Name': 'Playlist $i',
           'Type': 'Playlist',

@@ -106,113 +106,69 @@ class DiscordRPCService {
   }
 
   /// Initialize the service. Call once at app startup (main.dart).
-  Future<void> initialize() async {
+  Future<void> initialize() async {}
 
-  }
-
-  Future<void> setEnabled(bool enabled) async {
-
-  }
+  Future<void> setEnabled(bool enabled) async {}
 
   /// Start showing presence for media playback. Works for any backend —
   /// thumbnail upload uses the neutral [MediaServerClient.thumbnailUrl] /
   /// [MediaServerClient.streamHeaders] surface.
-  Future<void> startPlayback(MediaItem metadata, MediaServerClient client) async {
-
-  }
+  Future<void> startPlayback(MediaItem metadata, MediaServerClient client) async {}
 
   /// Update current playback position (for progress bar)
-  void updatePosition(Duration position) {
-
-  }
+  void updatePosition(Duration position) {}
 
   /// Update current playback speed (for accurate remaining time calculation)
-  void updatePlaybackSpeed(double speed) {
-
-  }
+  void updatePlaybackSpeed(double speed) {}
 
   /// Resume playback (restore timestamp)
-  Future<void> resumePlayback() async {
-
-  }
+  Future<void> resumePlayback() async {}
 
   /// Pause - clear timestamp. The card is withdrawn while paused (see
   /// [_updatePresence]) and re-posted on resume.
-  Future<void> pausePlayback() async {
+  Future<void> pausePlayback() async {}
 
-  }
+  Future<void> stopPlayback() async {}
 
-  Future<void> stopPlayback() async {
-
-  }
-
-  Future<void> clearPresence() async {
-
-  }
+  Future<void> clearPresence() async {}
 
   /// Dispose the service (call on app shutdown)
-  Future<void> dispose() async {
+  Future<void> dispose() async {}
 
-  }
+  Future<void> _connect() async {}
 
-  Future<void> _connect() async {
-
-  }
-
-  void _disconnect() {
-
-  }
+  void _disconnect() {}
 
   /// Tear down the current client synchronously: cancel the event
   /// subscriptions and dispose the captured client. `_rpc` is nulled at once
   /// so a concurrently armed `_connect` (the reconnect timer's callback)
   /// builds a fresh client instead of bailing on the dead one. The cancel and
   /// dispose futures carry no work this class depends on.
-  void _teardownRpc() {
+  void _teardownRpc() {}
 
-  }
+  void _scheduleReconnect() {}
 
-  void _scheduleReconnect() {
+  Future<void> _uploadThumbnailAndUpdatePresence(int revision, MediaItem metadata, MediaServerClient client) async {}
 
-  }
-
-  Future<void> _uploadThumbnailAndUpdatePresence(int revision, MediaItem metadata, MediaServerClient client) async {
-
-  }
-
-  Future<String?> _uploadThumbnail(MediaItem metadata, MediaServerClient client) async {
-
-  }
+  Future<String?> _uploadThumbnail(MediaItem metadata, MediaServerClient client) async {}
 
   /// The image Discord shows: series poster for episodes (falling back to the
   /// episode thumb), album art for tracks — never the artist portrait Plex
   /// puts in `grandparentThumb` — and the item's own poster otherwise.
-  String? _presenceThumbPath(MediaItem metadata) {
+  String? _presenceThumbPath(MediaItem metadata) {}
 
-  }
+  String? _absolutePosterUrl(String? url) {}
 
-  String? _absolutePosterUrl(String? url) {
-
-  }
-
-  Future<void> _updatePresence() async {
-
-  }
+  Future<void> _updatePresence() async {}
 
   /// Build timestamps for Discord progress bar
-  Object? _buildTimestamps() {
-
-  }
+  Object? _buildTimestamps() {}
 
   /// Build the main "details" line (first line of presence)
 
-
   /// Build the "state" line (second line of presence)
-  String? _buildState(MediaItem metadata) {
-
-  }
+  String? _buildState(MediaItem metadata) {}
 
   /// Hover text for the large image: the album for a track, the series or
   /// title otherwise.
-
 }

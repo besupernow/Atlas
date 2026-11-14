@@ -299,13 +299,13 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
 
   @override
   Future<void> open(
-      Media media, {
-        bool play = true,
-        bool isLive = false,
-        List<SubtitleTrack>? externalSubtitles,
-        Duration? timelineDuration,
-        Duration timelineOffset = Duration.zero,
-      }) async {
+    Media media, {
+    bool play = true,
+    bool isLive = false,
+    List<SubtitleTrack>? externalSubtitles,
+    Duration? timelineDuration,
+    Duration timelineOffset = Duration.zero,
+  }) async {
     if (_disposed) return;
     _releaseSource();
     _timelineOffset = timelineOffset;
@@ -484,7 +484,7 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     if (uri == null) return url;
     final path = uri.path.replaceFirstMapped(
       RegExp(r'/Stream\.(srt|subrip|ass|ssa|sub|vtt|webvtt)$', caseSensitive: false),
-          (_) => '/Stream.vtt',
+      (_) => '/Stream.vtt',
     );
     return uri.replace(path: path).toString();
   }
@@ -505,7 +505,10 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
         _sidecars[sub.id] = el;
       }
     }
-    _setState(tracks: Tracks(subtitle: list), track: const TrackSelection(subtitle: SubtitleTrack.off));
+    _setState(
+      tracks: Tracks(subtitle: list),
+      track: const TrackSelection(subtitle: SubtitleTrack.off),
+    );
   }
 
   @override
@@ -513,7 +516,9 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
     for (final entry in _sidecars.entries) {
       entry.value.track.mode = entry.key == track.id ? _selectedTrackMode : 'disabled';
     }
-    _setState(track: TrackSelection(audio: _state.track.audio, subtitle: track));
+    _setState(
+      track: TrackSelection(audio: _state.track.audio, subtitle: track),
+    );
   }
 
   @override
@@ -645,7 +650,11 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
   Future<void> setAudioNormalization(bool enabled) async {}
 
   @override
-  Future<void> setAudioChannelLimit(AudioChannelLimit limit, {required int centerBoostDb, required bool normalize}) async {}
+  Future<void> setAudioChannelLimit(
+    AudioChannelLimit limit, {
+    required int centerBoostDb,
+    required bool normalize,
+  }) async {}
 
   @override
   Future<bool> setVisible(bool visible, {bool restoreOnWindowVisible = false}) async => true;
@@ -658,13 +667,13 @@ class PlayerWeb with PlayerStreamControllersMixin implements Player, WebVideoSur
 
   @override
   Future<bool> setVideoFrameRate(
-      double fps,
-      int durationMs, {
-        int extraDelayMs = 0,
-        int videoWidth = 0,
-        int videoHeight = 0,
-        bool matchResolution = false,
-      }) async => false;
+    double fps,
+    int durationMs, {
+    int extraDelayMs = 0,
+    int videoWidth = 0,
+    int videoHeight = 0,
+    bool matchResolution = false,
+  }) async => false;
 
   @override
   Future<void> clearVideoFrameRate() async {}

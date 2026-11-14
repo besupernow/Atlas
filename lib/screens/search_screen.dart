@@ -88,6 +88,7 @@ class _SearchScreenState extends State<SearchScreen>
       return const [];
     }
   }
+
   final Map<MediaKind, FocusNode> _kindChipFocusNodes = {};
 
   HiddenLibrariesProvider? _hiddenLibraries;
@@ -221,16 +222,16 @@ class _SearchScreenState extends State<SearchScreen>
     // otherwise it falls back to "All".
     _searchCandidates =
         matched?.candidates ??
-            [
-              for (final hit in results)
-                if (hit case MediaSearchHit(:final item)) item,
-            ];
+        [
+          for (final hit in results)
+            if (hit case MediaSearchHit(:final item)) item,
+        ];
     _searchPeople =
         matched?.people ??
-            [
-              for (final hit in results)
-                if (hit case PersonSearchHit(:final person)) person,
-            ];
+        [
+          for (final hit in results)
+            if (hit case PersonSearchHit(:final person)) person,
+        ];
     _candidateKinds = _kindsIn(_searchCandidates);
     final seerrOutcome = _pendingSeerrOutcome;
     _pendingSeerrOutcome = null;
@@ -409,7 +410,8 @@ class _SearchScreenState extends State<SearchScreen>
 
   /// "All" plus a single other option (one kind, or only people) has nothing
   /// to filter.
-  bool get _showFilterChips => _candidateKinds.length + (_searchPeople.isEmpty ? 0 : 1) + (_seerrItems.isEmpty ? 0 : 1) > 1;
+  bool get _showFilterChips =>
+      _candidateKinds.length + (_searchPeople.isEmpty ? 0 : 1) + (_seerrItems.isEmpty ? 0 : 1) > 1;
 
   bool _hasCandidatesFor(_SearchFilter filter) => switch (filter) {
     _AllResults() => true,
@@ -464,7 +466,7 @@ class _SearchScreenState extends State<SearchScreen>
     _AllResults() => _allChipFocusNode,
     _KindResults(:final kind) => _kindChipFocusNodes.putIfAbsent(
       kind,
-          () => FocusNode(debugLabel: 'SearchKindChip_${kind.id}'),
+      () => FocusNode(debugLabel: 'SearchKindChip_${kind.id}'),
     ),
     _PeopleResults() => _peopleChipFocusNode,
     _RequestsResults() => _requestsChipFocusNode,
@@ -494,7 +496,7 @@ class _SearchScreenState extends State<SearchScreen>
     MediaKind.track => t.libraries.groupings.tracks,
     MediaKind.collection => t.libraries.tabs.collections,
     MediaKind.playlist => t.libraries.tabs.playlists,
-  // Unreachable: excluded from _kindFilterOrder.
+    // Unreachable: excluded from _kindFilterOrder.
     MediaKind.clip || MediaKind.photo || MediaKind.folder || MediaKind.unknown => kind.id,
   };
 
@@ -546,7 +548,7 @@ class _SearchScreenState extends State<SearchScreen>
       // Half the default top padding when the chip strip sits directly above:
       // the strip already separates results from the search field.
       padding: showChips ? const EdgeInsets.fromLTRB(16, 8, 16, 16) : const EdgeInsets.all(16),
-          (context, index) {
+      (context, index) {
         final isFirst = index == 0;
         final onNavigateUp = isFirst ? (showChips ? _focusFilterChips : focusSearchInput) : null;
         return switch (visible[index]) {
@@ -617,22 +619,22 @@ class _SearchScreenState extends State<SearchScreen>
                 ),
               )
             else if (lastSearchFailed)
-                SliverFillRemaining(
-                  child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
-                )
-              else if (searchResults.isEmpty && _seerrItems.isEmpty)
-                  SliverFillRemaining(
-                    child: StateMessageWidget(
-                      message: t.messages.noResultsFound,
-                      subtitle: t.search.tryDifferentTerm,
-                      icon: Symbols.search_off_rounded,
-                      iconSize: 80,
-                    ),
-                  )
-                else ...[
-                    if (_showFilterChips) _buildFilterChips(),
-                    _buildResultsList(context),
-                  ],
+              SliverFillRemaining(
+                child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
+              )
+            else if (searchResults.isEmpty && _seerrItems.isEmpty)
+              SliverFillRemaining(
+                child: StateMessageWidget(
+                  message: t.messages.noResultsFound,
+                  subtitle: t.search.tryDifferentTerm,
+                  icon: Symbols.search_off_rounded,
+                  iconSize: 80,
+                ),
+              )
+            else ...[
+              if (_showFilterChips) _buildFilterChips(),
+              _buildResultsList(context),
+            ],
           ],
         ),
       ),

@@ -5,9 +5,9 @@ import 'package:plezy/utils/app_platform.dart';
 import '../media/ids.dart';
 import 'package:drift/drift.dart';
 import 'app_database_executor_stub.dart'
-if (dart.library.io) 'app_database_executor_native.dart'
-if (dart.library.js_interop) 'app_database_executor_web.dart'
-as db_executor;
+    if (dart.library.io) 'app_database_executor_native.dart'
+    if (dart.library.js_interop) 'app_database_executor_web.dart'
+    as db_executor;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -43,10 +43,10 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     final itemServerId = serverIdOrNull(metadata.serverId);
     final showVersionSplit =
         !widget.isOffline &&
-            (metadata.isMovie || metadata.isEpisode) &&
-            (metadata.mediaVersions?.length ?? 0) > 1 &&
-            itemServerId != null &&
-            context.read<MultiServerProvider>().serverManager.isClientOnline(itemServerId);
+        (metadata.isMovie || metadata.isEpisode) &&
+        (metadata.mediaVersions?.length ?? 0) > 1 &&
+        itemServerId != null &&
+        context.read<MultiServerProvider>().serverManager.isClientOnline(itemServerId);
     // M3E split-button geometry: stadium outer corners, small joined inner
     // corners, a hairline gap between the two segments, and a trailing
     // segment narrower than a full action so it reads as Play's appendix.
@@ -56,8 +56,8 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     final splitOuterRadius = Radius.circular(actionSize / 2);
     final playShape = showVersionSplit
         ? RoundedRectangleBorder(
-      borderRadius: BorderRadiusDirectional.horizontal(start: splitOuterRadius, end: splitInnerRadius),
-    )
+            borderRadius: BorderRadiusDirectional.horizontal(start: splitOuterRadius, end: splitInnerRadius),
+          )
         : null;
 
     Future<void> onPlayPressed() async {
@@ -166,7 +166,7 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     final VoidCallback? onPlayTrailer = primaryTrailer == null
         ? null
         : () =>
-        unawaited(navigateToVideoPlayer(context, metadata: primaryTrailer, isLaunchCurrent: () => _canUseDetail));
+              unawaited(navigateToVideoPlayer(context, metadata: primaryTrailer, isLaunchCurrent: () => _canUseDetail));
 
     final gap = isTv ? 8.0 * tvScale : 12.0;
 
@@ -187,13 +187,13 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
             ),
             child: playButtonLabel.isNotEmpty
                 ? Row(
-              mainAxisSize: .min,
-              children: [
-                playButtonIcon,
-                SizedBox(width: isTv ? 7 * tvScale : 8),
-                Text(playButtonLabel, style: playTextStyle),
-              ],
-            )
+                    mainAxisSize: .min,
+                    children: [
+                      playButtonIcon,
+                      SizedBox(width: isTv ? 7 * tvScale : 8),
+                      Text(playButtonLabel, style: playTextStyle),
+                    ],
+                  )
                 : playButtonIcon,
           ),
         ),
@@ -230,12 +230,12 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     }
 
     Widget iconActionButton(
-        FocusableActionBuildState state, {
-          required Widget icon,
-          required VoidCallback? onPressed,
-          String? tooltip,
-          Color? foregroundColor,
-        }) {
+      FocusableActionBuildState state, {
+      required Widget icon,
+      required VoidCallback? onPressed,
+      String? tooltip,
+      Color? foregroundColor,
+    }) {
       return IconButton.filledTonal(
         onPressed: onPressed,
         icon: icon,
@@ -255,51 +255,51 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
 
     final versionAction = showVersionSplit
         ? FocusableAction(
-      debugLabel: 'detail_play_version',
-      spacingBefore: splitGap,
-      onPressed: onPlayVersionPressed,
-      builder: (context, state) => versionButton(state),
-    )
+            debugLabel: 'detail_play_version',
+            spacingBefore: splitGap,
+            onPressed: onPlayVersionPressed,
+            builder: (context, state) => versionButton(state),
+          )
         : null;
 
     final trailerAction = primaryTrailer == null
         ? null
         : FocusableAction(
-      debugLabel: 'detail_trailer',
-      onPressed: onPlayTrailer,
-      builder: (context, state) => iconActionButton(
-        state,
-        onPressed: onPlayTrailer,
-        icon: const AppIcon(Symbols.theaters_rounded, fill: 1),
-        tooltip: t.tooltips.playTrailer,
-      ),
-    );
+            debugLabel: 'detail_trailer',
+            onPressed: onPlayTrailer,
+            builder: (context, state) => iconActionButton(
+              state,
+              onPressed: onPlayTrailer,
+              icon: const AppIcon(Symbols.theaters_rounded, fill: 1),
+              tooltip: t.tooltips.playTrailer,
+            ),
+          );
 
     final shuffleAction = (metadata.isShow || metadata.isSeason)
         ? FocusableAction(
-      debugLabel: 'detail_shuffle',
-      onPressed: () async {
-        await _handleShufflePlayWithQueue(context, metadata);
-      },
-      builder: (context, state) => iconActionButton(
-        state,
-        onPressed: () async {
-          await _handleShufflePlayWithQueue(context, metadata);
-        },
-        icon: const AppIcon(Symbols.shuffle_rounded, fill: 1),
-        tooltip: t.tooltips.shufflePlay,
-      ),
-    )
+            debugLabel: 'detail_shuffle',
+            onPressed: () async {
+              await _handleShufflePlayWithQueue(context, metadata);
+            },
+            builder: (context, state) => iconActionButton(
+              state,
+              onPressed: () async {
+                await _handleShufflePlayWithQueue(context, metadata);
+              },
+              icon: const AppIcon(Symbols.shuffle_rounded, fill: 1),
+              tooltip: t.tooltips.shufflePlay,
+            ),
+          )
         : null;
 
     // No downloads on web: a browser has nowhere to keep the files.
     final downloadAction = !kIsWeb && !widget.isOffline && !PlatformDetector.isAppleTV()
         ? FocusableAction(
-      debugLabel: 'detail_download',
-      onPressed: () => unawaited(_handleDownloadButtonPressed(context, metadata)),
-      builder: (context, state) =>
-          _buildDownloadButton(metadata, actionButtonStyle, tvScale, showFocus: state.showFocus),
-    )
+            debugLabel: 'detail_download',
+            onPressed: () => unawaited(_handleDownloadButtonPressed(context, metadata)),
+            builder: (context, state) =>
+                _buildDownloadButton(metadata, actionButtonStyle, tvScale, showFocus: state.showFocus),
+          )
         : null;
 
     final watchedAction = FocusableAction(
@@ -326,37 +326,37 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     final watchlistAction = _watchlistCandidates.isEmpty
         ? null
         : FocusableAction(
-      debugLabel: 'detail_watchlist',
-      onPressed: () => unawaited(_handleWatchlistTogglePressed(metadata)),
-      builder: (context, state) => KeyedSubtree(
-        key: _watchlistButtonKey,
-        child: iconActionButton(
-          state,
-          onPressed: onWatchlist == null ? null : () => unawaited(_handleWatchlistTogglePressed(metadata)),
-          icon: AppIcon(
-            (onWatchlist ?? false) ? Symbols.bookmark_added_rounded : Symbols.bookmark_add_rounded,
-            fill: 1,
-          ),
-          tooltip: (onWatchlist ?? false) ? t.explore.removeFromWatchlist : t.explore.addToWatchlist,
-        ),
-      ),
-    );
+            debugLabel: 'detail_watchlist',
+            onPressed: () => unawaited(_handleWatchlistTogglePressed(metadata)),
+            builder: (context, state) => KeyedSubtree(
+              key: _watchlistButtonKey,
+              child: iconActionButton(
+                state,
+                onPressed: onWatchlist == null ? null : () => unawaited(_handleWatchlistTogglePressed(metadata)),
+                icon: AppIcon(
+                  (onWatchlist ?? false) ? Symbols.bookmark_added_rounded : Symbols.bookmark_add_rounded,
+                  fill: 1,
+                ),
+                tooltip: (onWatchlist ?? false) ? t.explore.removeFromWatchlist : t.explore.addToWatchlist,
+              ),
+            ),
+          );
 
     void showMoreActions() => _contextMenuKey.currentState?.showContextMenu(context);
 
     final moreActionsAction = widget.isOffline
         ? null
         : FocusableAction(
-      debugLabel: 'detail_more',
-      onPressed: showMoreActions,
-      builder: (context, state) => _buildMoreActionsButton(
-        metadata,
-        actionButtonStyle,
-        tvScale,
-        onPlayTrailer: onPlayTrailer,
-        showFocus: state.showFocus,
-      ),
-    );
+            debugLabel: 'detail_more',
+            onPressed: showMoreActions,
+            builder: (context, state) => _buildMoreActionsButton(
+              metadata,
+              actionButtonStyle,
+              tvScale,
+              onPlayTrailer: onPlayTrailer,
+              showFocus: state.showFocus,
+            ),
+          );
 
     final allActions = <FocusableAction>[
       playAction,
@@ -529,12 +529,12 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
   }
 
   Widget _buildWatchedToggleButton(
-      MediaItem metadata,
-      ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
-      actionButtonStyle,
-      double tvScale, {
-        bool showFocus = false,
-      }) {
+    MediaItem metadata,
+    ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
+    actionButtonStyle,
+    double tvScale, {
+    bool showFocus = false,
+  }) {
     return IconButton.filledTonal(
       onPressed: () => unawaited(_handleWatchedTogglePressed(metadata)),
       icon: AppIcon(metadata.isWatched ? Symbols.remove_done_rounded : Symbols.check_rounded, fill: 1),
@@ -545,13 +545,13 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
   }
 
   Widget _buildMoreActionsButton(
-      MediaItem metadata,
-      ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
-      actionButtonStyle,
-      double tvScale, {
-        VoidCallback? onPlayTrailer,
-        bool showFocus = false,
-      }) {
+    MediaItem metadata,
+    ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
+    actionButtonStyle,
+    double tvScale, {
+    VoidCallback? onPlayTrailer,
+    bool showFocus = false,
+  }) {
     return MediaContextMenu(
       key: _contextMenuKey,
       item: metadata,
@@ -709,12 +709,12 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
   }
 
   Widget _buildDownloadButton(
-      MediaItem metadata,
-      ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
-      actionButtonStyle,
-      double tvScale, {
-        bool showFocus = false,
-      }) {
+    MediaItem metadata,
+    ButtonStyle Function({Color? foregroundColor, EdgeInsetsGeometry? padding, required bool showFocus})
+    actionButtonStyle,
+    double tvScale, {
+    bool showFocus = false,
+  }) {
     return Consumer<DownloadProvider>(
       builder: (context, downloadProvider, _) {
         final iconSize = PlatformDetector.isTV() ? 21.0 * tvScale : 20.0;
@@ -735,11 +735,11 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
   /// failed → cancelled → partial → downloaded → not downloaded. The first
   /// three are non-interactive; [_handleDownloadButtonPressed] handles the rest.
   _DownloadButtonSpec _downloadButtonSpec(
-      BuildContext context,
-      DownloadProvider downloadProvider,
-      MediaItem metadata, {
-        required double iconSize,
-      }) {
+    BuildContext context,
+    DownloadProvider downloadProvider,
+    MediaItem metadata, {
+    required double iconSize,
+  }) {
     final globalKey = metadata.globalKey;
     final ruleKey = _syncRuleKeyForMetadata(context, downloadProvider, metadata);
     final progress = downloadProvider.getProgress(globalKey);

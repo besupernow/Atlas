@@ -427,9 +427,9 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
       if (diagnosticsEnabled) {
         _logFocusableWrapper(
           'node=${node.debugLabel} result=$result reason=$reason key=(${describeKeyEvent(event)}) '
-              'onNav(up=${widget.onNavigateUp != null},down=${widget.onNavigateDown != null},'
-              'left=${widget.onNavigateLeft != null},right=${widget.onNavigateRight != null}) '
-              'onSelect=${widget.onSelect != null} onBack=${widget.onBack != null}',
+          'onNav(up=${widget.onNavigateUp != null},down=${widget.onNavigateDown != null},'
+          'left=${widget.onNavigateLeft != null},right=${widget.onNavigateRight != null}) '
+          'onSelect=${widget.onSelect != null} onBack=${widget.onBack != null}',
         );
       }
       return result;
@@ -531,9 +531,7 @@ class _FocusableWrapperState extends State<FocusableWrapper> with SingleTickerPr
     // and lift) so pointer users get the same defined feedback as keyboard
     // users. Touch handhelds and TVs never build any of it.
     final pointerHover =
-        !isKeyboardMode &&
-            PlatformDetector.hasPointerUI() &&
-            (widget.onSelect != null || widget.onLongPress != null);
+        !isKeyboardMode && PlatformDetector.hasPointerUI() && (widget.onSelect != null || widget.onLongPress != null);
     final showFocus = (_isFocused && isKeyboardMode) || (pointerHover && _isHovered);
 
     Widget inner;

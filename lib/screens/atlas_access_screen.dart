@@ -175,10 +175,10 @@ class _AtlasAccessScreenState extends State<AtlasAccessScreen> {
                               onPressed: onSubmit,
                               child: _busy
                                   ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: scheme.surface),
-                              )
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: scheme.surface),
+                                    )
                                   : Text(isRequest ? 'Send request' : 'Continue'),
                             ),
                           ),
@@ -213,8 +213,10 @@ class _AtlasAccessScreenState extends State<AtlasAccessScreen> {
 
   InputDecoration _decoration(String label, IconData icon, {String? hint}) {
     final scheme = Theme.of(context).colorScheme;
-    OutlineInputBorder border(Color c, [double w = 1]) =>
-        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: c, width: w));
+    OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: c, width: w),
+    );
     return InputDecoration(
       labelText: label,
       hintText: hint,
@@ -330,7 +332,7 @@ Future<void> showAtlasRecoveryDialog(BuildContext context, String code) {
                 const SizedBox(height: 8),
                 Text(
                   'If you ever delete Atlas or get a new phone, this code gets you back in without asking anyone. '
-                      'Keep it in your password manager.',
+                  'Keep it in your password manager.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurface.withValues(alpha: 0.70),
                     height: 1.4,

@@ -1,4 +1,4 @@
-﻿import 'dart:async' show unawaited;
+import 'dart:async' show unawaited;
 import 'package:plezy/utils/app_platform.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -257,9 +257,7 @@ class ThemeProvider extends ChangeNotifier with DisposableChangeNotifierMixin, W
     settings.ThemeMode.light => Symbols.light_mode_rounded,
     settings.ThemeMode.dark => Symbols.dark_mode_rounded,
     settings.ThemeMode.oled => Symbols.contrast_rounded,
-    settings.ThemeMode.sakura ||
-    settings.ThemeMode.blossom ||
-    settings.ThemeMode.lovely => Symbols.favorite_rounded,
+    settings.ThemeMode.sakura || settings.ThemeMode.blossom || settings.ThemeMode.lovely => Symbols.favorite_rounded,
     settings.ThemeMode.hanami => Symbols.local_florist_rounded,
     settings.ThemeMode.system => Symbols.brightness_auto_rounded,
     settings.ThemeMode.ember ||

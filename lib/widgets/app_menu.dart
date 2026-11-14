@@ -56,8 +56,8 @@ class AppMenuItem<T> extends AppMenuEntry<T> {
     this.stateLayerColor,
     this.semanticLabel,
   }) : assert(label != null || child != null, 'AppMenuItem requires either label or child'),
-        assert(subtitle == null || subtitleWidget == null, 'Provide subtitle or subtitleWidget, not both'),
-        assert(icon == null || leading == null, 'Provide icon or leading, not both');
+       assert(subtitle == null || subtitleWidget == null, 'Provide subtitle or subtitleWidget, not both'),
+       assert(icon == null || leading == null, 'Provide icon or leading, not both');
 }
 
 class AppMenuDivider<T> extends AppMenuEntry<T> {
@@ -69,17 +69,17 @@ class AppMenuHeader<T> extends AppMenuEntry<T> {
   final Widget? child;
 
   const AppMenuHeader({this.label, this.child})
-      : assert(label != null || child != null, 'AppMenuHeader requires either label or child');
+    : assert(label != null || child != null, 'AppMenuHeader requires either label or child');
 }
 
 Future<T?> showAppMenu<T>(
-    BuildContext context, {
-      required List<AppMenuEntry<T>> entries,
-      Offset? position,
-      Rect? anchorRect,
-      AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
-      bool focusFirstItem = false,
-    }) {
+  BuildContext context, {
+  required List<AppMenuEntry<T>> entries,
+  Offset? position,
+  Rect? anchorRect,
+  AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
+  bool focusFirstItem = false,
+}) {
   assert(position != null || anchorRect != null, 'showAppMenu requires a position or anchorRect');
 
   return showGeneralDialog<T>(
@@ -127,13 +127,13 @@ const double _anchoredPanelMaxHeight = 560;
 /// (barrier, back key, secondary click) resolves the future with null, so a
 /// caller commits pending state the same way it does for a sheet.
 Future<T?> showAnchoredPanel<T>(
-    BuildContext context, {
-      required Rect anchorRect,
-      required WidgetBuilder builder,
-      AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
-      double width = _anchoredPanelWidth,
-      double maxHeight = _anchoredPanelMaxHeight,
-    }) {
+  BuildContext context, {
+  required Rect anchorRect,
+  required WidgetBuilder builder,
+  AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
+  double width = _anchoredPanelWidth,
+  double maxHeight = _anchoredPanelMaxHeight,
+}) {
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
@@ -247,15 +247,15 @@ class _AnchoredPanel extends StatelessWidget {
 }
 
 Future<T?> showAdaptiveAppMenu<T>(
-    BuildContext context, {
-      required List<AppMenuEntry<T>> entries,
-      String? title,
-      Offset? position,
-      Rect? anchorRect,
-      AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
-      bool focusFirstItem = false,
-      bool isScrollControlled = false,
-    }) {
+  BuildContext context, {
+  required List<AppMenuEntry<T>> entries,
+  String? title,
+  Offset? position,
+  Rect? anchorRect,
+  AppMenuAnchorAlignment anchorAlignment = AppMenuAnchorAlignment.start,
+  bool focusFirstItem = false,
+  bool isScrollControlled = false,
+}) {
   // ThemeData.platform follows the real target platform by default, including
   // Android TV and tvOS, while remaining overrideable in widget tests.
   final platform = Theme.of(context).platform;
@@ -329,19 +329,19 @@ class AppMenuButtonState<T> extends State<AppMenuButton<T>> {
     final anchorRect = Rect.fromLTWH(topLeft.dx, topLeft.dy, renderBox.size.width, renderBox.size.height);
     final selected = widget.adaptiveSheet
         ? await showAdaptiveAppMenu<T>(
-      context,
-      entries: widget.entriesBuilder(context),
-      anchorRect: anchorRect,
-      anchorAlignment: widget.anchorAlignment,
-      focusFirstItem: focusFirstItem,
-    )
+            context,
+            entries: widget.entriesBuilder(context),
+            anchorRect: anchorRect,
+            anchorAlignment: widget.anchorAlignment,
+            focusFirstItem: focusFirstItem,
+          )
         : await showAppMenu<T>(
-      context,
-      entries: widget.entriesBuilder(context),
-      anchorRect: anchorRect,
-      anchorAlignment: widget.anchorAlignment,
-      focusFirstItem: focusFirstItem,
-    );
+            context,
+            entries: widget.entriesBuilder(context),
+            anchorRect: anchorRect,
+            anchorAlignment: widget.anchorAlignment,
+            focusFirstItem: focusFirstItem,
+          );
     if (!mounted || selected == null) return selected;
     widget.onSelected?.call(selected);
     return selected;
@@ -398,7 +398,7 @@ class AppMenuSheet<T> extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child:
-            titleWidget ??
+                titleWidget ??
                 Text(
                   title!,
                   style: Theme.of(context).textTheme.titleMedium,
@@ -764,11 +764,11 @@ class _AppMenuPopupState<T> extends State<_AppMenuPopup<T>> {
   }
 
   ({double left, double top}) _resolvePosition(
-      Size screenSize,
-      double menuWidth,
-      double menuHeight,
-      double edgePadding,
-      ) {
+    Size screenSize,
+    double menuWidth,
+    double menuHeight,
+    double edgePadding,
+  ) {
     final anchorRect = widget.anchorRect;
     if (anchorRect != null) {
       final leftCandidate = switch (widget.anchorAlignment) {

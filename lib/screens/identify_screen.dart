@@ -220,24 +220,27 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
             LoadingIndicatorBox.sliver
           else if (results != null && results.isEmpty)
             const SliverToBoxAdapter(
-              child: Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No matches found.'))),
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: Text('No matches found.')),
+              ),
             )
           else if (results != null)
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 180,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.52,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                        (context, index) => _ResultCard(result: results[index], onSelect: () => _apply(results[index])),
-                    childCount: results.length,
-                  ),
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 180,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.52,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _ResultCard(result: results[index], onSelect: () => _apply(results[index])),
+                  childCount: results.length,
                 ),
               ),
+            ),
         ],
       ),
     );
@@ -274,11 +277,11 @@ class _ResultCard extends StatelessWidget {
                   child: image == null || image.isEmpty
                       ? const Center(child: AppIcon(Symbols.image_not_supported_rounded, fill: 1))
                       : Image.network(
-                    image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) =>
-                    const Center(child: AppIcon(Symbols.image_not_supported_rounded, fill: 1)),
-                  ),
+                          image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              const Center(child: AppIcon(Symbols.image_not_supported_rounded, fill: 1)),
+                        ),
                 ),
               ),
             ),

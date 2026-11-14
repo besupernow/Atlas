@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/image_cache_service.dart';
 import '../../utils/app_logger.dart';
-import 'strip_cache_stub.dart' if (dart.library.io) 'strip_cache_io.dart' if (dart.library.js_interop) 'strip_cache_web.dart';
+import 'strip_cache_stub.dart'
+    if (dart.library.io) 'strip_cache_io.dart'
+    if (dart.library.js_interop) 'strip_cache_web.dart';
 
 /// Random backdrops from the server, served before anyone signs in by the
 /// atlas-share service (`/atlas-share/artwork`).
@@ -153,7 +155,7 @@ class LoadingArt {
     final stream = provider.resolve(ImageConfiguration.empty);
     late final ImageStreamListener listener;
     listener = ImageStreamListener(
-          (info, _) {
+      (info, _) {
         if (!completer.isCompleted) completer.complete(info.image.clone());
         info.dispose();
         stream.removeListener(listener);

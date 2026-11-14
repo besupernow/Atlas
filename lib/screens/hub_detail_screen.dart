@@ -182,12 +182,12 @@ class _HubDetailScreenState extends State<HubDetailScreen>
   /// sorts), which [_loadSorts] leaves out of the options.
   static Comparator<MediaItem>? _comparatorFor(String key) {
     Comparator<MediaItem> by(Comparable<Object> Function(MediaItem item) value) =>
-            (a, b) => value(a).compareTo(value(b));
+        (a, b) => value(a).compareTo(value(b));
     return switch (key) {
       'titleSort' || 'title' => by((item) => (item.titleSort ?? item.title ?? '').toLowerCase()),
       'addedAt' => by((item) => item.addedAt ?? 0),
       'year' => by((item) => item.year ?? 0),
-    // ISO dates order lexically; an undated item sorts by its year.
+      // ISO dates order lexically; an undated item sorts by its year.
       'originallyAvailableAt' => by((item) => item.originallyAvailableAt ?? '${item.year ?? ''}'),
       'rating' => by((item) => item.rating ?? 0),
       'userRating' => by((item) => item.userRating ?? 0),
@@ -221,38 +221,38 @@ class _HubDetailScreenState extends State<HubDetailScreen>
     bool pendingCleared = false;
     OverlaySheetController.of(overlayContext)
         .show(
-      builder: (context) => SortBottomSheet(
-        sortOptions: _sortOptions,
-        selectedSort: _selectedSort,
-        isSortDescending: _isSortDescending,
-        onSortChanged: (sort, descending) {
-          pendingSort = sort;
-          pendingDescending = descending;
-          pendingCleared = false;
-        },
-        onClear: () {
-          pendingSort = null;
-          pendingDescending = false;
-          pendingCleared = true;
-        },
-      ),
-    )
+          builder: (context) => SortBottomSheet(
+            sortOptions: _sortOptions,
+            selectedSort: _selectedSort,
+            isSortDescending: _isSortDescending,
+            onSortChanged: (sort, descending) {
+              pendingSort = sort;
+              pendingDescending = descending;
+              pendingCleared = false;
+            },
+            onClear: () {
+              pendingSort = null;
+              pendingDescending = false;
+              pendingCleared = true;
+            },
+          ),
+        )
         .then((_) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (pendingCleared) {
-          _selectedSort = null;
-          _isSortDescending = false;
-          _applySort();
-        } else if (pendingSort != null &&
-            (pendingSort!.key != _selectedSort?.key || pendingDescending != _isSortDescending)) {
-          _selectedSort = pendingSort;
-          _isSortDescending = pendingDescending;
-          _applySort();
-        }
-      });
-    });
+          if (!mounted) return;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (pendingCleared) {
+              _selectedSort = null;
+              _isSortDescending = false;
+              _applySort();
+            } else if (pendingSort != null &&
+                (pendingSort!.key != _selectedSort?.key || pendingDescending != _isSortDescending)) {
+              _selectedSort = pendingSort;
+              _isSortDescending = pendingDescending;
+              _applySort();
+            }
+          });
+        });
   }
 
   bool _shouldUsePaginatedLoader(MediaServerClient client) =>
@@ -520,88 +520,88 @@ class _HubDetailScreenState extends State<HubDetailScreen>
                 else if (_filteredItems.isEmpty && _isLoading)
                   const SkeletonCardGrid()
                 else if (_filteredItems.isEmpty)
-                    SliverFillRemaining(child: Center(child: Text(t.hubDetail.noItemsFound)))
-                  else
-                    SettingsBuilder(
-                      prefs: const [
-                        SettingsService.viewMode,
-                        SettingsService.episodePosterMode,
-                        SettingsService.libraryDensity,
-                        SettingsService.tvFullCardLayout,
-                      ],
-                      builder: (context) {
-                        final svc = SettingsService.instance;
-                        final viewMode = svc.read(SettingsService.viewMode);
-                        final episodePosterMode = svc.read(SettingsService.episodePosterMode);
-                        final libraryDensity = svc.read(SettingsService.libraryDensity);
-                        final fullCardLayout = PlatformDetector.isTV() && svc.read(SettingsService.tvFullCardLayout);
+                  SliverFillRemaining(child: Center(child: Text(t.hubDetail.noItemsFound)))
+                else
+                  SettingsBuilder(
+                    prefs: const [
+                      SettingsService.viewMode,
+                      SettingsService.episodePosterMode,
+                      SettingsService.libraryDensity,
+                      SettingsService.tvFullCardLayout,
+                    ],
+                    builder: (context) {
+                      final svc = SettingsService.instance;
+                      final viewMode = svc.read(SettingsService.viewMode);
+                      final episodePosterMode = svc.read(SettingsService.episodePosterMode);
+                      final libraryDensity = svc.read(SettingsService.libraryDensity);
+                      final fullCardLayout = PlatformDetector.isTV() && svc.read(SettingsService.tvFullCardLayout);
 
-                        final hasEpisodes = _filteredItems.any((item) => item.usesWideAspectRatio(episodePosterMode));
-                        final hasNonEpisodes = _filteredItems.any((item) => !item.usesWideAspectRatio(episodePosterMode));
+                      final hasEpisodes = _filteredItems.any((item) => item.usesWideAspectRatio(episodePosterMode));
+                      final hasNonEpisodes = _filteredItems.any((item) => !item.usesWideAspectRatio(episodePosterMode));
 
-                        final isMixedHub = hasEpisodes && hasNonEpisodes;
+                      final isMixedHub = hasEpisodes && hasNonEpisodes;
 
-                        final isEpisodeOnlyHub = hasEpisodes && !hasNonEpisodes;
+                      final isEpisodeOnlyHub = hasEpisodes && !hasNonEpisodes;
 
-                        final useWideLayout =
-                            episodePosterMode == EpisodePosterMode.episodeThumbnail && (isEpisodeOnlyHub || isMixedHub);
+                      final useWideLayout =
+                          episodePosterMode == EpisodePosterMode.episodeThumbnail && (isEpisodeOnlyHub || isMixedHub);
 
-                        final isSquareHub =
-                            _filteredItems.isNotEmpty &&
-                                _filteredItems.every((item) => item.cardShape(episodePosterMode) == CardShape.square);
+                      final isSquareHub =
+                          _filteredItems.isNotEmpty &&
+                          _filteredItems.every((item) => item.cardShape(episodePosterMode) == CardShape.square);
 
-                        return MediaCardSliverLayout(
-                          viewMode: viewMode,
-                          itemCount: _filteredItems.length,
-                          findChildIndexCallback: (key) {
-                            final id = (key as ValueKey<String>).value;
-                            final index = _filteredItems.indexWhere((item) => item.globalKey == id);
-                            return index < 0 ? null : index;
-                          },
-                          density: libraryDensity,
-                          padding: const EdgeInsets.all(8),
-                          useWideAspectRatio: useWideLayout,
-                          fullBleedImage: fullCardLayout,
-                          shape: isSquareHub ? CardShape.square : null,
-                          itemBuilder: (context, position) {
-                            final index = position.index;
-                            final item = _filteredItems[index];
-                            final focusNode = _focusNodeForIndex(index);
+                      return MediaCardSliverLayout(
+                        viewMode: viewMode,
+                        itemCount: _filteredItems.length,
+                        findChildIndexCallback: (key) {
+                          final id = (key as ValueKey<String>).value;
+                          final index = _filteredItems.indexWhere((item) => item.globalKey == id);
+                          return index < 0 ? null : index;
+                        },
+                        density: libraryDensity,
+                        padding: const EdgeInsets.all(8),
+                        useWideAspectRatio: useWideLayout,
+                        fullBleedImage: fullCardLayout,
+                        shape: isSquareHub ? CardShape.square : null,
+                        itemBuilder: (context, position) {
+                          final index = position.index;
+                          final item = _filteredItems[index];
+                          final focusNode = _focusNodeForIndex(index);
 
-                            return FocusableMediaCard(
-                              // Keyed by item, not by slot: a re-sort must move
-                              // the element with its item instead of silently
-                              // updating it with a different one. Aggregated
-                              // hubs mix servers, so the id alone can collide.
-                              key: Key(item.globalKey),
-                              focusNode: focusNode,
-                              item: item,
-                              disableScale: position.disableScale,
-                              onRefresh: _handleItemRefresh,
-                              onRemoveFromContinueWatching: widget.isInContinueWatching
-                                  ? _handleRemoveFromContinueWatching
-                                  : null,
-                              isInContinueWatching: widget.isInContinueWatching,
-                              usesContinueWatchingAction: widget.usesContinueWatchingAction,
-                              onNavigateUp: position.isFirstRow ? navigateToAppBar : null,
-                              onNavigateDown:
-                              _pageLoadError != null && position.index >= position.itemCount - position.columnCount
-                                  ? _continuationRetryFocusNode.requestFocus
-                                  : null,
-                              onNavigateLeft: position.isGrid && position.isFirstColumn ? () {} : null,
-                              onBack: handleBackFromContent,
-                              onFocusChange: (hasFocus) => _handleGridItemFocusChange(
-                                index,
-                                hasFocus,
-                                isLastRow: position.index >= position.itemCount - position.columnCount,
-                              ),
-                              mixedHubContext: isMixedHub,
-                              fullBleedImage: fullCardLayout && position.isGrid,
-                            );
-                          },
-                        );
-                      },
-                    ),
+                          return FocusableMediaCard(
+                            // Keyed by item, not by slot: a re-sort must move
+                            // the element with its item instead of silently
+                            // updating it with a different one. Aggregated
+                            // hubs mix servers, so the id alone can collide.
+                            key: Key(item.globalKey),
+                            focusNode: focusNode,
+                            item: item,
+                            disableScale: position.disableScale,
+                            onRefresh: _handleItemRefresh,
+                            onRemoveFromContinueWatching: widget.isInContinueWatching
+                                ? _handleRemoveFromContinueWatching
+                                : null,
+                            isInContinueWatching: widget.isInContinueWatching,
+                            usesContinueWatchingAction: widget.usesContinueWatchingAction,
+                            onNavigateUp: position.isFirstRow ? navigateToAppBar : null,
+                            onNavigateDown:
+                                _pageLoadError != null && position.index >= position.itemCount - position.columnCount
+                                ? _continuationRetryFocusNode.requestFocus
+                                : null,
+                            onNavigateLeft: position.isGrid && position.isFirstColumn ? () {} : null,
+                            onBack: handleBackFromContent,
+                            onFocusChange: (hasFocus) => _handleGridItemFocusChange(
+                              index,
+                              hasFocus,
+                              isLastRow: position.index >= position.itemCount - position.columnCount,
+                            ),
+                            mixedHubContext: isMixedHub,
+                            fullBleedImage: fullCardLayout && position.isGrid,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 if (_filteredItems.isNotEmpty && (_isLoadingPage || _pageLoadError != null))
                   ContinuationStatusSliver(
                     error: _pageLoadError,

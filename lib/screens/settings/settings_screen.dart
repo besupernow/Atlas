@@ -442,8 +442,8 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
     final subtitle = count <= 1
         ? t.profiles.summarySingle
         : (activeName != null
-        ? t.profiles.summaryMultipleWithActive(count: count, activeName: activeName)
-        : t.profiles.summaryMultiple(count: count));
+              ? t.profiles.summaryMultipleWithActive(count: count, activeName: activeName)
+              : t.profiles.summaryMultiple(count: count));
     return SettingNavigationTile(
       focusNode: _focusTracker.get(_kProfiles),
       icon: Symbols.group_rounded,
@@ -511,14 +511,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
         final (icon, color, summary) = switch (status) {
           _ when !status.probed => (Symbols.help_rounded, null, t.downloads.backgroundWarning.statusUnknown),
           _ when status.isBlocked => (
-          Symbols.battery_alert_rounded,
-          scheme.error,
-          t.downloads.backgroundWarning.statusBlocked,
+            Symbols.battery_alert_rounded,
+            scheme.error,
+            t.downloads.backgroundWarning.statusBlocked,
           ),
           _ when !status.isHealthy => (
-          Symbols.info_rounded,
-          scheme.tertiary,
-          t.downloads.backgroundWarning.statusDegraded,
+            Symbols.info_rounded,
+            scheme.tertiary,
+            t.downloads.backgroundWarning.statusDegraded,
           ),
           _ => (Symbols.check_circle_rounded, null, t.downloads.backgroundWarning.statusOk),
         };
@@ -740,12 +740,12 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           onTap: _isCheckingForUpdate
               ? null
               : () {
-            if (hasUpdate) {
-              _showUpdateDialog();
-            } else {
-              _checkForUpdates();
-            }
-          },
+                  if (hasUpdate) {
+                    _showUpdateDialog();
+                  } else {
+                    _checkForUpdates();
+                  }
+                },
         ),
         _buildAutoCheckUpdatesOnStartupTile(),
       ],

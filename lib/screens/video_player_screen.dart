@@ -322,9 +322,9 @@ PlaybackSubtitleSelection subtitleSelectionForUserPick({
 /// carried off. Returns null when the row is absent from [rows] so a stale
 /// id never overwrites the existing session preference.
 SubtitlePreference? sessionPreferenceForSourceSubtitleChoice(
-    PlaybackSourceSubtitleChoice choice,
-    List<MediaSubtitleTrack> rows,
-    ) {
+  PlaybackSourceSubtitleChoice choice,
+  List<MediaSubtitleTrack> rows,
+) {
   if (choice.isOff) return const SubtitlePreference.off();
   for (final row in rows) {
     if (row.id == choice.sourceStreamId) {
@@ -385,10 +385,10 @@ class _PlaybackOpenRequest {
   /// Same item and source selection; where it resumes from is incidental.
   bool sameSourceAs(_PlaybackOpenRequest other) =>
       metadata.globalKey == other.metadata.globalKey &&
-          mediaIndex == other.mediaIndex &&
-          mediaSourceId == other.mediaSourceId &&
-          qualityPreset == other.qualityPreset &&
-          audioStreamId == other.audioStreamId;
+      mediaIndex == other.mediaIndex &&
+      mediaSourceId == other.mediaSourceId &&
+      qualityPreset == other.qualityPreset &&
+      audioStreamId == other.audioStreamId;
 
   _PlaybackOpenRequest resumingAt(Duration? position) => _PlaybackOpenRequest(
     metadata: metadata,
@@ -423,7 +423,7 @@ _PlaybackOpenTiming _playbackOpenTiming({
     if (resumePosition != null && !resumeHeld) {
       appLogger.d(
         'Stacked part ${partTimeline.currentIndex + 1}/${partTimeline.parts.length} does not hold '
-            'resume ${resumePosition.inMilliseconds}ms; starting at ${part.start.inMilliseconds}ms',
+        'resume ${resumePosition.inMilliseconds}ms; starting at ${part.start.inMilliseconds}ms',
       );
     }
     return _PlaybackOpenTiming(
@@ -458,9 +458,9 @@ TrackPreferencePersister _plexTrackPersister(PlexClient client) {
 /// reports; this turns on the account flag the server needs to keep it
 /// ([AccountPreferencesController.ensureRemembersTrackSelections]).
 TrackSelectionMemoryEnabler _mediaBrowserTrackMemoryEnabler(
-    JellyfinClient client,
-    AccountPreferencesController accountPreferences,
-    ) {
+  JellyfinClient client,
+  AccountPreferencesController accountPreferences,
+) {
   final ref = AccountRef.mediaBrowser(backend: client.dialect.backend, connectionId: client.connection.id);
   return (trackType) => accountPreferences.ensureRemembersTrackSelections(
     ref,
@@ -606,8 +606,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// able to stop — lives on. The snapshot names the item now playing.
   bool _ownsLaunchPlayback() =>
       mounted &&
-          _activeRouteGuard.identityFor(this) != null &&
-          (_observedLaunchGeneration == null || _transitionGate.generation == _observedLaunchGeneration);
+      _activeRouteGuard.identityFor(this) != null &&
+      (_observedLaunchGeneration == null || _transitionGate.generation == _observedLaunchGeneration);
 
   /// Retire the launch receipt on the way out. A session this screen still
   /// owns ends `completed` when its current item played out (a movie that
@@ -672,9 +672,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     // after it.
     final advancing =
         state?.completed == true &&
-            (_episode.isResolvingCompletionAdjacency ||
-                _episode.isLoadingNext ||
-                _transitionGate.transition != PlaybackTransition.idle);
+        (_episode.isResolvingCompletionAdjacency ||
+            _episode.isLoadingNext ||
+            _transitionGate.transition != PlaybackTransition.idle);
     return {
       'stage': failed
           ? 'failed'
@@ -949,8 +949,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// onPipChanged fires.
   bool get _shouldSkipForPip =>
       PipService().isPipActive.value ||
-          ((Platform.isIOS || Platform.isMacOS) && _autoPipEnabled) ||
-          (Platform.isAndroid && _androidAutoPipTransitionInFlight);
+      ((Platform.isIOS || Platform.isMacOS) && _autoPipEnabled) ||
+      (Platform.isAndroid && _androidAutoPipTransitionInFlight);
 
   MediaControlsManager? _mediaControlsManager;
 
@@ -1092,9 +1092,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   PlaybackSession _updatePlaybackSessionSubtitleSelection(
-      PlaybackSession session,
-      PlaybackSubtitleSelection selection,
-      ) {
+    PlaybackSession session,
+    PlaybackSubtitleSelection selection,
+  ) {
     final updated = session.withSubtitleSelection(selection);
     _playbackSession = updated;
     return updated;
@@ -1380,7 +1380,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       dismissPrompt: _dismissPlaybackPromptForBack,
       backLeavesPrompt: () => _episode.showPlayNextDialog,
       isChromePresented: () =>
-      _isPlayerInitialized && player != null && _firstFrame.uiReady.value && _chromeController.controlsPresented,
+          _isPlayerInitialized && player != null && _firstFrame.uiReady.value && _chromeController.controlsPresented,
       // On phones a Back must exit the player even with the controls up
       // (#1938); the staged chrome handling is TV/desktop behavior (#4443b761
       // applied it to the phone system-back path too, so back stopped
@@ -1591,8 +1591,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         _recordLifecycleState('paused', action: 'backgrounded');
         break;
       case AppLifecycleState.resumed:
-      // Synchronously, before the queued transition: a pending suspend must
-      // not fire between this event and _handleAppResumed running.
+        // Synchronously, before the queued transition: a pending suspend must
+        // not fire between this event and _handleAppResumed running.
         _cancelTvBackgroundPlayerSuspendTimer();
         _recordLifecycleState('resumed');
         _enqueueLifecycleTransition('resumed', _handleAppResumed);
@@ -1745,12 +1745,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         _serverSupportsTranscoding = genericClient.capabilities.videoTranscoding;
         _selectedQualityPreset =
             widget.selectedQualityPreset ??
-                TranscodeQualityPreset.resolveStartupDefault(
-                  serverSupportsTranscoding: _serverSupportsTranscoding,
-                  onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
-                  cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
-                  generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
-                );
+            TranscodeQualityPreset.resolveStartupDefault(
+              serverSupportsTranscoding: _serverSupportsTranscoding,
+              onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
+              cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
+              generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
+            );
         final playbackResolver = PlaybackSourceResolver(
           serverManager: context.read<MultiServerProvider>().serverManager,
           database: context.read<AppDatabase>(),
@@ -1791,12 +1791,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         // backends can transcode, so the capability gate is moot here.
         _selectedQualityPreset =
             widget.selectedQualityPreset ??
-                TranscodeQualityPreset.resolveStartupDefault(
-                  serverSupportsTranscoding: true,
-                  onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
-                  cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
-                  generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
-                );
+            TranscodeQualityPreset.resolveStartupDefault(
+              serverSupportsTranscoding: true,
+              onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
+              cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
+              generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
+            );
       }
 
       if (Platform.isWindows) {
@@ -2143,14 +2143,14 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
           if (_appEmbeddedOwnedMpvProperties.contains(entry.key)) {
             appLogger.w(
               'Skipped custom MPV property ${entry.key}=${entry.value}: the app owns the video '
-                  'output on this platform (embedded rendering is vo=libmpv); a windowed VO such as '
-                  'gpu-next cannot be used inside the app, so compute shaders like ArtCNN cannot run '
-                  'embedded either',
+              'output on this platform (embedded rendering is vo=libmpv); a windowed VO such as '
+              'gpu-next cannot be used inside the app, so compute shaders like ArtCNN cannot run '
+              'embedded either',
             );
           } else {
             appLogger.w(
               'Skipped custom MPV property ${entry.key}=${entry.value}: the app owns it, '
-                  'set it in the player HDR settings instead',
+              'set it in the player HDR settings instead',
             );
           }
           continue;
@@ -2359,11 +2359,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// Removes the player route this exit accepted, whatever sits on top of it
   /// by the time the navigation budget expires (#2290).
   void _removePlayerRoute(
-      NavigatorState navigator,
-      Route<dynamic> route, {
-        required bool navigateHome,
-        VoidCallback? onHome,
-      }) {
+    NavigatorState navigator,
+    Route<dynamic> route, {
+    required bool navigateHome,
+    VoidCallback? onHome,
+  }) {
     // The navigator or the route went away on its own; nothing of ours is left.
     if (!navigator.mounted || !route.isActive) return;
     if (route.isCurrent && navigator.canPop()) {
@@ -2642,7 +2642,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   Future<void> _handleAppleTvRemotePlayPause(AppleTvRemotePlayPauseAction action) async {
     appLogger.d(
       'Apple TV remote play/pause received source=${action.source}'
-          '${action.detail == null ? '' : ' detail=${action.detail}'}',
+      '${action.detail == null ? '' : ' detail=${action.detail}'}',
     );
     await _remoteTransport(TransportCommand.toggle, source: 'Apple TV remote');
   }
@@ -2814,10 +2814,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   void _rememberNativeSubtitleSelectionForSlot(
-      SubtitleTrack track, {
-        required _SubtitleSelectionSlot slot,
-        int? sourceStreamId,
-      }) {
+    SubtitleTrack track, {
+    required _SubtitleSelectionSlot slot,
+    int? sourceStreamId,
+  }) {
     if (track.id == SubtitleTrack.off.id) {
       switch (slot) {
         case _SubtitleSelectionSlot.primary:
@@ -2830,8 +2830,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       final currentSelection = session.subtitleSelection;
       _updatePlaybackSessionSubtitleSelection(session, switch (slot) {
         _SubtitleSelectionSlot.primary => const PlaybackSubtitleSelection.off(),
-      // Dropping only the secondary must not relabel the primary's
-      // declined off as deliberate.
+        // Dropping only the secondary must not relabel the primary's
+        // declined off as deliberate.
         _SubtitleSelectionSlot.secondary => PlaybackSubtitleSelection(
           primaryTrack: currentSelection.primaryTrack,
           primarySourceStreamId: currentSelection.primarySourceStreamId,
@@ -3013,7 +3013,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
           return handlePlayerNavigationKeyAction(
             event,
             navigationKey,
-                () => _handleScreenPlayerNavigation(navigationKey),
+            () => _handleScreenPlayerNavigation(navigationKey),
           );
         }
         // Hardware media transport must act even when focus rests on this

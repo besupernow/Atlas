@@ -35,12 +35,12 @@ enum _RefreshMode {
   );
 
   const _RefreshMode(
-      this.title,
-      this.subtitle, {
-        required this.metadataMode,
-        required this.imageMode,
-        required this.replaceMetadata,
-      });
+    this.title,
+    this.subtitle, {
+    required this.metadataMode,
+    required this.imageMode,
+    required this.replaceMetadata,
+  });
 
   final String title;
   final String subtitle;
@@ -51,7 +51,11 @@ enum _RefreshMode {
 
 /// Jellyfin web's "Refresh metadata" dialog. Returns true when a refresh was
 /// queued on the server.
-Future<bool> showMetadataRefreshDialog(BuildContext context, {required JellyfinClient client, required MediaItem item}) async {
+Future<bool> showMetadataRefreshDialog(
+  BuildContext context, {
+  required JellyfinClient client,
+  required MediaItem item,
+}) async {
   final queued = await showScopedDialog<bool>(
     context: context,
     builder: (_) => _MetadataRefreshDialog(client: client, item: item),

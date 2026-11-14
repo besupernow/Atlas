@@ -1,4 +1,4 @@
-﻿import 'package:plezy/utils/app_platform.dart';
+import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -17,9 +17,7 @@ class AtlasBlockStore {
     if (!_supported) return null;
     try {
       // Timeout so a device with a broken/missing Play services never stalls startup.
-      return await _channel
-          .invokeMethod<String>('get', {'key': key})
-          .timeout(const Duration(seconds: 4));
+      return await _channel.invokeMethod<String>('get', {'key': key}).timeout(const Duration(seconds: 4));
     } catch (_) {
       return null;
     }

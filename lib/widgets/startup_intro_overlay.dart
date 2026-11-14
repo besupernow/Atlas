@@ -85,16 +85,22 @@ class _StartupIntroOverlayState extends State<StartupIntroOverlay> {
       final withSound = clip.sound && !kIsWeb && PlatformDetector.isTV();
       await player.setVolume(withSound ? 100 : 0);
       _subs
-        ..add(player.streams.position.listen((pos) {
-          if (!_started && pos > Duration.zero && mounted) setState(() => _started = true);
-        }))
-        ..add(player.streams.completed.listen((done) {
-          if (done) _finish();
-        }))
-        ..add(player.streams.error.listen((e) {
-          appLogger.d('Startup intro: playback error: $e');
-          _finish();
-        }));
+        ..add(
+          player.streams.position.listen((pos) {
+            if (!_started && pos > Duration.zero && mounted) setState(() => _started = true);
+          }),
+        )
+        ..add(
+          player.streams.completed.listen((done) {
+            if (done) _finish();
+          }),
+        )
+        ..add(
+          player.streams.error.listen((e) {
+            appLogger.d('Startup intro: playback error: $e');
+            _finish();
+          }),
+        );
       _startTimer = Timer(_startTimeout, () {
         if (!_started) _finish();
       });
@@ -171,12 +177,12 @@ class _StartupIntroOverlayState extends State<StartupIntroOverlay> {
                 color: Colors.black,
                 child: player == null
                     ? const SizedBox.expand()
-                // Kept invisible until the first frame so a slow start
-                // shows black, not a half-loaded surface.
+                    // Kept invisible until the first frame so a slow start
+                    // shows black, not a half-loaded surface.
                     : Opacity(
-                  opacity: _started ? 1 : 0,
-                  child: Video(player: player, backgroundColor: Colors.black),
-                ),
+                        opacity: _started ? 1 : 0,
+                        child: Video(player: player, backgroundColor: Colors.black),
+                      ),
               ),
             ),
           ),

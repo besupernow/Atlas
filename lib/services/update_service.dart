@@ -1,4 +1,4 @@
-﻿import 'dart:io' hide Platform;
+import 'dart:io' hide Platform;
 import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/foundation.dart';
@@ -244,10 +244,14 @@ class UpdateService {
     if (Platform.isIOS) return first((n) => n.endsWith('.ipa'));
     if (Platform.isMacOS) return first((n) => n.endsWith('.dmg')) ?? first((n) => n.contains('macos'));
     if (Platform.isWindows) {
-      return first((n) => n.endsWith('.exe')) ?? first((n) => n.endsWith('.msi')) ?? first((n) => n.contains('windows'));
+      return first((n) => n.endsWith('.exe')) ??
+          first((n) => n.endsWith('.msi')) ??
+          first((n) => n.contains('windows'));
     }
     if (Platform.isLinux) {
-      return first((n) => n.endsWith('.appimage')) ?? first((n) => n.endsWith('.deb')) ?? first((n) => n.contains('linux'));
+      return first((n) => n.endsWith('.appimage')) ??
+          first((n) => n.endsWith('.deb')) ??
+          first((n) => n.contains('linux'));
     }
     return null;
   }

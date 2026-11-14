@@ -212,8 +212,8 @@ class _VideoState extends State<Video> {
 
     final player = widget.player as VideoRectSupport;
     player.setVideoRect(left: left, top: top, right: right, bottom: bottom, devicePixelRatio: dpr).catchError((
-        Object e,
-        ) {
+      Object e,
+    ) {
       // Geometry is the only thing that makes the native surface visible,
       // so a rejected rect is a black video area, not a cosmetic glitch.
       // Post-frame callbacks have nobody to rethrow to, so route it to the

@@ -68,9 +68,17 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
 
   /// Unmodifiable list of all libraries (ordered)
   /// Only Movies and TV Shows are exposed to the UI (no Live TV, music, etc).
-  List<MediaLibrary> get libraries => List.unmodifiable(
-    _libraries.where((l) => l.kind == MediaKind.movie || l.kind == MediaKind.show),
-  );
+  List<MediaLibrary> get libraries =>
+      List.unmodifiable(_libraries.where((l) => l.kind == MediaKind.movie || l.kind == MediaKind.show));
+
+  /// Atlas: music libraries (Jellyfin "music" collections map to [MediaKind.artist]). The video
+  /// side never shows these; music mode browses them.
+  List<MediaLibrary> get musicLibraries => List.unmodifiable(_libraries.where((l) => l.kind == MediaKind.artist));
+
+  /// Atlas: whether the user's servers have movie/TV libraries, music libraries, or both. Music
+  /// mode's switcher only shows when both exist.
+  bool get hasVideoLibraries => _libraries.any((l) => l.kind == MediaKind.movie || l.kind == MediaKind.show);
+  bool get hasMusicLibraries => _libraries.any((l) => l.kind == MediaKind.artist);
 
   bool get isLoading => _loadState == LibrariesLoadState.loading;
 

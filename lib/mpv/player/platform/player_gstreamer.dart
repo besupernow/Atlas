@@ -18,10 +18,7 @@ import 'player_avfoundation.dart';
 /// stay on mpv.
 class PlayerGStreamer extends PlayerAvFoundation with VideoRectSupport {
   PlayerGStreamer() {
-    _abr = AtlasGstAbr(
-      invoke: (method, args) => invoke(method, args),
-      stats: getStats,
-    );
+    _abr = AtlasGstAbr(invoke: (method, args) => invoke(method, args), stats: getStats);
   }
 
   static const _gstMethodChannel = MethodChannel('com.atlas/gst_player');

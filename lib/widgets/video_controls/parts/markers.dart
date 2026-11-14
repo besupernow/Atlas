@@ -35,11 +35,11 @@ extension _PlexVideoControlsMarkerMethods on _PlexVideoControlsState {
   void _clearCurrentMarker() {
     final hasMarkerState =
         _currentMarker != null ||
-            _skipButtonDismissed ||
-            _autoSkipTimer != null ||
-            _autoSkipActive.value ||
-            _autoSkipProgress.value != 0.0 ||
-            _skipButtonDismissTimer != null;
+        _skipButtonDismissed ||
+        _autoSkipTimer != null ||
+        _autoSkipActive.value ||
+        _autoSkipProgress.value != 0.0 ||
+        _skipButtonDismissTimer != null;
     if (!hasMarkerState) return;
 
     if (_currentMarker != null || _skipButtonDismissed) {

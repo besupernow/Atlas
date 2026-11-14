@@ -125,14 +125,14 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
     final serverId = metadata.serverId;
     final addedByField = <String, List<String>>{
       for (final field
-      in adapter
-          .schemaFor(draft)
-          .expand((section) => section.fields)
-          .where((field) => field.type == MetadataEditFieldType.stringList))
+          in adapter
+              .schemaFor(draft)
+              .expand((section) => section.fields)
+              .where((field) => field.type == MetadataEditFieldType.stringList))
         if (metadataStringList(
-          draft.values[field.id],
-        ).where((tag) => !metadataStringList(draft.originalValues[field.id]).contains(tag)).toList()
-        case final added when added.isNotEmpty)
+              draft.values[field.id],
+            ).where((tag) => !metadataStringList(draft.originalValues[field.id]).contains(tag)).toList()
+            case final added when added.isNotEmpty)
           field.id: added,
     };
     bool success = false;
@@ -219,11 +219,11 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
         .fetchTagSuggestions(draft, field)
         .then(
           (serverTags) => RecentTagsService.mergeSuggestions(
-        recent: recent,
-        serverTags: serverTags,
-        existing: metadataStringList(draft.values[field.id]),
-      ),
-    )
+            recent: recent,
+            serverTags: serverTags,
+            existing: metadataStringList(draft.values[field.id]),
+          ),
+        )
         .catchError((_) => recent);
     final result = await showScopedDialog<List<String>>(
       context: context,
@@ -312,7 +312,10 @@ class _MetadataEditScreenState extends State<MetadataEditScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return FocusedScrollScaffold(title: Text(widget.title ?? t.metadataEdit.screenTitle), slivers: [LoadingIndicatorBox.sliver]);
+      return FocusedScrollScaffold(
+        title: Text(widget.title ?? t.metadataEdit.screenTitle),
+        slivers: [LoadingIndicatorBox.sliver],
+      );
     }
 
     final adapter = _adapter;

@@ -59,10 +59,10 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     // delivery (Plex burn-on-request, issue #1983).
     final isLiveSubtitleSwitch =
         widget.isLive &&
-            newSubtitleChoice != null &&
-            newMediaIndex == null &&
-            newPreset == null &&
-            newAudioStreamId == null;
+        newSubtitleChoice != null &&
+        newMediaIndex == null &&
+        newPreset == null &&
+        newAudioStreamId == null;
     if (widget.isLive && !isLiveSubtitleSwitch) return PlaybackSourceChangeOutcome.unavailable;
     final transitionLease = _transitionGate.tryAcquire(PlaybackTransition.switchingSource);
     if (transitionLease == null) return PlaybackSourceChangeOutcome.busy;
@@ -91,8 +91,8 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
   }) async {
     bool isCurrentSourceSwitch() =>
         mounted &&
-            player == currentPlayer &&
-            _transitionGate.owns(transitionLease, expected: PlaybackTransition.switchingSource);
+        player == currentPlayer &&
+        _transitionGate.owns(transitionLease, expected: PlaybackTransition.switchingSource);
     bool sourceSwitchWasSuperseded() => !mounted || player != currentPlayer || transitionLease.wasSuperseded;
     void rememberSourceAudioPreference() {
       final streamId = newAudioStreamId;
@@ -157,15 +157,15 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
         : newSubtitleChoice.isOff
         ? const SubtitlePreference.off()
         : SubtitlePreference.trackOrNull(
-      PlaybackSubtitleResolver.preferredTrackForSource(_currentMediaInfo, newSubtitleChoice.sourceStreamId!),
-    );
+            PlaybackSubtitleResolver.preferredTrackForSource(_currentMediaInfo, newSubtitleChoice.sourceStreamId!),
+          );
     final effectiveMediaSourceId = newMediaIndex != null
         ? PlaybackSession.mediaSourceIdForIndex(_availableVersions, effectiveMediaIndex) ?? _requestedMediaSourceId
         : _requestedMediaSourceId;
 
     final isVersionChange =
         effectiveMediaIndex != _effectiveSelectedMediaIndex ||
-            (_requestedMediaSourceId != null && effectiveMediaSourceId != _requestedMediaSourceId);
+        (_requestedMediaSourceId != null && effectiveMediaSourceId != _requestedMediaSourceId);
     final isPresetChange = effectivePreset != _selectedQualityPreset;
     final isAudioChange = effectiveAudioStreamId != _selectedAudioStreamId;
     final isSubtitleChange = newSubtitleChoice != null && newSubtitleChoice != currentSubtitleChoice;
@@ -200,8 +200,8 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
           // backend boundary so it cannot collide with Jellyfin source ids.
           subtitleStreamID: isSubtitleChange
               ? newSubtitleChoice.isOff
-              ? 0
-              : newSubtitleChoice.sourceStreamId
+                    ? 0
+                    : newSubtitleChoice.sourceStreamId
               : null,
         );
         if (!saved) {
@@ -253,10 +253,10 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
   }
 
   Future<bool> _selectSourceSubtitleLocally(
-      Player currentPlayer,
-      PlaybackSourceSubtitleChoice choice, {
-        required bool Function() shouldContinue,
-      }) async {
+    Player currentPlayer,
+    PlaybackSourceSubtitleChoice choice, {
+    required bool Function() shouldContinue,
+  }) async {
     // On a transcode the server owns the picture: a burned subtitle cannot be removed or covered
     // locally, and an embedded target can only arrive by being burned in. Either way the change
     // goes back to the server rather than being applied to the running player.
@@ -267,15 +267,15 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     // or is off is applied right here, without restarting the stream.
     final adaptiveLocal =
         burnSession != null &&
-            burnSession.isAdaptive &&
-            (choice.isOff ||
-                (targetSourceStreamId != null && _sidecarForSourceStreamId(burnSession, targetSourceStreamId) != null));
+        burnSession.isAdaptive &&
+        (choice.isOff ||
+            (targetSourceStreamId != null && _sidecarForSourceStreamId(burnSession, targetSourceStreamId) != null));
     if (!adaptiveLocal &&
         PlaybackSubtitleResolver.burnRequiresRenegotiation(
           isTranscoding: _isTranscoding,
           currentSourceStreamId: burnedSourceStreamId,
           currentSelectionHasSidecar:
-          burnSession != null &&
+              burnSession != null &&
               burnedSourceStreamId != null &&
               _sidecarForSourceStreamId(burnSession, burnedSourceStreamId) != null,
           targetIsOff: choice.isOff,
@@ -285,13 +285,13 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
           // uses to decide what it must not burn. Reading only `isExternalFile` classified every Plex
           // external file as an embedded target and sent an already-loaded track switch to the server.
           targetIsExternalFile:
-          targetSourceStreamId != null &&
+              targetSourceStreamId != null &&
               (_currentMediaInfo?.subtitleTracks.any(
                     (track) =>
-                track.id == targetSourceStreamId &&
-                    (track.isExternalFile ||
-                        (_currentMetadata.backend == MediaBackend.plex && (track.key?.isNotEmpty ?? false))),
-              ) ??
+                        track.id == targetSourceStreamId &&
+                        (track.isExternalFile ||
+                            (_currentMetadata.backend == MediaBackend.plex && (track.key?.isNotEmpty ?? false))),
+                  ) ??
                   false),
         )) {
       return false;
@@ -359,11 +359,11 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
   }
 
   Future<bool> _selectAdaptiveSubtitle(
-      Player currentPlayer,
-      PlaybackSession session,
-      PlaybackSourceSubtitleChoice choice, {
-        required bool Function() shouldContinue,
-      }) async {
+    Player currentPlayer,
+    PlaybackSession session,
+    PlaybackSourceSubtitleChoice choice, {
+    required bool Function() shouldContinue,
+  }) async {
     final selection = AtlasSubtitleSelection.of(currentPlayer);
     if (choice.isOff) {
       selection.select(null);
@@ -440,10 +440,10 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     final reloadLease = transitionLease == null
         ? _transitionGate.tryAcquire(PlaybackTransition.reloadingMedia)
         : _transitionGate.advance(
-      transitionLease,
-      PlaybackTransition.reloadingMedia,
-      expected: PlaybackTransition.switchingSource,
-    )
+            transitionLease,
+            PlaybackTransition.reloadingMedia,
+            expected: PlaybackTransition.switchingSource,
+          )
         ? transitionLease
         : null;
     if (reloadLease == null) {
@@ -479,21 +479,21 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       final previousPartTimeline = previousMediaInfo?.partTimeline;
       final crossesPart =
           !isItemChange &&
-              previousPartTimeline != null &&
-              resumePosition != null &&
-              !previousPartTimeline.covers(resumePosition);
+          previousPartTimeline != null &&
+          resumePosition != null &&
+          !previousPartTimeline.covers(resumePosition);
 
       final currentAudioTrack = preserveCurrentTrackSelection
           ? preservedAudioTrack ?? currentPlayer.state.track.audio
           : null;
       final currentSubtitleTrack =
           preferredSubtitleTrackOverride ??
-              (preserveCurrentTrackSelection
-                  ? preservedSubtitleTrack ?? SubtitlePreference.trackOrNull(currentPlayer.state.track.subtitle)
-                  : null);
+          (preserveCurrentTrackSelection
+              ? preservedSubtitleTrack ?? SubtitlePreference.trackOrNull(currentPlayer.state.track.subtitle)
+              : null);
       final currentSecondarySubtitleTrack = preserveCurrentTrackSelection
           ? preservedSecondarySubtitleTrack ??
-          SubtitlePreference.trackOrNull(currentPlayer.state.track.secondarySubtitle)
+                SubtitlePreference.trackOrNull(currentPlayer.state.track.secondarySubtitle)
           : null;
       final wasPlayingBeforeReload = _playbackIntentShouldPlay;
       Completer<void>? reloadStartupHold;
@@ -562,9 +562,9 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       );
       final preservesRequestedSubtitleSource =
           !isItemChange &&
-              !crossesPart &&
-              targetMediaIndex == _effectiveSelectedMediaIndex &&
-              (selectedMediaSourceId == null || selectedMediaSourceId == previousMediaSourceId);
+          !crossesPart &&
+          targetMediaIndex == _effectiveSelectedMediaIndex &&
+          (selectedMediaSourceId == null || selectedMediaSourceId == previousMediaSourceId);
       final initializationSubtitleTrack = preservesRequestedSubtitleSource
           ? currentSubtitleTrack
           : SubtitlePreference.demoteToIntent(currentSubtitleTrack);
@@ -655,7 +655,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
           preferredSubtitleTrack: currentSubtitleTrack,
           preferredSecondarySubtitleTrack: currentSecondarySubtitleTrack,
           preserveSubtitleSourceIdentity:
-          result.mediaInfo != null &&
+              result.mediaInfo != null &&
               _sameSubtitleSource(
                 previousMediaSourceId: previousMediaSourceId,
                 previousPartId: previousPartId,
@@ -750,8 +750,8 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
             // identical bytes.
             final reusesScrubPreview =
                 previousMetadata.globalKey == metadata.globalKey &&
-                    previousMediaInfo != null &&
-                    scrubPreviewServes(previousMediaInfo, result.mediaInfo);
+                previousMediaInfo != null &&
+                scrubPreviewServes(previousMediaInfo, result.mediaInfo);
             if (reusesScrubPreview) {
               _setPlayerState(() {});
             } else {

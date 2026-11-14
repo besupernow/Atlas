@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app/music_detail_scope.dart';
 import '../media/media_item.dart';
 import '../media/media_playlist.dart';
 import '../media/media_server_client.dart';
@@ -33,7 +34,13 @@ NavigatorState _contentNavigatorOf(BuildContext context) {
 }
 
 /// Push the artist detail screen for [artist] on the profile navigator.
+/// Atlas: inside music mode, music mode's own artist page opens in the current tab.
 Future<void> navigateToArtist(BuildContext context, MediaItem artist) async {
+  final musicScope = MusicDetailScope.maybeOf(context);
+  if (musicScope != null) {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (context) => musicScope.artistPage(artist)));
+    return;
+  }
   await _contentNavigatorOf(context).push(MaterialPageRoute(builder: (context) => ArtistDetailScreen(artist: artist)));
 }
 
@@ -54,7 +61,9 @@ Future<void> openArtistById(BuildContext context, MediaServerClient client, Stri
 /// Push the album detail screen for [album] on the profile navigator.
 /// [isOffline] makes the screen read its track list from downloads.
 Future<void> navigateToAlbum(BuildContext context, MediaItem album, {bool isOffline = false}) async {
-  await _contentNavigatorOf(context).push(
+  // Atlas: inside music mode the album opens in the current tab.
+  final navigator = MusicDetailScope.maybeOf(context) != null ? Navigator.of(context) : _contentNavigatorOf(context);
+  await navigator.push(
     MaterialPageRoute(
       builder: (context) => AlbumDetailScreen(album: album, isOffline: isOffline),
     ),
@@ -115,12 +124,12 @@ void _autoOpenNowPlayingOnTv(BuildContext context) {
 
 /// Start playback of [tracks] via the session [MusicPlaybackService].
 Future<void> playTracks(
-  BuildContext context, {
-  required List<MediaItem> tracks,
-  MediaItem? startTrack,
-  required MusicPlayContext playContext,
-  bool shuffle = false,
-}) async {
+    BuildContext context, {
+      required List<MediaItem> tracks,
+      MediaItem? startTrack,
+      required MusicPlayContext playContext,
+      bool shuffle = false,
+    }) async {
   await context.read<MusicPlaybackService>().playFromList(
     tracks: tracks,
     startTrack: startTrack,
@@ -142,14 +151,14 @@ Future<void> playTracks(
 /// successful but empty fetch; passing null hands the empty list to
 /// [playTracks] unchanged.
 Future<void> playFetchedTracks(
-  BuildContext context, {
-  required Future<List<MediaItem>> Function() fetch,
-  required MusicPlayContext playContext,
-  void Function(Object error, StackTrace stackTrace)? onError,
-  VoidCallback? onEmpty,
-  MediaItem? startTrack,
-  bool shuffle = false,
-}) async {
+    BuildContext context, {
+      required Future<List<MediaItem>> Function() fetch,
+      required MusicPlayContext playContext,
+      void Function(Object error, StackTrace stackTrace)? onError,
+      VoidCallback? onEmpty,
+      MediaItem? startTrack,
+      bool shuffle = false,
+    }) async {
   final service = context.read<MusicPlaybackService>();
   final intent = service.beginPlayIntent();
   final List<MediaItem> tracks;
@@ -176,15 +185,15 @@ Future<void> playFetchedTracks(
 /// round-trip; [onError] and [onEmpty] carry each caller's own snackbar
 /// strings. Shared by the playlist detail screen and the media context menu.
 Future<void> playAudioPlaylist(
-  BuildContext context, {
-  required MediaServerClient client,
-  required MediaPlaylist playlist,
-  bool shuffle = false,
-  MediaItem? startTrack,
-  List<MediaItem>? preloadedItems,
-  void Function(Object error, StackTrace stackTrace)? onError,
-  VoidCallback? onEmpty,
-}) {
+    BuildContext context, {
+      required MediaServerClient client,
+      required MediaPlaylist playlist,
+      bool shuffle = false,
+      MediaItem? startTrack,
+      List<MediaItem>? preloadedItems,
+      void Function(Object error, StackTrace stackTrace)? onError,
+      VoidCallback? onEmpty,
+    }) {
   return playFetchedTracks(
     context,
     fetch: () async => preloadedItems ?? await fetchAllPlaylistItems(client, playlist.id),

@@ -181,13 +181,13 @@ class AtlasGate {
   }
 
   static Future<AtlasGateResponse> _call(
-      String method,
-      String path, {
-        Map<String, dynamic>? body,
-        Map<String, String>? query,
-        String? jfToken,
-        Duration timeout = const Duration(seconds: 8),
-      }) async {
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+    String? jfToken,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
     final uri = Uri.parse('$kAtlasGateBase$path').replace(queryParameters: query);
     final headers = <String, String>{
       'Content-Type': 'application/json',

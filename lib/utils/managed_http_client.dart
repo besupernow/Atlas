@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import '../services/atlas_gate/atlas_gate_headers.dart';
 import 'app_logger.dart';
 
-
 /// [http.Client] that can abort and drain its active requests before closing.
 ///
 /// Shutdown paths that must not outrun in-flight native callbacks (per-server

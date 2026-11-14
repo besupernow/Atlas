@@ -228,17 +228,17 @@ class _SettingsToggleItemState extends State<_SettingsToggleItem> {
   }
 
   Future<void> _commitWrite(
-      Pref<bool> pref,
-      FutureOr<void> Function(bool value)? callback,
-      bool next,
-      int generation,
-      int writeToken,
-      ) async {
+    Pref<bool> pref,
+    FutureOr<void> Function(bool value)? callback,
+    bool next,
+    int generation,
+    int writeToken,
+  ) async {
     try {
       final committed = await _prefWrites.commitIfLatest(
         pref.key,
         writeToken,
-            () => _applyThenPersist(pref, next, callback),
+        () => _applyThenPersist(pref, next, callback),
       );
       if (!committed || !mounted || generation != _writeGeneration) return;
       setState(() {
@@ -399,16 +399,14 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   /// Playing the adaptive ladder: Original quality, adaptive streaming on, and a
   /// backend that switches renditions (mpv only ever plays the file itself).
   bool get _isAdaptivePlayback =>
-      _state.selectedQualityPreset.isOriginal &&
-          AtlasAdaptiveStreaming.enabled &&
-          widget.player.playerType != 'mpv';
+      _state.selectedQualityPreset.isOriginal && AtlasAdaptiveStreaming.enabled && widget.player.playerType != 'mpv';
 
   // An explicit value from the caller wins. Otherwise the capability is static
   // per platform, except on the Linux video plane where it depends on the
   // compositor, the output and the plane's bit depth, so it has to be asked for.
   bool get _supportsHdrControl =>
       widget.supportsHdrControl ??
-          (_probesHdrSupport ? _linuxHdrSupported : Platform.isIOS || Platform.isMacOS || Platform.isWindows);
+      (_probesHdrSupport ? _linuxHdrSupported : Platform.isIOS || Platform.isMacOS || Platform.isWindows);
 
   // The Linux plane is the only path whose answer moves, and an explicit value
   // from the caller replaces the question altogether. Asked through
@@ -464,10 +462,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     // Rounded to 0.1 Mbps so the row doesn't flicker on every sample.
     final rawLink = asInt(stats['bandwidthEstimate']);
     final link = rawLink == null ? null : (rawLink / 100000).round() * 100000;
-    if (width == _adaptiveWidth &&
-        height == _adaptiveHeight &&
-        bitrate == _adaptiveBitrate &&
-        link == _adaptiveLink) {
+    if (width == _adaptiveWidth && height == _adaptiveHeight && bitrate == _adaptiveBitrate && link == _adaptiveLink) {
       return;
     }
     setState(() {
@@ -556,10 +551,10 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
         final committed = await _prefWrites.commitIfLatest(
           key,
           writeToken,
-              () => _applyThenPersist(
+          () => _applyThenPersist(
             SettingsService.hdrToneMapping,
             mode,
-                (value) => targetPlayer.setProperty('hdr-tone-mapping', value.name),
+            (value) => targetPlayer.setProperty('hdr-tone-mapping', value.name),
           ),
         );
         if (!committed || !mounted || targetPlayer != widget.player) return;
@@ -594,10 +589,10 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
         final committed = await _prefWrites.commitIfLatest(
           key,
           writeToken,
-              () => _applyThenPersist(
+          () => _applyThenPersist(
             SettingsService.audioChannelLimit,
             limit,
-                (value) => targetPlayer.setAudioChannelLimit(
+            (value) => targetPlayer.setAudioChannelLimit(
               value,
               centerBoostDb: SettingsService.instance.read(SettingsService.downmixCenterBoost),
               normalize: SettingsService.instance.read(SettingsService.audioDownmixNormalize),
@@ -680,26 +675,26 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     // whenComplete in track_chapter_controls). Cancel it again here.
     controller
         .show(
-      alignment: .topCenter,
-      constraints: const BoxConstraints(maxHeight: 80, maxWidth: 900),
-      initialFocusNode: sliderFocusNode,
-      builder: (_) => _CompactSyncBar(
-        title: title,
-        icon: icon,
-        player: widget.player,
-        propertyName: propertyName,
-        initialOffset: initialOffset,
-        sliderFocusNode: sliderFocusNode,
-        onOffsetChanged: (offset) async {
-          final pref = isSubtitle ? ScopedPlayerPrefs.subtitleSyncOffset : ScopedPlayerPrefs.audioSyncOffset;
-          await ScopedPlayerPrefs.write(pref, _state.metadata, offset);
-        },
-      ),
-    )
+          alignment: .topCenter,
+          constraints: const BoxConstraints(maxHeight: 80, maxWidth: 900),
+          initialFocusNode: sliderFocusNode,
+          builder: (_) => _CompactSyncBar(
+            title: title,
+            icon: icon,
+            player: widget.player,
+            propertyName: propertyName,
+            initialOffset: initialOffset,
+            sliderFocusNode: sliderFocusNode,
+            onOffsetChanged: (offset) async {
+              final pref = isSubtitle ? ScopedPlayerPrefs.subtitleSyncOffset : ScopedPlayerPrefs.audioSyncOffset;
+              await ScopedPlayerPrefs.write(pref, _state.metadata, offset);
+            },
+          ),
+        )
         .whenComplete(() {
-      sliderFocusNode.dispose();
-      _state.onStartAutoHide?.call();
-    });
+          sliderFocusNode.dispose();
+          _state.onStartAutoHide?.call();
+        });
 
     // Cancel auto-hide after show() — the previous sheet's whenComplete
     // fires as a microtask and restarts the timer, so schedule our cancel
@@ -1139,9 +1134,9 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       (value: 'disabled', title: t.settings.dvConversionNative, subtitle: t.settings.dvConversionNativeDescription),
       (value: 'dv81', title: t.settings.dvConversionDv81, subtitle: t.settings.dvConversionDv81Description),
       (
-      value: 'hevc_strip',
-      title: t.settings.dvConversionHevcStrip,
-      subtitle: t.settings.dvConversionHevcStripDescription,
+        value: 'hevc_strip',
+        title: t.settings.dvConversionHevcStrip,
+        subtitle: t.settings.dvConversionHevcStripDescription,
       ),
     ];
     final primary = Theme.of(context).colorScheme.primary;
@@ -1601,7 +1596,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final isZoomActive = (_zoomScale - 1.0).abs() > 0.0001;
     final isIconActive =
         _currentView == _SettingsView.menu &&
-            (sleepTimer.isActive || _audioSyncOffset != 0 || _subtitleSyncOffset != 0 || isShaderActive || isZoomActive);
+        (sleepTimer.isActive || _audioSyncOffset != 0 || _subtitleSyncOffset != 0 || isShaderActive || isZoomActive);
 
     return BaseVideoControlSheet(
       title: _getTitle(),
@@ -1704,9 +1699,9 @@ class _FileInfoPageState extends State<_FileInfoPage> {
           child: failure == null
               ? const CircularProgressIndicator()
               : Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(failure, textAlign: TextAlign.center),
-          ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(failure, textAlign: TextAlign.center),
+                ),
         ),
       ),
     );

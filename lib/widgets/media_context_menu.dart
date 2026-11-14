@@ -116,18 +116,18 @@ class _MenuContext {
   /// A downloads folder's entries act on local downloads, so none of the
   /// server-side gates apply.
   const _MenuContext.downloadsFolder(MediaItem this.mediaItem)
-      : playlist = null,
-        mediaClient = null,
-        catalogSources = null,
-        isAdmin = false,
-        canTranscode = false,
-        itemServerOnline = false,
-        canRemoveFromContinueWatching = false,
-        canEditMetadata = false,
-        showWatchlistEntry = false,
-        watchlistRemoveOffered = false,
-        canDeleteFromServer = false,
-        isDownloadsFolder = true;
+    : playlist = null,
+      mediaClient = null,
+      catalogSources = null,
+      isAdmin = false,
+      canTranscode = false,
+      itemServerOnline = false,
+      canRemoveFromContinueWatching = false,
+      canEditMetadata = false,
+      showWatchlistEntry = false,
+      watchlistRemoveOffered = false,
+      canDeleteFromServer = false,
+      isDownloadsFolder = true;
 
   bool get isPlaylist => playlist != null;
   MediaKind? get mediaKind => mediaItem?.kind;
@@ -400,10 +400,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     final key = '${item.serverId}/${item.id}';
     if (_deletePermissionCache.containsKey(key)) return _deletePermissionCache[key];
     unawaited(
-      permissionClient
-          .fetchDeletePermission(item)
-          .then((value) => _deletePermissionCache[key] = value)
-          .catchError((Object e, StackTrace st) {
+      permissionClient.fetchDeletePermission(item).then((value) => _deletePermissionCache[key] = value).catchError((
+        Object e,
+        StackTrace st,
+      ) {
         appLogger.w('Delete permission probe failed', error: e, stackTrace: st);
         return null;
       }),
@@ -558,21 +558,21 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // for the round trip, and only on a backend that answers it.
     final isDeletableKind =
         mediaKind == MediaKind.episode ||
-            mediaKind == MediaKind.movie ||
-            mediaKind == MediaKind.show ||
-            mediaKind == MediaKind.season;
+        mediaKind == MediaKind.movie ||
+        mediaKind == MediaKind.show ||
+        mediaKind == MediaKind.season;
     final canDeleteFromServer =
         isDeletableKind &&
-            isMediaDeletionAllowed(
-              itemBackend: itemBackend,
-              resolvedItemPermission: _resolveDeletePermission(
-                client: mediaClient,
-                item: mediaItem,
-                serverOnline: itemServerOnline,
-                isAdmin: isAdmin,
-              ),
-              isAdminActionAllowed: isAdmin,
-            );
+        isMediaDeletionAllowed(
+          itemBackend: itemBackend,
+          resolvedItemPermission: _resolveDeletePermission(
+            client: mediaClient,
+            item: mediaItem,
+            serverOnline: itemServerOnline,
+            isAdmin: isAdmin,
+          ),
+          isAdminActionAllowed: isAdmin,
+        );
     return _MenuContext(
       mediaItem: mediaItem,
       playlist: playlist,
@@ -752,8 +752,8 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // skip entirely.
     final canDownload =
         !kIsWeb &&
-            !PlatformDetector.isAppleTV() &&
-            (mediaItem.isVideoContent || mediaKind == MediaKind.album || mediaKind == MediaKind.track);
+        !PlatformDetector.isAppleTV() &&
+        (mediaItem.isVideoContent || mediaKind == MediaKind.album || mediaKind == MediaKind.track);
     final downloadProvider = canDownload ? Provider.of<DownloadProvider>(context, listen: false) : null;
     return [
       if (downloadProvider != null)
@@ -789,13 +789,13 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// Route the picked entry to its handler. Split like the builders: a
   /// playlist/collection menu only ever offers list entries.
   Future<void> _dispatchMenuSelection(
-      BuildContext context,
-      String? selected,
-      _MenuContext menu,
-      _MenuOutcome outcome, {
-        required Offset position,
-        required bool openedFromKeyboard,
-      }) async {
+    BuildContext context,
+    String? selected,
+    _MenuContext menu,
+    _MenuOutcome outcome, {
+    required Offset position,
+    required bool openedFromKeyboard,
+  }) async {
     // Caller-supplied extra entries dispatch straight to their callback.
     if (selected != null && selected.startsWith('extra_')) {
       final index = int.tryParse(selected.substring('extra_'.length));
@@ -853,13 +853,13 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   }
 
   Future<void> _dispatchItemSelection(
-      BuildContext context,
-      String? selected,
-      _MenuContext menu,
-      _MenuOutcome outcome, {
-        required Offset position,
-        required bool openedFromKeyboard,
-      }) async {
+    BuildContext context,
+    String? selected,
+    _MenuContext menu,
+    _MenuOutcome outcome, {
+    required Offset position,
+    required bool openedFromKeyboard,
+  }) async {
     final mediaItem = menu.mediaItem!;
     switch (selected) {
       case 'play_from_beginning':
@@ -1075,7 +1075,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   Future<void> _navigateToSeries(BuildContext context, MediaItem item) => _navigateToRelated(
     context,
     item.kind == MediaKind.season ? item.parentId : item.grandparentId,
-        (context, series) async {
+    (context, series) async {
       final target = mediaDetailNavigationTargetFor(item, metadataOverride: series);
       await Navigator.push(
         context,
@@ -1109,14 +1109,14 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// capable sources a chooser opens and the picked source toggles by its
   /// own (by now resolved) membership, mirroring the detail screen.
   Future<void> _handleWatchlistToggle(
-      BuildContext context,
-      MediaItem item,
-      CatalogSourcesProvider catalogSources,
-      MediaServerClient? client, {
-        required bool removeOffered,
-        required Offset? position,
-        required bool openedFromKeyboard,
-      }) async {
+    BuildContext context,
+    MediaItem item,
+    CatalogSourcesProvider catalogSources,
+    MediaServerClient? client, {
+    required bool removeOffered,
+    required Offset? position,
+    required bool openedFromKeyboard,
+  }) async {
     List<WatchlistCandidate> candidates;
     try {
       candidates = await catalogSources.watchlistCandidatesFor(item, client: client);
@@ -1213,11 +1213,11 @@ class MediaContextMenuState extends State<MediaContextMenu> {
 
   /// Fetch and navigate to a related item (series, album, or artist).
   Future<void> _navigateToRelated(
-      BuildContext context,
-      String? id,
-      Future<void> Function(BuildContext context, MediaItem item) navigate,
-      String errorPrefix,
-      ) async {
+    BuildContext context,
+    String? id,
+    Future<void> Function(BuildContext context, MediaItem item) navigate,
+    String errorPrefix,
+  ) async {
     if (id == null) return;
 
     final client = _getMediaClientForItem();
@@ -1318,11 +1318,11 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           .fetchTagSuggestions(draft, labelField)
           .then(
             (serverTags) => RecentTagsService.mergeSuggestions(
-          recent: recent,
-          serverTags: serverTags,
-          existing: metadataStringList(draft.values['label']),
-        ),
-      )
+              recent: recent,
+              serverTags: serverTags,
+              existing: metadataStringList(draft.values['label']),
+            ),
+          )
           .catchError((_) => recent);
 
       await loadingDialog.dismiss();
@@ -1491,10 +1491,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         eagerSyncId: (_) => null,
         add: () => client.addToPlaylist(playlistId: result, items: [item]),
         messages: (
-        created: t.playlists.created,
-        createError: t.playlists.errorCreating,
-        added: t.playlists.itemAdded,
-        addError: t.playlists.errorAdding,
+          created: t.playlists.created,
+          createError: t.playlists.errorCreating,
+          added: t.playlists.itemAdded,
+          addError: t.playlists.errorAdding,
         ),
         notifyChanged: () => LibraryRefreshNotifier().notifyPlaylistsChanged(),
       );
@@ -1562,9 +1562,9 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         client: client,
         result: result,
         createPrompt: (
-        title: t.common.createNew,
-        label: t.collections.collectionName,
-        hint: t.collections.enterCollectionName,
+          title: t.common.createNew,
+          label: t.collections.collectionName,
+          hint: t.collections.enterCollectionName,
         ),
         create: (name) =>
             client.createCollection(libraryId: resolvedLibraryId, title: name, items: [item], itemKind: itemKind),
@@ -1572,10 +1572,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         eagerSyncId: (id) => id,
         add: () => client.addToCollection(collectionId: result, items: [item]),
         messages: (
-        created: t.collections.created,
-        createError: t.collections.errorAddingToCollection,
-        added: t.collections.addedToCollection,
-        addError: t.collections.errorAddingToCollection,
+          created: t.collections.created,
+          createError: t.collections.errorAddingToCollection,
+          added: t.collections.addedToCollection,
+          addError: t.collections.errorAddingToCollection,
         ),
         notifyChanged: () => LibraryRefreshNotifier().notifyCollectionsChanged(),
       );
@@ -1593,19 +1593,19 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   /// [eagerSyncId] maps a freshly created container to the id to eager-sync, or
   /// `null` to skip it.
   Future<void> _addItemToContainer<T extends Object>(
-      BuildContext context, {
-        required String kind,
-        required MediaItem item,
-        required MediaServerClient client,
-        required String result,
-        required ({String title, String label, String hint}) createPrompt,
-        required Future<T?> Function(String name) create,
-        required String Function(T created) createdLog,
-        required String? Function(T created) eagerSyncId,
-        required Future<bool> Function() add,
-        required ({String created, String createError, String added, String addError}) messages,
-        required VoidCallback notifyChanged,
-      }) async {
+    BuildContext context, {
+    required String kind,
+    required MediaItem item,
+    required MediaServerClient client,
+    required String result,
+    required ({String title, String label, String hint}) createPrompt,
+    required Future<T?> Function(String name) create,
+    required String Function(T created) createdLog,
+    required String? Function(T created) eagerSyncId,
+    required Future<bool> Function() add,
+    required ({String created, String createError, String added, String addError}) messages,
+    required VoidCallback notifyChanged,
+  }) async {
     if (result == '_create_new') {
       final name = await showTextInputDialog(
         context,

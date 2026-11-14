@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import '../app/app_shell.dart';
 import '../connection/connection_registry.dart';
 import '../focus/covered_route_focus_boundary.dart';
 import '../focus/key_event_utils.dart';
@@ -425,7 +426,13 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
       settings: settings,
       builder: (context) =>
           widget.profileShellBuilder?.call(context) ??
-          MainScreen(isOfflineMode: widget.isOfflineMode, initialPromptHandled: widget.initialPromptHandled),
+          // Atlas: the existing app is the video shell; music mode sits beside it (AppShell).
+          AppShell(
+            videoShell: MainScreen(
+              isOfflineMode: widget.isOfflineMode,
+              initialPromptHandled: widget.initialPromptHandled,
+            ),
+          ),
     );
   }
 }

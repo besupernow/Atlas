@@ -33,6 +33,7 @@ class AtlasGstAbr {
 
   static const _bandwidthFraction = 0.85;
   static const _minBufferForUpswitchMs = 6000;
+
   /// While a warm-up is pending, buffer only this far ahead. hlsdemux2 switches where its buffer
   /// ends, so this is about how long after "ready" the new rendition shows (rather than the 15 s it
   /// buffers otherwise), and it gives the warm-up a fixed point to catch up to.

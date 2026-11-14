@@ -93,9 +93,9 @@ class GuideTab extends StatefulWidget {
 
 @visibleForTesting
 ({String channelScopeKey, ({String kind, String value})? programId, int? beginsAt, int? endsAt}) guideAiringIdentity(
-    LiveTvChannel channel,
-    LiveTvProgram program,
-    ) {
+  LiveTvChannel channel,
+  LiveTvProgram program,
+) {
   ({String kind, String value})? programId;
   if (program.ratingKey case final ratingKey? when ratingKey.isNotEmpty) {
     programId = (kind: 'ratingKey', value: ratingKey);
@@ -108,22 +108,22 @@ class GuideTab extends StatefulWidget {
   // Keep the slot even with an ID so repeated airings cannot inherit each
   // other's hold; with no ID, channel scope plus timing is the fallback.
   return (
-  channelScopeKey: liveTvChannelScopeKey(channel),
-  programId: programId,
-  beginsAt: program.beginsAt,
-  endsAt: program.endsAt,
+    channelScopeKey: liveTvChannelScopeKey(channel),
+    programId: programId,
+    beginsAt: program.beginsAt,
+    endsAt: program.endsAt,
   );
 }
 
 enum _GuideZone { timeNav, grid }
 
 typedef _GuideFocusSnapshot = ({
-bool hasFocus,
-_GuideZone zone,
-int timeNavIndex,
-int channelIndex,
-int gridColumn,
-LiveTvProgram? program,
+  bool hasFocus,
+  _GuideZone zone,
+  int timeNavIndex,
+  int channelIndex,
+  int gridColumn,
+  LiveTvProgram? program,
 });
 
 sealed class _GuideRow {
@@ -230,12 +230,12 @@ class GuideTabState extends State<GuideTab>
   int _gridColumn = 0; // 0=channel, 1=program
   bool _hasFocus = false;
   final ValueNotifier<_GuideFocusSnapshot> _focusSnapshot = ValueNotifier((
-  hasFocus: false,
-  zone: _GuideZone.timeNav,
-  timeNavIndex: 1,
-  channelIndex: 0,
-  gridColumn: 0,
-  program: null,
+    hasFocus: false,
+    zone: _GuideZone.timeNav,
+    timeNavIndex: 1,
+    channelIndex: 0,
+    gridColumn: 0,
+    program: null,
   ));
   LiveTvProgram? _focusedProgram;
   bool _pendingFocus = false;
@@ -462,12 +462,12 @@ class GuideTabState extends State<GuideTab>
 
   void _publishFocusSnapshot() {
     _focusSnapshot.value = (
-    hasFocus: _hasFocus,
-    zone: _focusZone,
-    timeNavIndex: _timeNavIndex,
-    channelIndex: _gridChannelIndex,
-    gridColumn: _gridColumn,
-    program: _focusedProgram,
+      hasFocus: _hasFocus,
+      zone: _focusZone,
+      timeNavIndex: _timeNavIndex,
+      channelIndex: _gridChannelIndex,
+      gridColumn: _gridColumn,
+      program: _focusedProgram,
     );
   }
 
@@ -917,10 +917,7 @@ class GuideTabState extends State<GuideTab>
         resolveClient: multiServer.getClientForServer,
         isCurrent: current,
         body: (client, serverInfo) async {
-          final programs = await client.liveTv.fetchSchedule(
-            from: oldEnd.toUtc(),
-            to: newEnd.toUtc(),
-          );
+          final programs = await client.liveTv.fetchSchedule(from: oldEnd.toUtc(), to: newEnd.toUtc());
           if (current()) added.addAll(programs);
         },
         onError: (client, serverInfo, error, stackTrace) {
@@ -1163,9 +1160,7 @@ class GuideTabState extends State<GuideTab>
       if (channelSelectResult != KeyEventResult.ignored) return channelSelectResult;
     }
 
-    if (key.isContextMenuKey &&
-        widget.onMenuKey != null &&
-        (_focusZone == _GuideZone.timeNav || _gridColumn == 0)) {
+    if (key.isContextMenuKey && widget.onMenuKey != null && (_focusZone == _GuideZone.timeNav || _gridColumn == 0)) {
       if (event is KeyDownEvent) widget.onMenuKey!();
       return KeyEventResult.handled;
     }
@@ -1213,8 +1208,8 @@ class GuideTabState extends State<GuideTab>
         case 0:
           _shiftTimeRange(-2);
         case 1:
-        // The menu takes focus; suppress the in-flight SELECT key-up so the
-        // press that opened it cannot also activate the first menu item.
+          // The menu takes focus; suppress the in-flight SELECT key-up so the
+          // press that opened it cannot also activate the first menu item.
           SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
           _showDayPicker();
         case 2:
@@ -1511,7 +1506,11 @@ class GuideTabState extends State<GuideTab>
                               itemBuilder: (context, index) {
                                 final row = rows[index];
                                 return switch (row) {
-                                  _GuideSourceHeaderRow(:final label, :final inset) => _buildSourceHeaderCell(label, theme, inset: inset),
+                                  _GuideSourceHeaderRow(:final label, :final inset) => _buildSourceHeaderCell(
+                                    label,
+                                    theme,
+                                    inset: inset,
+                                  ),
                                   _GuideChannelRow(:final channel, :final channelIndex) => _buildChannelCell(
                                     channel,
                                     theme,
@@ -1540,45 +1539,43 @@ class GuideTabState extends State<GuideTab>
                             physics: const ClampingScrollPhysics(),
                             child: SizedBox(
                               width: _totalGridWidth(),
-                              child: Stack(children: [
-                                Positioned.fill(
-                                  child: IgnorePointer(
-                                    child: CustomPaint(
-                                      painter: _SlotLinesPainter(
-                                        slotWidth: _slotWidth,
-                                        firstIsHour: _gridStart.minute == 0,
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: CustomPaint(
+                                        painter: _SlotLinesPainter(
+                                          slotWidth: _slotWidth,
+                                          firstIsHour: _gridStart.minute == 0,
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                CustomScrollView(
-                                  controller: _gridVerticalController,
-                                  slivers: [
-                                    SliverVariedExtentList.builder(
-                                      itemCount: rows.length,
-                                      itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
-                                      itemBuilder: (context, index) {
-                                        final row = rows[index];
-                                        return switch (row) {
-                                          _GuideSourceHeaderRow(:final label, :final inset, :final count) => _buildSourceHeaderGridRow(
-                                            label,
-                                            theme,
-                                            inset: inset,
-                                            count: count,
-                                          ),
-                                          _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
-                                            channel,
-                                            _getProgramsForChannel(channel),
-                                            theme,
-                                            channelIndex: channelIndex,
-                                          ),
-                                        };
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ]),
+                                  CustomScrollView(
+                                    controller: _gridVerticalController,
+                                    slivers: [
+                                      SliverVariedExtentList.builder(
+                                        itemCount: rows.length,
+                                        itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
+                                        itemBuilder: (context, index) {
+                                          final row = rows[index];
+                                          return switch (row) {
+                                            _GuideSourceHeaderRow(:final label, :final inset, :final count) =>
+                                              _buildSourceHeaderGridRow(label, theme, inset: inset, count: count),
+                                            _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
+                                              channel,
+                                              _getProgramsForChannel(channel),
+                                              theme,
+                                              channelIndex: channelIndex,
+                                            ),
+                                          };
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1995,38 +1992,39 @@ class GuideTabState extends State<GuideTab>
                     child: !showNow
                         ? const SizedBox.shrink(key: ValueKey('no-now'))
                         : KeyedSubtree(
-                        key: const ValueKey('now'),
-                        child: _timeNavFocusWrap(
-                          index: 2,
-                          child: ClickableCursor(
-                            child: GestureDetector(
-                              onTap: _recenterOnNow,
-                              behavior: HitTestBehavior.opaque,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.error.withValues(alpha: 0.14),
-                                  borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: .min,
-                                  children: [
-                                    AppIcon(
-                                      Symbols.fiber_manual_record_rounded,
-                                      size: 10,
-                                      color: theme.colorScheme.error,
+                            key: const ValueKey('now'),
+                            child: _timeNavFocusWrap(
+                              index: 2,
+                              child: ClickableCursor(
+                                child: GestureDetector(
+                                  onTap: _recenterOnNow,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.error.withValues(alpha: 0.14),
+                                      borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
                                     ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      t.liveTv.now,
-                                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700),
+                                    child: Row(
+                                      mainAxisSize: .min,
+                                      children: [
+                                        AppIcon(
+                                          Symbols.fiber_manual_record_rounded,
+                                          size: 10,
+                                          color: theme.colorScheme.error,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          t.liveTv.now,
+                                          style: theme.textTheme.labelMedium?.copyWith(fontWeight: .w700),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        )),
                   ),
                 ),
               ),
@@ -2123,11 +2121,7 @@ class GuideTabState extends State<GuideTab>
         child: Row(
           mainAxisSize: .min,
           children: [
-            AppIcon(
-              Symbols.subdirectory_arrow_right_rounded,
-              size: 14,
-              color: scheme.onSurface.withValues(alpha: 0.5),
-            ),
+            AppIcon(Symbols.subdirectory_arrow_right_rounded, size: 14, color: scheme.onSurface.withValues(alpha: 0.5)),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
@@ -2157,28 +2151,28 @@ class GuideTabState extends State<GuideTab>
       decoration: inset
           ? null
           : BoxDecoration(
-        border: Border(bottom: BorderSide(color: scheme.onSurface.withValues(alpha: 0.07), width: 1)),
-      ),
+              border: Border(bottom: BorderSide(color: scheme.onSurface.withValues(alpha: 0.07), width: 1)),
+            ),
       child: countText == null
           ? null
           : ClipRect(
-        child: ListenableBuilder(
-          listenable: _gridHorizontalController,
-          builder: (context, child) {
-            final off = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
-            return Transform.translate(offset: Offset(off, 0), child: child);
-          },
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(4, 0, 0, widget.compact ? 4 : (inset ? 8 : 9)),
-            child: Text(
-              countText,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurface.withValues(alpha: inset ? 0.35 : 0.45),
+              child: ListenableBuilder(
+                listenable: _gridHorizontalController,
+                builder: (context, child) {
+                  final off = _gridHorizontalController.hasClients ? _gridHorizontalController.offset : 0.0;
+                  return Transform.translate(offset: Offset(off, 0), child: child);
+                },
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(4, 0, 0, widget.compact ? 4 : (inset ? 8 : 9)),
+                  child: Text(
+                    countText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: inset ? 0.35 : 0.45),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -2190,7 +2184,7 @@ class GuideTabState extends State<GuideTab>
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
       isSelected: (focus) =>
-      focus.hasFocus && focus.zone == _GuideZone.grid && focus.gridColumn == 0 && focus.channelIndex == index,
+          focus.hasFocus && focus.zone == _GuideZone.grid && focus.gridColumn == 0 && focus.channelIndex == index,
       builder: (context, isFocused) {
         return _ChannelCell(
           rowHeight: _rowHeight,
@@ -2231,11 +2225,11 @@ class GuideTabState extends State<GuideTab>
   }
 
   Widget _buildProgramRow(
-      LiveTvChannel channel,
-      List<LiveTvProgram> programs,
-      ThemeData theme, {
-        required int channelIndex,
-      }) {
+    LiveTvChannel channel,
+    List<LiveTvProgram> programs,
+    ThemeData theme, {
+    required int channelIndex,
+  }) {
     if (programs.isEmpty) {
       final tk = tokens(context);
       return SizedBox(
@@ -2306,18 +2300,18 @@ class GuideTabState extends State<GuideTab>
   }
 
   Widget _buildProgramBlock(
-      LiveTvChannel channel,
-      LiveTvProgram program,
-      ThemeData theme, {
-        required int channelIndex,
-        required double tileLeft,
-        required double tileWidth,
-        required double scrollOffset,
-      }) {
+    LiveTvChannel channel,
+    LiveTvProgram program,
+    ThemeData theme, {
+    required int channelIndex,
+    required double tileLeft,
+    required double tileWidth,
+    required double scrollOffset,
+  }) {
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
       isSelected: (focus) =>
-      focus.hasFocus &&
+          focus.hasFocus &&
           focus.zone == _GuideZone.grid &&
           focus.gridColumn == 1 &&
           focus.channelIndex == channelIndex &&
@@ -2371,74 +2365,81 @@ class GuideTabState extends State<GuideTab>
               onTap: () => _activateProgram(channel, program),
               onLongPress: () => _showProgramDetails(channel, program),
               onSecondaryTap: () => _showProgramDetails(channel, program),
-              child: Stack(children: [
-                Padding(
-                  padding: .fromLTRB(
-                    (widget.compact ? 12 : 10) + (scrollOffset - tileLeft).clamp(0.0, (tileWidth - tk.groupGap - 32).clamp(0.0, double.infinity)),
-                    widget.compact ? 3 : 6,
-                    8,
-                    widget.compact ? 3 : 6,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    mainAxisAlignment: .center,
-                    children: [
-                      Row(
-                        children: [
-                          if (isRecordingScheduled) ...[
-                            _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
-                            const SizedBox(width: 5),
-                          ],
-                          if (program.premiere == true) ...[
-                            StatusPill(label: t.liveTv.premiereBadge, color: titleColor, dense: true),
-                            const SizedBox(width: 5),
-                          ],
-                          Expanded(
-                            child: Text(
-                              program.grandparentTitle ?? program.title,
-                              style: (widget.compact ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)?.copyWith(
-                                fontSize: widget.compact ? 13 : null,
-                                fontWeight: .w600,
-                                color: titleColor,
-                              ),
-                              maxLines: 1,
-                              overflow: .ellipsis,
-                            ),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: .fromLTRB(
+                      (widget.compact ? 12 : 10) +
+                          (scrollOffset - tileLeft).clamp(
+                            0.0,
+                            (tileWidth - tk.groupGap - 32).clamp(0.0, double.infinity),
                           ),
-                        ],
-                      ),
-                      if (program.grandparentTitle != null && !widget.compact)
-                        Text(
-                          '${program.parentIndex != null && program.index != null ? 'S${program.parentIndex}E${program.index} · ' : ''}${program.title}',
-                          style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                          maxLines: 1,
-                          overflow: .ellipsis,
+                      widget.compact ? 3 : 6,
+                      8,
+                      widget.compact ? 3 : 6,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: .start,
+                      mainAxisAlignment: .center,
+                      children: [
+                        Row(
+                          children: [
+                            if (isRecordingScheduled) ...[
+                              _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
+                              const SizedBox(width: 5),
+                            ],
+                            if (program.premiere == true) ...[
+                              StatusPill(label: t.liveTv.premiereBadge, color: titleColor, dense: true),
+                              const SizedBox(width: 5),
+                            ],
+                            Expanded(
+                              child: Text(
+                                program.grandparentTitle ?? program.title,
+                                style: (widget.compact ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)
+                                    ?.copyWith(
+                                      fontSize: widget.compact ? 13 : null,
+                                      fontWeight: .w600,
+                                      color: titleColor,
+                                    ),
+                                maxLines: 1,
+                                overflow: .ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      if (program.startTime != null)
-                        Text(
-                          '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} · ${formatDurationTextual(program.durationMinutes * 60_000)}',
-                          style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                          maxLines: 1,
-                          overflow: .ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                if (progress != null)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 3,
-                    child: Align(
-                      alignment: .centerLeft,
-                      child: FractionallySizedBox(
-                        widthFactor: progress,
-                        child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.7)),
-                      ),
+                        if (program.grandparentTitle != null && !widget.compact)
+                          Text(
+                            '${program.parentIndex != null && program.index != null ? 'S${program.parentIndex}E${program.index} · ' : ''}${program.title}',
+                            style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                          ),
+                        if (program.startTime != null)
+                          Text(
+                            '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} · ${formatDurationTextual(program.durationMinutes * 60_000)}',
+                            style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                          ),
+                      ],
                     ),
                   ),
-              ]),
+                  if (progress != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 3,
+                      child: Align(
+                        alignment: .centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: progress,
+                          child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.7)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -2597,18 +2598,18 @@ class _ChannelCellState extends State<_ChannelCell> {
                         duration: FocusTheme.getAnimationDuration(context),
                         child: widget.channelThumb != null && widget.client != null
                             ? OptimizedMediaImage.thumb(
-                          client: widget.client!,
-                          imagePath: widget.channelThumb,
-                          width: widget.channelColumnWidth - 16,
-                          height: widget.rowHeight - 16,
-                          fit: BoxFit.contain,
-                          logoToneTarget: logoToneTargetFor(
-                            surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                            foreground: widget.isFocused
-                                ? theme.colorScheme.onPrimary
-                                : theme.colorScheme.onSurface,
-                          ),
-                        )
+                                client: widget.client!,
+                                imagePath: widget.channelThumb,
+                                width: widget.channelColumnWidth - 16,
+                                height: widget.rowHeight - 16,
+                                fit: BoxFit.contain,
+                                logoToneTarget: logoToneTargetFor(
+                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
+                                  foreground: widget.isFocused
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              )
                             : widget.fallbackBuilder(),
                       ),
                       if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
@@ -2671,5 +2672,6 @@ class _SlotLinesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SlotLinesPainter old) => old.slotWidth != slotWidth || old.color != color || old.firstIsHour != firstIsHour;
+  bool shouldRepaint(_SlotLinesPainter old) =>
+      old.slotWidth != slotWidth || old.color != color || old.firstIsHour != firstIsHour;
 }

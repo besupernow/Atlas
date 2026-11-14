@@ -173,11 +173,11 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
   /// metadata carries the video dimensions. Shared by the start and reload
   /// flows so the eligibility rule cannot drift between them.
   bool _shouldAutoSwitchDisplayModeForOpen(
-      SettingsService settingsService, {
-        double? fps,
-        int width = 0,
-        int height = 0,
-      }) {
+    SettingsService settingsService, {
+    double? fps,
+    int width = 0,
+    int height = 0,
+  }) {
     if (!Platform.isAndroid) return false;
     final rateEligible = settingsService.read(SettingsService.matchContentFrameRate) && fps != null && fps > 0;
     final resolutionEligible = settingsService.read(SettingsService.matchContentResolution) && width > 0 && height > 0;
@@ -190,8 +190,8 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
   /// still win, so callers only ask when no request is in play.
   bool _opensShuffledFromBeginning(SettingsService settings) =>
       mounted &&
-          context.read<PlaybackStateProvider>().isShuffleActive &&
-          settings.read(SettingsService.shuffleStartsFromBeginning);
+      context.read<PlaybackStateProvider>().isShuffleActive &&
+      settings.read(SettingsService.shuffleStartsFromBeginning);
 
   /// Resolve where a fresh open should start: explicit request → shuffle
   /// override → locally tracked offline progress → server view offset.
@@ -226,10 +226,10 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
   /// Live TV channel opens ([_armLiveDisplayNegotiation]) so the two cannot
   /// drift.
   _FrameRateStartupPlan? _firstFrameStartupPlan(
-      Player currentPlayer,
-      SettingsService settingsService, {
-        required bool hasVideoUrl,
-      }) {
+    Player currentPlayer,
+    SettingsService settingsService, {
+    required bool hasVideoUrl,
+  }) {
     // needsDecoderRefreshAfterDisplaySwitch is how this file distinguishes
     // the two Android backends (true = the mpv core).
     final isAndroidMpv = currentPlayer.needsDecoderRefreshAfterDisplaySwitch;
@@ -237,7 +237,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     final plan = _FrameRateStartupPlan(fps: null);
     final matchingEnabled =
         settingsService.read(SettingsService.matchContentFrameRate) ||
-            settingsService.read(SettingsService.matchContentResolution);
+        settingsService.read(SettingsService.matchContentResolution);
     // Apple TV matching is a system setting (AVDisplayManager); the gate
     // only exists to keep playback from running through the HDMI blank.
     plan.needsFirstFrameSwitch = hasVideoUrl && (!isAndroidMpv || matchingEnabled);
@@ -817,12 +817,12 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     if (ringBytes != null) {
       appLogger.i(
         'Stream ring buffer: ${ringBytes ~/ (1024 * 1024)}MiB '
-            '(container=${selectedVersion?.container}, bitrate=${selectedVersion?.bitrate}kbps)',
+        '(container=${selectedVersion?.container}, bitrate=${selectedVersion?.bitrate}kbps)',
       );
     } else {
       appLogger.d(
         'Stream ring buffer: default '
-            '(networkVod=$isNetworkVod, transcoding=$isTranscoding, container=${selectedVersion?.container})',
+        '(networkVod=$isNetworkVod, transcoding=$isTranscoding, container=${selectedVersion?.container})',
       );
     }
     await player.setProperty('stream-buffer-size', '${ringBytes ?? mpvDefaultStreamBufferBytes}');
@@ -1140,20 +1140,20 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       // metadata mismatch into a navigation-priority off that no late track
       // can undo (#1785).
       preferredSubtitleTrack:
-      openSubtitleSelection.declinedPreference ??
+          openSubtitleSelection.declinedPreference ??
           SubtitlePreference.trackOrNull(openSubtitleSelection.primaryTrack),
       preferredSecondarySubtitleTrack: SubtitlePreference.trackOrNull(openSubtitleSelection.secondaryTrack),
       // A source-backed primary with no sidecar on a transcode is one the
       // server burned into the picture: it is already visible, and no native
       // track will ever arrive to match it.
       primarySubtitleIsServerRendered:
-      primarySubtitleTranscoding() &&
+          primarySubtitleTranscoding() &&
           openSubtitleSelection.primarySourceStreamId != null &&
           openSubtitleSelection.primarySidecar == null,
       // A declined carry is still the viewer's choice: a late native pass may
       // yet serve it, and that pick belongs on the server (#2323).
       persistAutomaticSubtitleSelection:
-      openSubtitleSelection.primaryHonorsPreference || openSubtitleSelection.declinedPreference != null,
+          openSubtitleSelection.primaryHonorsPreference || openSubtitleSelection.declinedPreference != null,
     );
     _trackManager = trackManager;
 

@@ -22,6 +22,7 @@ import '../services/app_exit_service.dart';
 import '../services/tvos_system_navigation_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_logger.dart';
+import '../app/shell_activity.dart';
 import '../widgets/atlas_native_tab_bar.dart';
 import '../widgets/auth_error_banner.dart';
 import '../widgets/app_icon.dart';
@@ -1927,7 +1928,7 @@ class _MainScreenState extends State<MainScreen>
     final tabs = _getBottomNavigationTabs(context);
     final selectedIndex = tabs.indexWhere((tab) => tab.id == _currentTab);
     return AtlasNativeTabBar(
-      tabs: tabs,
+      items: AtlasNativeTabBar.itemsFor(tabs),
       selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
       showLabels: showLabels,
       onSelected: (i) => _selectTab(tabs[i].id),
@@ -2107,6 +2108,8 @@ class _MainScreenState extends State<MainScreen>
       // (go to home tab, then press-back-twice to exit).
       canPop: false,
       onSystemBack: () {
+        // Atlas: music mode is on screen; this (hidden) video shell leaves back to it.
+        if (!ShellActivity.isActive(context)) return;
         if (BackKeyCoordinator.consumeIfHandled()) return;
         _handleMainBack();
       },

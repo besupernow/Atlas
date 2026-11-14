@@ -59,7 +59,10 @@ String adaptiveQualityLabel({int? width, int? height, int? bitrateBps, int? link
   }
   final bitrate = bitrateBps != null && bitrateBps > 0 ? '${_formatBitrate(bitrateBps ~/ 1000)} Mbps' : null;
   final link = linkBps != null && linkBps > 0 ? '(link ${(linkBps / 1000000).toStringAsFixed(1)} Mbps)' : null;
-  return [['Auto', resolution, ?bitrate].join(' · '), ?link].join(' ');
+  return [
+    ['Auto', resolution, ?bitrate].join(' · '),
+    ?link,
+  ].join(' ');
 }
 
 String _formatBitrate(int kbps) {
@@ -117,12 +120,12 @@ String? qualityPresetSizeEstimate({
 /// Quality-preset picker dialog — shares [TranscodeQualityPreset.displayOrder]
 /// with the in-player sheet. Returns the selected preset, or `null` if dismissed.
 Future<TranscodeQualityPreset?> showQualityPickerDialog(
-    BuildContext context, {
-      String? title,
-      int? sourceBitrateKbps,
-      int? sourceDurationMs,
-      int? sourceSizeBytes,
-    }) {
+  BuildContext context, {
+  String? title,
+  int? sourceBitrateKbps,
+  int? sourceDurationMs,
+  int? sourceSizeBytes,
+}) {
   String labelFor(TranscodeQualityPreset p) {
     final base = qualityPresetLabel(p);
     final size = qualityPresetSizeEstimate(

@@ -39,7 +39,9 @@ Future<void> launchDeepLink(BuildContext context, DeepLink link, {required bool 
     case LiveLink():
       await _launchLiveLink(context, link, isOffline: isOffline);
     case AuthorizeLink(:final code):
-      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AuthorizeDeviceScreen(initialCode: code)));
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => AuthorizeDeviceScreen(initialCode: code)));
   }
 }
 

@@ -124,10 +124,10 @@ abstract class BaseMediaListDetailScreen<T extends StatefulWidget> extends State
   /// next remove or move still addresses this entry.
   static MediaItem _keepPlaylistEntry(MediaItem previous, MediaItem updated) => switch ((previous, updated)) {
     (PlexMediaItem(:final playlistItemId?), final PlexMediaItem refreshed) when refreshed.playlistItemId == null =>
-        refreshed.copyWith(playlistItemId: playlistItemId),
+      refreshed.copyWith(playlistItemId: playlistItemId),
     (JellyfinMediaItem(:final playlistItemId?), final JellyfinMediaItem refreshed)
-    when refreshed.playlistItemId == null =>
-        refreshed.copyWith(playlistItemId: playlistItemId),
+        when refreshed.playlistItemId == null =>
+      refreshed.copyWith(playlistItemId: playlistItemId),
     _ => updated,
   };
 

@@ -99,13 +99,26 @@ class MiniPlayerInsetController extends ChangeNotifier {
   bool _navBarSuspended = false;
   double _overlayHeight = 0;
 
+  /// Atlas: music mode's own navigation (its tab bar or rail) while music mode is on screen;
+  /// null in video mode, where MainScreen's measurements apply.
+  (double, double)? _musicShellInsets;
+
   /// Height of the mobile bottom navigation area the mini-player must clear;
   /// 0 while a pushed route covers it (safe-area padding takes over).
-  double get bottomInset => _navBarSuspended ? 0 : _navBarInset;
+  double get bottomInset => _navBarSuspended ? 0 : (_musicShellInsets?.$1 ?? _navBarInset);
 
   /// Width of the mobile landscape navigation rail on the leading edge;
   /// 0 in portrait or while a pushed route covers it.
-  double get startInset => _navBarSuspended ? 0 : _navRailInset;
+  double get startInset => _navBarSuspended ? 0 : (_musicShellInsets?.$2 ?? _navRailInset);
+
+  /// Atlas: music mode reports its navigation here while it's on screen, and passes null when
+  /// it hides.
+  void setMusicShellInsets(({double bottom, double start})? insets) {
+    final value = insets == null ? null : (insets.bottom, insets.start);
+    if (_musicShellInsets == value) return;
+    _musicShellInsets = value;
+    notifyListeners();
+  }
 
   /// Total vertical space the visible mini-player occupies (card + gaps).
   /// 0 while hidden. Music screens add this to their scroll bottom padding.
@@ -203,11 +216,11 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
 
         final Widget child = visible
             ? _MiniPlayerCard(
-                key: const ValueKey('mini_player_card'),
-                track: track,
-                desktop: useSideNav,
-                onDismissed: _handleDismissed,
-              )
+          key: const ValueKey('mini_player_card'),
+          track: track,
+          desktop: useSideNav,
+          onDismissed: _handleDismissed,
+        )
             : const SizedBox.shrink(key: ValueKey('mini_player_hidden'));
 
         final switcher = AnimatedSwitcher(
@@ -229,7 +242,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         }
 
         final (bottomInset, startInset) = context.select<MiniPlayerInsetController?, (double, double)>(
-          (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
+              (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
         );
         final padding = MediaQuery.paddingOf(context);
         final isLtr = Directionality.of(context) == TextDirection.ltr;

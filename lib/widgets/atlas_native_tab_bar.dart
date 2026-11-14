@@ -7,19 +7,27 @@ import 'package:flutter/services.dart';
 import '../navigation/navigation_tabs.dart';
 import '../utils/platform_detector.dart';
 
+/// One tab of [AtlasNativeTabBar]: its label and SF Symbol.
+typedef AtlasTabItem = ({String title, String symbol});
+
 /// Atlas: the bottom bar on iPhone and iPad is UIKit's own `UITabBar` (Liquid Glass on iOS 26),
 /// tinted with the selected theme. See `ios/Runner/AtlasNativeTabBar.swift`.
 class AtlasNativeTabBar extends StatefulWidget {
   const AtlasNativeTabBar({
     super.key,
-    required this.tabs,
+    required this.items,
     required this.selectedIndex,
     required this.showLabels,
     required this.onSelected,
     this.onLongPress,
   });
 
-  final List<NavigationTab> tabs;
+  /// The video side's tabs as bar items.
+  static List<AtlasTabItem> itemsFor(List<NavigationTab> tabs) => [
+    for (final tab in tabs) (title: tab.getLabel(), symbol: symbolFor(tab.id)),
+  ];
+
+  final List<AtlasTabItem> items;
   final int selectedIndex;
   final bool showLabels;
   final ValueChanged<int> onSelected;
@@ -55,7 +63,7 @@ class _AtlasNativeTabBarState extends State<AtlasNativeTabBar> {
     final scheme = Theme.of(context).colorScheme;
     return {
       'items': [
-        for (final tab in widget.tabs) {'title': tab.getLabel(), 'symbol': AtlasNativeTabBar.symbolFor(tab.id)},
+        for (final item in widget.items) {'title': item.title, 'symbol': item.symbol},
       ],
       'selected': widget.selectedIndex,
       'showLabels': widget.showLabels,
@@ -76,7 +84,7 @@ class _AtlasNativeTabBarState extends State<AtlasNativeTabBar> {
   }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
-    final count = widget.tabs.length;
+    final count = widget.items.length;
     switch (call.method) {
       case 'select':
         final index = call.arguments as int;

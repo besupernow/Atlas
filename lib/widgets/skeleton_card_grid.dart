@@ -28,7 +28,7 @@ class SkeletonCardGrid extends StatelessWidget {
           childAspectRatio: 0.56,
         ),
         delegate: SliverChildBuilderDelegate(
-              (context, index) => const IgnorePointer(child: SkeletonMediaCard()),
+          (context, index) => const IgnorePointer(child: SkeletonMediaCard()),
           childCount: count,
         ),
       ),

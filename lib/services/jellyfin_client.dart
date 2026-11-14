@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'jellyfin_client/web_device_profile_stub.dart'
-if (dart.library.js_interop) 'jellyfin_client/web_device_profile_web.dart';
+    if (dart.library.js_interop) 'jellyfin_client/web_device_profile_web.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -139,44 +139,44 @@ mixin _JellyfinClientInternals on MediaServerCacheMixin {
   /// picks its own degradation.
   Future<List<String>> _fetchFilterFacet(String endpoint, String? libraryId);
   Future<JellyfinPlaybackBundle?> fetchPlaybackBundle(
-      String itemId, {
-        int sourceIndex = 0,
-        String? sourceId,
-        String? preferredSignature,
-      });
+    String itemId, {
+    int sourceIndex = 0,
+    String? sourceId,
+    String? preferredSignature,
+  });
   String buildDirectStreamUrl(
-      String itemId, {
-        String? container,
-        String? mediaSourceId,
-        String? playSessionId,
-        String? liveStreamId,
-        int? audioStreamIndex,
-        bool containerExtension = false,
-      });
+    String itemId, {
+    String? container,
+    String? mediaSourceId,
+    String? playSessionId,
+    String? liveStreamId,
+    int? audioStreamIndex,
+    bool containerExtension = false,
+  });
   String buildAudioDirectStreamUrl(
-      String itemId, {
-        String? container,
-        String? mediaSourceId,
-        bool containerExtension = false,
-      });
+    String itemId, {
+    String? container,
+    String? mediaSourceId,
+    bool containerExtension = false,
+  });
   Future<Map<String, dynamic>> getPlaybackInfo(
-      String itemId, {
-        int? maxStreamingBitrate = 100_000_000,
-        String? mediaSourceId,
-        String? liveStreamId,
-        int? startTimeTicks,
-        int? audioStreamIndex,
-        int? subtitleStreamIndex,
-        bool? autoOpenLiveStream,
-        bool? enableDirectPlay,
-        bool? enableDirectStream,
-        bool? enableTranscoding,
-        bool? allowVideoStreamCopy,
-        bool? allowAudioStreamCopy,
-        bool isLiveTv,
-        bool audioProfile,
-        bool burnSubtitles,
-      });
+    String itemId, {
+    int? maxStreamingBitrate = 100_000_000,
+    String? mediaSourceId,
+    String? liveStreamId,
+    int? startTimeTicks,
+    int? audioStreamIndex,
+    int? subtitleStreamIndex,
+    bool? autoOpenLiveStream,
+    bool? enableDirectPlay,
+    bool? enableDirectStream,
+    bool? enableTranscoding,
+    bool? allowVideoStreamCopy,
+    bool? allowAudioStreamCopy,
+    bool isLiveTv,
+    bool audioProfile,
+    bool burnSubtitles,
+  });
   String _withApiKey(String urlOrPath);
 
   /// Positional core of the tolerant `/Items` array fetch. The browse part's
@@ -292,8 +292,8 @@ class JellyfinClient
         ScopedMediaServerClient,
         GracefullyCloseable {
   JellyfinClient._({required this._connection, required this._http, FavoriteChannelsRepository? favoritesRepository})
-      : _favoritesRepository = favoritesRepository ?? const SharedPreferencesFavoriteChannelsRepository(),
-        _paths = MediaBrowserPaths(dialect: _connection.dialect, userId: _connection.userId);
+    : _favoritesRepository = favoritesRepository ?? const SharedPreferencesFavoriteChannelsRepository(),
+      _paths = MediaBrowserPaths(dialect: _connection.dialect, userId: _connection.userId);
 
   /// Build a fully-initialised [JellyfinClient]. Endpoint reachability is
   /// raced before construction by onboarding/profile binding; this factory
@@ -310,10 +310,10 @@ class JellyfinClient
   /// `MediaBrowser` Authorization scheme and `X-Emby-Token`, so no dialect
   /// branch is needed here (verified against Emby 4.9.5).
   static Future<JellyfinClient> create(
-      JellyfinConnection connection, {
-        FavoriteChannelsRepository? favoritesRepository,
-        void Function()? onAllEndpointsExhausted,
-      }) async {
+    JellyfinConnection connection, {
+    FavoriteChannelsRepository? favoritesRepository,
+    void Function()? onAllEndpointsExhausted,
+  }) async {
     // Register every normalized connection endpoint and the token before any
     // HTTP traffic. Orchestration logs contain no literals; this additionally
     // protects unavoidable network-layer diagnostics.
@@ -354,7 +354,7 @@ class JellyfinClient
       onEndpointSwitch: (newBaseUrl, {required persist}) => client._handleEndpointSwitch(newBaseUrl, persist: persist),
       onAllEndpointsExhausted: onAllEndpointsExhausted,
       validateCandidate: (candidateBaseUrl, abort) async =>
-      (await endpointDiscovery.probe(candidateBaseUrl, abort: abort)).machineId == connection.serverMachineId,
+          (await endpointDiscovery.probe(candidateBaseUrl, abort: abort)).machineId == connection.serverMachineId,
     );
     client = JellyfinClient._(connection: connection, http: http, favoritesRepository: favoritesRepository);
     return client;
@@ -384,7 +384,7 @@ class JellyfinClient
       onEndpointSwitch: (newBaseUrl, {required persist}) => client._handleEndpointSwitch(newBaseUrl, persist: persist),
       onAllEndpointsExhausted: onAllEndpointsExhausted,
       validateCandidate: (candidateBaseUrl, abort) async =>
-      (await endpointDiscovery.probe(candidateBaseUrl, abort: abort)).machineId == connection.serverMachineId,
+          (await endpointDiscovery.probe(candidateBaseUrl, abort: abort)).machineId == connection.serverMachineId,
       client: httpClient,
     );
     client = JellyfinClient._(connection: connection, http: mediaHttp, favoritesRepository: favoritesRepository);

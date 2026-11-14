@@ -148,10 +148,10 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     final uri = track?.uri;
     final usable =
         track != null &&
-            track.id != SubtitleTrack.off.id &&
-            uri != null &&
-            (uri.startsWith('http://') || uri.startsWith('https://')) &&
-            !_isBitmap(track.codec);
+        track.id != SubtitleTrack.off.id &&
+        uri != null &&
+        (uri.startsWith('http://') || uri.startsWith('https://')) &&
+        !_isBitmap(track.codec);
     if (!usable) {
       if (_activeUri != null) {
         _loadGeneration++;
@@ -280,11 +280,7 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
       final start = _parseTime(match.group(1)!);
       final end = _parseTime(match.group(2)!);
       if (start == null || end == null || end <= start) continue;
-      final text = lines
-          .skip(timingIndex + 1)
-          .map(_cleanLine)
-          .where((line) => line.isNotEmpty)
-          .join('\n');
+      final text = lines.skip(timingIndex + 1).map(_cleanLine).where((line) => line.isNotEmpty).join('\n');
       if (text.isNotEmpty) cues.add(_Cue(start, end, text));
     }
     cues.sort((a, b) => a.start.compareTo(b.start));
@@ -334,7 +330,9 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
     final text = _text;
     final controls = widget.controlsVisible;
     Widget layout(bool controlsUp) => IgnorePointer(
-      child: LayoutBuilder(builder: (context, constraints) => _buildCue(context, text, constraints.biggest, controlsUp)),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _buildCue(context, text, constraints.biggest, controlsUp),
+      ),
     );
     if (controls == null) return layout(false);
     return ValueListenableBuilder<bool>(valueListenable: controls, builder: (context, up, _) => layout(up));
@@ -387,7 +385,7 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
       // Netflix and Disney+; everything else is centred.
       final dialogue =
           lines.length > 1 &&
-              lines.every((line) => line.replaceAll(RegExp('[\u0001-\u0004]'), '').trimLeft().startsWith('-'));
+          lines.every((line) => line.replaceAll(RegExp('[\u0001-\u0004]'), '').trimLeft().startsWith('-'));
       final align = dialogue ? TextAlign.left : TextAlign.center;
       final spans = _spans(
         text,
@@ -402,13 +400,18 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
       // Fill drawn over a soft stroke of the same text: a clean edge without the
       // fuzzy look of stacked shadows.
       final stroke = Text.rich(
-        TextSpan(children: _spans(text, base.copyWith(
-          foreground: Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = (fontSize * 0.11).clamp(1.5, 5.0)
-            ..strokeJoin = StrokeJoin.round
-            ..color = ink.withValues(alpha: 0.85),
-        ))),
+        TextSpan(
+          children: _spans(
+            text,
+            base.copyWith(
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = (fontSize * 0.11).clamp(1.5, 5.0)
+                ..strokeJoin = StrokeJoin.round
+                ..color = ink.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
         textAlign: align,
       );
       final fillText = Text.rich(TextSpan(children: spans), textAlign: align);
@@ -446,7 +449,8 @@ class _AtlasSubtitleOverlayState extends State<AtlasSubtitleOverlay> with Single
               duration: const Duration(milliseconds: 90),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
-              layoutBuilder: (current, previous) => Stack(alignment: Alignment.bottomCenter, children: [...previous, ?current]),
+              layoutBuilder: (current, previous) =>
+                  Stack(alignment: Alignment.bottomCenter, children: [...previous, ?current]),
               child: cue ?? const SizedBox.shrink(key: ValueKey('none')),
             ),
           ),

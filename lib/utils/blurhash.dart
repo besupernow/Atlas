@@ -82,9 +82,9 @@ class BlurHashImage extends ImageProvider<BlurHashImage> {
   @override
   bool operator ==(Object other) =>
       other is BlurHashImage &&
-          other.hash == hash &&
-          other.decodeWidth == decodeWidth &&
-          other.decodeHeight == decodeHeight;
+      other.hash == hash &&
+      other.decodeWidth == decodeWidth &&
+      other.decodeHeight == decodeHeight;
 
   @override
   int get hashCode => Object.hash(hash, decodeWidth, decodeHeight);

@@ -81,10 +81,10 @@ Future<JellyfinConnectionAuthService> buildJellyfinAuthService(MediaBrowserDiale
 /// ownership row, then bind. Returns an error message, or null on success.
 /// Does not navigate.
 Future<String?> persistJellyfinSignIn(
-    BuildContext context,
-    JellyfinConnection connection, {
-      Profile? targetProfile,
-    }) async {
+  BuildContext context,
+  JellyfinConnection connection, {
+  Profile? targetProfile,
+}) async {
   final activeProvider = context.read<ActiveProfileProvider>();
   await activeProvider.initialize();
   if (!context.mounted) return null;
@@ -261,20 +261,20 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           .where((c) => c.dialect == widget.dialect)
           .map(
             (c) => DiscoveredJellyfinServer(
-          address: c.baseUrl,
-          id: c.serverMachineId,
-          name: c.serverName,
-          dialect: c.dialect,
-        ),
-      );
+              address: c.baseUrl,
+              id: c.serverMachineId,
+              name: c.serverName,
+              dialect: c.dialect,
+            ),
+          );
 
       final factory = widget._localDiscoveryFactory;
       final lanServers = factory != null
           ? await factory()
           : await JellyfinLanDiscoveryService().discover(
-        dialect: widget.dialect,
-        responseWindow: const Duration(milliseconds: 1300),
-      );
+              dialect: widget.dialect,
+              responseWindow: const Duration(milliseconds: 1300),
+            );
       if (!mounted || attemptId != _localDiscoveryAttemptId) return;
 
       // Deduplicate by machine ID
@@ -297,7 +297,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     for (final server in servers) {
       _discoveredServerFocusNodes.putIfAbsent(
         server.id,
-            () => FocusNode(debugLabel: 'AddJellyfin:Discovered:${server.id}'),
+        () => FocusNode(debugLabel: 'AddJellyfin:Discovered:${server.id}'),
       );
     }
   }
@@ -316,6 +316,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     });
     await _probe();
   }
+
   Future<void> _probe() async {
     final input = JellyfinEndpointDiscovery.buildUserInputCandidates(_enteredUrls(), dialect: widget.dialect);
     if (input.probeBaseUrls.isEmpty) {
@@ -323,7 +324,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
       return;
     }
     final autoStartQuickConnect = await runAsync<bool>(
-          () async {
+      () async {
         final auth = await _buildAuthService();
         final endpoint = await auth.raceEndpoints(
           input.probeBaseUrls,
@@ -349,7 +350,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
         return autoStart;
       },
       errorMapper: (e) =>
-      e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
+          e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
     );
     // Sequenced after the probe's runAsync so busy stays set straight through
     // /QuickConnect/Initiate. Started from inside the probe body, the probe's
@@ -377,7 +378,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     }
 
     await runAsync<void>(
-          () async {
+      () async {
         final auth = await _buildAuthService();
         final storage = await StorageService.getInstance();
         final deviceId = await storage.getOrCreateClientIdentifier();
@@ -412,7 +413,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     if (!widget.dialect.supportsQuickConnect || !(info.dialect ?? widget.dialect).supportsQuickConnect) return;
     final attemptId = beginQuickConnectAttempt();
     await runAsync<void>(
-          () async {
+      () async {
         final auth = await _buildAuthService();
         final storage = await StorageService.getInstance();
         final deviceId = await storage.getOrCreateClientIdentifier();
@@ -510,37 +511,37 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
                 Positioned.fill(
                   child: widget.dialect.supportsQuickConnect && quickConnectCode != null
                       ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: QuickConnectCodePanel(
-                        code: quickConnectCode!,
-                        cancelFocusNode: _cancelQuickConnectFocus,
-                        onCancel: cancelQuickConnect,
-                        errorText: errorText,
-                      ),
-                    ),
-                  )
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: QuickConnectCodePanel(
+                              code: quickConnectCode!,
+                              cancelFocusNode: _cancelQuickConnectFocus,
+                              onCancel: cancelQuickConnect,
+                              errorText: errorText,
+                            ),
+                          ),
+                        )
                       : Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
-                        // AutofillGroup ties username + password together so iOS /
-                        // Android autofill and browser password managers treat them as
-                        // one login form (on web Flutter emits a real <form>).
-                        child: AutofillGroup(
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _buildBodyChildren(theme),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 420),
+                              // AutofillGroup ties username + password together so iOS /
+                              // Android autofill and browser password managers treat them as
+                              // one login form (on web Flutter emits a real <form>).
+                              child: AutofillGroup(
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: _buildBodyChildren(theme),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -677,7 +678,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

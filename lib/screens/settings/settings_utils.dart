@@ -46,11 +46,11 @@ class DialogOption<T> {
 }
 
 typedef _SettingsDialogContentBuilder =
-Widget Function(
-    BuildContext dialogContext,
-    BuildContext contentContext,
-    StateSetter setDialogState,
-    FocusNode saveFocusNode,
+    Widget Function(
+      BuildContext dialogContext,
+      BuildContext contentContext,
+      StateSetter setDialogState,
+      FocusNode saveFocusNode,
     );
 
 typedef _SettingsDialogActionsBuilder = List<Widget> Function(BuildContext dialogContext, StateSetter setDialogState);
@@ -58,11 +58,11 @@ typedef _SettingsDialogActionsBuilder = List<Widget> Function(BuildContext dialo
 /// Reports a recoverable settings persistence failure without swallowing
 /// programming errors or other unexpected exception types.
 void showSettingsFailure(
-    BuildContext context, {
-      required String operation,
-      required Object error,
-      required StackTrace stackTrace,
-    }) {
+  BuildContext context, {
+  required String operation,
+  required Object error,
+  required StackTrace stackTrace,
+}) {
   appLogger.e('$operation failed', error: error, stackTrace: stackTrace);
   if (context.mounted) showErrorSnackBar(context, t.settings.saveFailed);
 }
@@ -76,10 +76,10 @@ void showSettingsFailure(
 /// caller was disposed is still logged; only the snackbar is skipped. Returns
 /// `null` when the operation failed.
 Future<T?> guardSettingsOperation<T, E extends Object>(
-    BuildContext context, {
-      required String operation,
-      required Future<T> Function() body,
-    }) async {
+  BuildContext context, {
+  required String operation,
+  required Future<T> Function() body,
+}) async {
   try {
     return await body();
   } on Object catch (error, stackTrace) {
@@ -256,12 +256,12 @@ void showChecklistDialog<T>({
                 onChanged: locked.contains(option.value)
                     ? null
                     : (value) => setDialogState(() {
-                  if (value ?? false) {
-                    current.add(option.value);
-                  } else {
-                    current.remove(option.value);
-                  }
-                }),
+                        if (value ?? false) {
+                          current.add(option.value);
+                        } else {
+                          current.remove(option.value);
+                        }
+                      }),
                 title: Text(option.title),
                 subtitle: option.subtitle != null ? Text(option.subtitle!) : null,
                 autofocus: focusFirstItem && option.value == firstEditable,

@@ -130,7 +130,7 @@ class MediaControlsManager {
     required double speed,
     bool force = false,
   }) async {
-    if (kIsWeb ||_updatesSuspended) return;
+    if (kIsWeb || _updatesSuspended) return;
 
     final params = _PlaybackStateParams(isPlaying: isPlaying, position: position, speed: speed);
 

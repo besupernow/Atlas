@@ -79,9 +79,9 @@ class _GuestHomeState extends State<_GuestHome> {
 
   Future<void> _watch() async {
     final session = _session!;
-    final finished = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => _GuestPlayerScreen(session: session)),
-    );
+    final finished = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => _GuestPlayerScreen(session: session)));
     // Any exit from the media ends guest mode.
     if (finished != null || mounted) await _leave();
   }
@@ -232,7 +232,10 @@ class _GuestLanding extends StatelessWidget {
                           item.overview!,
                           maxLines: 5,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.85), height: 1.4),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            height: 1.4,
+                          ),
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -275,10 +278,8 @@ class _Title extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, height: 1.05),
-  );
+  Widget build(BuildContext context) =>
+      Text(text, style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, height: 1.05));
 }
 
 /// A small, self-contained player for guests: play/pause, seek, fullscreen,
@@ -313,10 +314,14 @@ class _GuestPlayerScreenState extends State<_GuestPlayerScreen> {
       ..add(_player.streams.buffering.listen((v) => setState(() => _buffering = v)))
       ..add(_player.streams.position.listen((v) => setState(() => _position = v)))
       ..add(_player.streams.duration.listen((v) => setState(() => _duration = v)))
-      ..add(_player.streams.completed.listen((done) {
-        if (done) _close();
-      }))
-      ..add(_player.streams.error.listen((e) => setState(() => _error = 'Playback stopped. The link may have expired.')));
+      ..add(
+        _player.streams.completed.listen((done) {
+          if (done) _close();
+        }),
+      )
+      ..add(
+        _player.streams.error.listen((e) => setState(() => _error = 'Playback stopped. The link may have expired.')),
+      );
     unawaited(_player.open(Media(widget.session.streamUrl)));
     _scheduleHide();
   }

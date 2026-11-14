@@ -2,6 +2,7 @@ part of '../../jellyfin_client.dart';
 
 String _segment(String value) => Uri.encodeComponent(value);
 final int _homeShuffleSeed = DateTime.now().millisecondsSinceEpoch;
+
 /// Transport policy for a hub surface: one whole-request deadline, retries
 /// only on immediate connection errors, no endpoint failover. See
 /// `_getItemsResponse` and [retryTransientMediaServerCall].
@@ -1995,10 +1996,10 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
 
   Future<MediaHub?> _fetchHomeScreenSection(int index, String type, String title, String? extra, int limit) async {
     try {
-      final res = await _http.get('/HomeScreen/Section/$type', queryParameters: {
-        'userId': connection.userId,
-        if (extra != null && extra.isNotEmpty) 'additionalData': extra,
-      });
+      final res = await _http.get(
+        '/HomeScreen/Section/$type',
+        queryParameters: {'userId': connection.userId, if (extra != null && extra.isNotEmpty) 'additionalData': extra},
+      );
       final rows = _itemsArray(res.data).take(limit).toList();
       if (rows.isEmpty) return null;
       return JellyfinMappers.syntheticHub(

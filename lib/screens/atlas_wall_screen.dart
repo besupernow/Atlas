@@ -126,7 +126,7 @@ class _AtlasWallScreenState extends State<AtlasWallScreen> with AsyncFormStateMi
     unawaited(
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         fadeRoute(const SetupScreen(databaseRecoveryOutcome: TvosDatabaseRecoveryOutcome.notApplicable)),
-            (_) => false,
+        (_) => false,
       ),
     );
   }
@@ -137,7 +137,7 @@ class _AtlasWallScreenState extends State<AtlasWallScreen> with AsyncFormStateMi
       dialect: _dialect,
     );
     await runAsync<void>(
-          () async {
+      () async {
         final auth = await buildJellyfinAuthService(_dialect);
         final endpoint = await auth.raceEndpoints(
           input.probeBaseUrls,
@@ -156,7 +156,7 @@ class _AtlasWallScreenState extends State<AtlasWallScreen> with AsyncFormStateMi
         });
       },
       errorMapper: (e) =>
-      e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
+          e is MediaServerUrlException ? e.display ?? e.message : t.addServer.couldNotReachServer(error: e.toString()),
     );
   }
 
@@ -182,7 +182,7 @@ class _AtlasWallScreenState extends State<AtlasWallScreen> with AsyncFormStateMi
     if (info == null || endpoint == null) return;
     final attemptId = beginQuickConnectAttempt();
     await runAsync<void>(
-          () async {
+      () async {
         final auth = await buildJellyfinAuthService(_dialect);
         final storage = await StorageService.getInstance();
         final deviceId = await storage.getOrCreateClientIdentifier();

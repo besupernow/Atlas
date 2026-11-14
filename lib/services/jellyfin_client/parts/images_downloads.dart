@@ -53,13 +53,13 @@ mixin _JellyfinImageDownloadMethods on _JellyfinClientInternals {
     final videoUrl = PlatformDetector.isDesktopOS()
         ? buildDirectStreamUrl(item.id, container: bundle?.container, mediaSourceId: bundle?.pinnedSourceId)
         : buildJellyfinAtlasDownloadUrl(
-      baseUrl: connection.baseUrl,
-      accessToken: connection.accessToken,
-      tokenQueryParam: connection.dialect.tokenQueryParam,
-      deviceId: connection.deviceId,
-      itemId: item.id,
-      mediaSourceId: bundle?.pinnedSourceId ?? selectedSourceId,
-    );
+            baseUrl: connection.baseUrl,
+            accessToken: connection.accessToken,
+            tokenQueryParam: connection.dialect.tokenQueryParam,
+            deviceId: connection.deviceId,
+            itemId: item.id,
+            mediaSourceId: bundle?.pinnedSourceId ?? selectedSourceId,
+          );
 
     // External subtitle sidecars are listed in the per-source MediaStreams.
     // PlaybackInfo gives us the canonical view including DeliveryUrl when

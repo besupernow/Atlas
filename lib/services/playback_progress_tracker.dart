@@ -231,17 +231,17 @@ class PlaybackProgressTracker {
     this.burnedSubtitleStreamIndex,
     this.updateInterval = const Duration(seconds: 10),
   }) : assert(!isOffline || offlineWatchService != null, 'offlineWatchService is required when isOffline is true'),
-        assert(isOffline || client != null, 'client is required when isOffline is false') {
+       assert(isOffline || client != null, 'client is required when isOffline is false') {
     final reportingClient = client;
     _reportSession = isOffline || reportingClient == null
         ? null
         : PlaybackReportSession(
-      client: reportingClient,
-      itemId: metadata.id,
-      playSessionId: playSessionId,
-      playMethod: playMethod,
-      onDelivered: _onReportDelivered,
-    );
+            client: reportingClient,
+            itemId: metadata.id,
+            playSessionId: playSessionId,
+            playMethod: playMethod,
+            onDelivered: _onReportDelivered,
+          );
   }
 
   /// Starts the periodic report timer and sends the initial report.
@@ -476,16 +476,16 @@ class PlaybackProgressTracker {
         unawaited(
           _sendOnlineProgress(state, position, duration)
               .then((_) {
-            _resetBackoff();
-          })
+                _resetBackoff();
+              })
               .catchError((Object e) {
-            if (e is PlaybackSessionTerminatedException) {
-              _handleServerTermination(e);
-              return;
-            }
-            _recordProgressFailure(e);
-            unawaited(_queueOnlineFailureProgress(position, duration));
-          }),
+                if (e is PlaybackSessionTerminatedException) {
+                  _handleServerTermination(e);
+                  return;
+                }
+                _recordProgressFailure(e);
+                unawaited(_queueOnlineFailureProgress(position, duration));
+              }),
         );
       }
     } catch (e) {
@@ -524,7 +524,7 @@ class PlaybackProgressTracker {
     _ticksToSkip = (1 << (_consecutiveFailures - 1)).clamp(1, 6);
     appLogger.d(
       'Progress update failed ($_consecutiveFailures consecutive), '
-          'skipping next $_ticksToSkip tick(s)',
+      'skipping next $_ticksToSkip tick(s)',
       error: e,
     );
   }
@@ -537,11 +537,11 @@ class PlaybackProgressTracker {
   }
 
   void _notifyProgressIfNeeded(
-      Duration position,
-      Duration duration, {
-        bool force = false,
-        required bool serverAcknowledged,
-      }) {
+    Duration position,
+    Duration duration, {
+    bool force = false,
+    required bool serverAcknowledged,
+  }) {
     if (_scrobbled) return;
     if (position.inMilliseconds <= 0 || duration.inMilliseconds <= 0) return;
     if (force) {
@@ -569,11 +569,11 @@ class PlaybackProgressTracker {
   /// Send progress update to the active server through the unified
   /// [MediaServerClient.reportPlayback*] surface.
   Future<bool> _sendOnlineProgress(
-      String state,
-      Duration position,
-      Duration duration, {
-        bool allowScrobble = true,
-      }) async {
+    String state,
+    Duration position,
+    Duration duration, {
+    bool allowScrobble = true,
+  }) async {
     final c = client;
     final session = _reportSession;
     if (c == null || session == null) return false;

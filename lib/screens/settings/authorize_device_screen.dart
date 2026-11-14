@@ -198,7 +198,7 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
         Uri.parse('$base/QuickConnect/Authorize').replace(queryParameters: {'code': code}),
         headers: {
           'Authorization':
-          'MediaBrowser Client="Atlas", Device="Atlas", DeviceId="${s.conn.deviceId}", Version="1.0", Token="${s.token}"',
+              'MediaBrowser Client="Atlas", Device="Atlas", DeviceId="${s.conn.deviceId}", Version="1.0", Token="${s.token}"',
           'X-Emby-Token': s.token,
         },
       );
@@ -338,11 +338,8 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
 
   Widget _field(Widget field) => Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 12), child: field);
 
-  InputDecoration _decoration(String label, IconData icon) => InputDecoration(
-    labelText: label,
-    prefixIcon: Icon(icon, size: 20),
-    border: const OutlineInputBorder(),
-  );
+  InputDecoration _decoration(String label, IconData icon) =>
+      InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20), border: const OutlineInputBorder());
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +355,9 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
         SettingsGroup(
           title: 'Add a device',
           children: [
-            _info('On the other device, choose Quick Connect (or scan its QR code), then enter the code it shows here.'),
+            _info(
+              'On the other device, choose Quick Connect (or scan its QR code), then enter the code it shows here.',
+            ),
             _field(
               FocusableTextField(
                 controller: _code,
@@ -457,7 +456,7 @@ class _AuthorizeDeviceScreenState extends State<AuthorizeDeviceScreen> {
                       : SelectableText(_guestCode!, style: _guestCodeStyle(theme)),
                   subtitle: Text(
                     'They enter it under "I have a code" in Atlas within 24 hours. '
-                        'Access then lasts $_guestCodeHours hours.',
+                    'Access then lasts $_guestCodeHours hours.',
                   ),
                 ),
                 if (!tv)

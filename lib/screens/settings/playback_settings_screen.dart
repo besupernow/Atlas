@@ -56,10 +56,10 @@ class PlaybackSettingsScreen extends StatelessWidget {
         final channelLimit = exoActive ? storedChannelLimit.onExoPlayer : storedChannelLimit;
         final showDisplaySwitchDelay =
             PlatformDetector.isAppleTV() ||
-                (Platform.isWindows &&
-                    (svc.read(SettingsService.matchRefreshRate) || svc.read(SettingsService.matchDynamicRange))) ||
-                (Platform.isAndroid &&
-                    (svc.read(SettingsService.matchContentFrameRate) || svc.read(SettingsService.matchContentResolution)));
+            (Platform.isWindows &&
+                (svc.read(SettingsService.matchRefreshRate) || svc.read(SettingsService.matchDynamicRange))) ||
+            (Platform.isAndroid &&
+                (svc.read(SettingsService.matchContentFrameRate) || svc.read(SettingsService.matchContentResolution)));
         // Android mpv and Apple TV only: ExoPlayer is not taking new features, and
         // elsewhere no Dolby Vision signal ever reaches the display.
         final showDisableDolbyVision = (Platform.isAndroid && !exoActive) || PlatformDetector.isAppleTV();
@@ -330,7 +330,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
         icon: Symbols.timer_rounded,
         title: t.settings.playNextCountdown,
         subtitleBuilder: (v) =>
-        v == 0 ? t.settings.playNextCountdownImmediate : t.settings.secondsUnit(seconds: v.toString()),
+            v == 0 ? t.settings.playNextCountdownImmediate : t.settings.secondsUnit(seconds: v.toString()),
         labelText: t.settings.secondsLabel,
         suffixText: t.settings.secondsShort,
       ),
@@ -573,7 +573,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
     icon: Symbols.speaker_group_rounded,
     title: t.settings.audioChannelLimit,
     subtitleBuilder: (limit) =>
-    '${audioChannelLimitLabel(exoActive ? limit.onExoPlayer : limit)} · ${t.settings.audioChannelLimitDescription}',
+        '${audioChannelLimitLabel(exoActive ? limit.onExoPlayer : limit)} · ${t.settings.audioChannelLimitDescription}',
     options: [
       for (final limit in AudioChannelLimit.available(exoPlayer: exoActive))
         DialogOption(value: limit, title: audioChannelLimitLabel(limit), subtitle: audioChannelLimitDescription(limit)),
@@ -711,7 +711,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
     options: [
       DialogOption<TranscodeQualityPreset?>(value: null, title: t.settings.cellularQualitySameAsDefault),
       ...TranscodeQualityPreset.displayOrder.map(
-            (p) => DialogOption<TranscodeQualityPreset?>(value: p, title: qualityPresetLabel(p)),
+        (p) => DialogOption<TranscodeQualityPreset?>(value: p, title: qualityPresetLabel(p)),
       ),
     ],
   );

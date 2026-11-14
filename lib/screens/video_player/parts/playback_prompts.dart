@@ -171,7 +171,7 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     final state = player?.state;
     appLogger.i(
       'Video completed: $branch '
-          '(position=${state?.position.inMilliseconds}ms duration=${state?.duration.inMilliseconds}ms)',
+      '(position=${state?.position.inMilliseconds}ms duration=${state?.duration.inMilliseconds}ms)',
     );
   }
 
@@ -293,10 +293,10 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     final state = WidgetsBinding.instance.lifecycleState;
     final backgrounded =
         state == AppLifecycleState.hidden ||
-            state == AppLifecycleState.paused ||
-            // A car reports its background transition as inactive (see
-            // didChangeAppLifecycleState).
-            (isAutomotive && state == AppLifecycleState.inactive);
+        state == AppLifecycleState.paused ||
+        // A car reports its background transition as inactive (see
+        // didChangeAppLifecycleState).
+        (isAutomotive && state == AppLifecycleState.inactive);
     return backgrounded &&
         shouldPauseVideoForBackground(
           isHandheld: PlatformDetector.isMobile(context),

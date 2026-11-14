@@ -39,7 +39,8 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
         title: t.metadataEdit.basicInfo,
         fields: metadataBasicFields(kind, studioType: MetadataEditFieldType.stringList),
       ),
-      if (_detailFields(kind).isNotEmpty) MetadataEditSection(id: 'details', title: 'Details', fields: _detailFields(kind)),
+      if (_detailFields(kind).isNotEmpty)
+        MetadataEditSection(id: 'details', title: 'Details', fields: _detailFields(kind)),
       if (_tagFields(kind).isNotEmpty)
         MetadataEditSection(id: 'tags', title: t.metadataEdit.tags, fields: _tagFields(kind)),
       MetadataEditSection(id: 'artwork', title: t.metadataEdit.artwork, fields: _artworkFields(kind)),
@@ -163,17 +164,17 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
     return images
         .whereType<Map<String, dynamic>>()
         .map((image) {
-      final url = image['Url'] as String? ?? '';
-      final thumb = image['ThumbnailUrl'] as String?;
-      return MetadataArtworkOption(
-        id: url,
-        thumbnailPath: (thumb == null || thumb.isEmpty) ? url : thumb,
-        sourceUrl: url,
-        provider: image['ProviderName'] as String?,
-        width: image['Width'] as int?,
-        height: image['Height'] as int?,
-      );
-    })
+          final url = image['Url'] as String? ?? '';
+          final thumb = image['ThumbnailUrl'] as String?;
+          return MetadataArtworkOption(
+            id: url,
+            thumbnailPath: (thumb == null || thumb.isEmpty) ? url : thumb,
+            sourceUrl: url,
+            provider: image['ProviderName'] as String?,
+            width: image['Width'] as int?,
+            height: image['Height'] as int?,
+          );
+        })
         .where((image) => image.sourceUrl.isNotEmpty)
         .toList();
   }
@@ -187,11 +188,11 @@ class JellyfinMetadataEditAdapter extends MetadataEditAdapter {
 
   @override
   Future<bool> uploadArtwork(
-      MetadataEditDraft draft,
-      MetadataEditField field,
-      List<int> bytes, {
-        String? fileName,
-      }) async {
+    MetadataEditDraft draft,
+    MetadataEditField field,
+    List<int> bytes, {
+    String? fileName,
+  }) async {
     final imageType = field.artwork?.key;
     if (imageType == null || bytes.isEmpty) return false;
     return client.uploadItemImage(
@@ -389,11 +390,11 @@ List<Map<String, dynamic>> _toNamePairs(Object? names) =>
     metadataStringList(names).map((name) => <String, dynamic>{'Name': name}).toList();
 
 Map<String, dynamic> _preserveNamedMap(
-    List<Map<String, dynamic>> existing,
-    Set<int> used,
-    String name, {
-      String? type,
-    }) {
+  List<Map<String, dynamic>> existing,
+  Set<int> used,
+  String name, {
+  String? type,
+}) {
   final trimmed = name.trim();
   final lowerName = trimmed.toLowerCase();
   for (var i = 0; i < existing.length; i++) {

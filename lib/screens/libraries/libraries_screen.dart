@@ -188,9 +188,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
 
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
     final visibleLibraries = allLibraries
-        .where((lib) =>
-    !hiddenKeys.contains(lib.globalKey) &&
-        (lib.kind == MediaKind.movie || lib.kind == MediaKind.show))
+        .where(
+          (lib) => !hiddenKeys.contains(lib.globalKey) && (lib.kind == MediaKind.movie || lib.kind == MediaKind.show),
+        )
         .toList();
 
     final storage = await StorageService.getInstance();
@@ -848,38 +848,38 @@ class _LibrariesScreenState extends State<LibrariesScreen>
         //   tooltip: t.libraries.manageLibraries,
         //   onPressed: _showLibraryManagementSheet,
         // ),
-      if (showBrowseOptionsAction)
-        FocusableAction(
-          icon: Symbols.tune_rounded,
-          tooltip: t.libraries.libraryOptions,
-          onPressed: _showBrowseOptionsForCurrentTab,
-          // Badge the icon with a dot while the browse tab has active filters
-          // (issue #1470). A null child keeps the default rendering.
-          child: _browseFiltersActive
-              ? IconButton(
-                  tooltip: t.libraries.libraryOptions,
-                  onPressed: _showBrowseOptionsForCurrentTab,
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const AppIcon(Symbols.tune_rounded, fill: 1),
-                      Positioned(
-                        top: -2,
-                        right: -2,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
+        if (showBrowseOptionsAction)
+          FocusableAction(
+            icon: Symbols.tune_rounded,
+            tooltip: t.libraries.libraryOptions,
+            onPressed: _showBrowseOptionsForCurrentTab,
+            // Badge the icon with a dot while the browse tab has active filters
+            // (issue #1470). A null child keeps the default rendering.
+            child: _browseFiltersActive
+                ? IconButton(
+                    tooltip: t.libraries.libraryOptions,
+                    onPressed: _showBrowseOptionsForCurrentTab,
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const AppIcon(Symbols.tune_rounded, fill: 1),
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              : null,
-        ),
+                      ],
+                    ),
+                  )
+                : null,
+          ),
       // FocusableAction(icon: Symbols.refresh_rounded, tooltip: t.common.refresh, onPressed: manualRefresh),
     ];
 

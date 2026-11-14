@@ -113,7 +113,9 @@ class FocusBuilders {
         child: child,
       );
       return (onTap != null || onLongPress != null)
-          ? ClickableCursor(child: GestureDetector(onTap: onTap, onLongPress: onLongPress, child: hover))
+          ? ClickableCursor(
+              child: GestureDetector(onTap: onTap, onLongPress: onLongPress, child: hover),
+            )
           : hover;
     }
 
@@ -207,4 +209,3 @@ class _PointerHoverChromeState extends State<_PointerHoverChrome> {
     );
   }
 }
-

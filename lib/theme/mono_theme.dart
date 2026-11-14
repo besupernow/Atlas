@@ -192,7 +192,7 @@ class MonoPalette {
     const white = Color(0xFFFFFFFF);
     final accentLuminance = accent.computeLuminance();
     return _contrastRatio(accentLuminance, bg.computeLuminance()) >=
-        _contrastRatio(accentLuminance, white.computeLuminance())
+            _contrastRatio(accentLuminance, white.computeLuminance())
         ? bg
         : white;
   }
@@ -250,12 +250,12 @@ class MonoPalette {
   @override
   bool operator ==(Object other) =>
       other is MonoPalette &&
-          other.bg == bg &&
-          other.surface == surface &&
-          other.outline == outline &&
-          other.text == text &&
-          other.textMuted == textMuted &&
-          other.accent == accent;
+      other.bg == bg &&
+      other.surface == surface &&
+      other.outline == outline &&
+      other.text == text &&
+      other.textMuted == textMuted &&
+      other.accent == accent;
 
   @override
   int get hashCode => Object.hash(bg, surface, outline, text, textMuted, accent);
@@ -285,7 +285,7 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
   final brightness = c.brightness;
   final onAccent = c.onAccent;
   final clickableCursor = WidgetStateProperty.resolveWith<MouseCursor>(
-        (states) => states.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
+    (states) => states.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
   );
 
   // Disabled buttons use the Material disabled opacities over the text colour;
@@ -295,10 +295,10 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
     elevation: const WidgetStatePropertyAll(0),
     backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.12) : c.accent,
+      (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.12) : c.accent,
     ),
     foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.38) : onAccent,
+      (states) => states.contains(WidgetState.disabled) ? c.text.withValues(alpha: 0.38) : onAccent,
     ),
     shape: const WidgetStatePropertyAll(StadiumBorder()),
   );
@@ -365,11 +365,11 @@ ThemeData _buildMonoTheme(MonoPalette c, {required TargetPlatform platform}) {
     textTheme: Typography.englishLike2021
         .apply(bodyColor: c.text, displayColor: c.text)
         .copyWith(
-      displayLarge: const TextStyle(fontWeight: .w700, letterSpacing: -0.5),
-      titleMedium: const TextStyle(fontWeight: .w600),
-      bodyMedium: TextStyle(color: c.text),
-      bodySmall: TextStyle(color: c.textMuted),
-    ),
+          displayLarge: const TextStyle(fontWeight: .w700, letterSpacing: -0.5),
+          titleMedium: const TextStyle(fontWeight: .w600),
+          bodyMedium: TextStyle(color: c.text),
+          bodySmall: TextStyle(color: c.textMuted),
+        ),
     cardTheme: CardThemeData(
       color: c.surface,
       elevation: 0,
@@ -462,7 +462,7 @@ InputDecorationTheme _inputDecorationTheme(Color text, Color textMuted) {
   return InputDecorationTheme(
     filled: true,
     fillColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.focused) ? focusedFill : unfocusedFill,
+      (states) => states.contains(WidgetState.focused) ? focusedFill : unfocusedFill,
     ),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

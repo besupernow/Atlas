@@ -46,13 +46,13 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   }
 
   Future<Map<String, dynamic>> getRemoteImages(
-      String itemId, {
-        required String imageType,
-        int startIndex = 0,
-        int limit = 60,
-        String? providerName,
-        bool includeAllLanguages = false,
-      }) async {
+    String itemId, {
+    required String imageType,
+    int startIndex = 0,
+    int limit = 60,
+    String? providerName,
+    bool includeAllLanguages = false,
+  }) async {
     final response = await _http.get(
       '/Items/${_segment(itemId)}/RemoteImages',
       queryParameters: {
@@ -87,11 +87,11 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   /// The `Content-Type` still names the *image* type, which is how the server
   /// decides the on-disk extension.
   Future<bool> uploadItemImage(
-      String itemId, {
-        required String imageType,
-        required List<int> bytes,
-        required String contentType,
-      }) async {
+    String itemId, {
+    required String imageType,
+    required List<int> bytes,
+    required String contentType,
+  }) async {
     final response = await _http.post(
       '/Items/${_segment(itemId)}/Images/${_segment(imageType)}',
       body: base64Encode(bytes),
@@ -110,12 +110,12 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   /// [metadataMode]/[imageMode]: `Default` scans for new and updated files,
   /// `FullRefresh` re-downloads from the metadata providers.
   Future<bool> refreshItemMetadata(
-      String itemId, {
-        required String metadataMode,
-        required String imageMode,
-        required bool replaceAllMetadata,
-        required bool replaceAllImages,
-      }) async {
+    String itemId, {
+    required String metadataMode,
+    required String imageMode,
+    required bool replaceAllMetadata,
+    required bool replaceAllImages,
+  }) async {
     final response = await _http.post(
       '/Items/${_segment(itemId)}/Refresh',
       queryParameters: {
@@ -138,12 +138,12 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   /// SearchProviderName, Overview), passed back unchanged to
   /// [applyRemoteSearchResult].
   Future<List<Map<String, dynamic>>> remoteSearch(
-      String itemId, {
-        required String searchType,
-        String? name,
-        int? year,
-        Map<String, String> providerIds = const {},
-      }) async {
+    String itemId, {
+    required String searchType,
+    String? name,
+    int? year,
+    Map<String, String> providerIds = const {},
+  }) async {
     final response = await _http.post(
       '/Items/RemoteSearch/${_segment(searchType)}',
       body: {
@@ -166,10 +166,10 @@ mixin _JellyfinMetadataEditMethods on _JellyfinClientInternals {
   /// Re-identify [itemId] as [result] and pull fresh metadata (and, when
   /// [replaceAllImages], fresh artwork) for it.
   Future<bool> applyRemoteSearchResult(
-      String itemId,
-      Map<String, dynamic> result, {
-        bool replaceAllImages = true,
-      }) async {
+    String itemId,
+    Map<String, dynamic> result, {
+    bool replaceAllImages = true,
+  }) async {
     final response = await _http.post(
       '/Items/RemoteSearch/Apply/${_segment(itemId)}',
       queryParameters: {'ReplaceAllImages': replaceAllImages},

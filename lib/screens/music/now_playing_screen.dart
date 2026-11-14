@@ -69,6 +69,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   StreamSubscription<Object>? _errorsSub;
 
   bool _showLyrics = false;
+
+  /// Atlas: accent colors taken from the album art (null until worked out, or when there's no
+  /// art or the device runs in reduced-performance mode).
+  ColorScheme? _artScheme;
+  String? _artSchemeKey;
   final Map<String, Future<Lyrics?>> _lyricsCache = {};
 
   /// Key for getting a context below this screen's own OverlaySheetHost —
@@ -280,6 +285,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
     final client = context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId));
     final isTV = PlatformDetector.isTV();
+    _updateArtScheme(track, client, Theme.of(context).brightness);
 
     Widget content = Stack(
       fit: StackFit.expand,
@@ -307,7 +313,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     // Own OverlaySheetHost so the queue / sleep-timer sheets have a host on
     // TV; the host also owns system back (a back with a sheet open closes
     // the sheet, otherwise the route pops natively — audio continues).
-    return OverlaySheetHost(
+    final host = OverlaySheetHost(
       canPop: true,
       child: Scaffold(
         key: _overlayChildKey,
@@ -318,6 +324,46 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           child: content,
         ),
       ),
+    );
+    final artScheme = _artScheme;
+    if (artScheme == null) return host;
+    // Atlas: the scrubber, buttons and highlights take the album art's color.
+    final theme = Theme.of(context);
+    return AnimatedTheme(
+      data: theme.copyWith(
+        colorScheme: theme.colorScheme.copyWith(
+          primary: artScheme.primary,
+          onPrimary: artScheme.onPrimary,
+          primaryContainer: artScheme.primaryContainer,
+          onPrimaryContainer: artScheme.onPrimaryContainer,
+          secondary: artScheme.secondary,
+          onSecondary: artScheme.onSecondary,
+        ),
+        sliderTheme: theme.sliderTheme.copyWith(activeTrackColor: artScheme.primary, thumbColor: artScheme.primary),
+      ),
+      child: host,
+    );
+  }
+
+  /// Atlas: works out accent colors from the current track's album art (a small thumbnail, once
+  /// per track and light/dark mode).
+  void _updateArtScheme(MediaItem track, MediaServerClient? client, Brightness brightness) {
+    final path = track.thumbPath;
+    if (DevicePerformance.isReduced || client == null || path == null) {
+      _artSchemeKey = null;
+      _artScheme = null;
+      return;
+    }
+    final key = '$path|${brightness.name}';
+    if (key == _artSchemeKey) return;
+    _artSchemeKey = key;
+    final url = client.thumbnailUrl(path, width: 96, height: 96);
+    unawaited(
+      ColorScheme.fromImageProvider(provider: NetworkImage(url), brightness: brightness)
+          .then((scheme) {
+            if (mounted && _artSchemeKey == key) setState(() => _artScheme = scheme);
+          })
+          .catchError((Object _) {}),
     );
   }
 

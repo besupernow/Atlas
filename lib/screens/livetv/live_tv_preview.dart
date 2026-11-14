@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:plezy/utils/app_platform.dart';
 
 import 'package:flutter/material.dart';
@@ -147,10 +147,11 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
       ),
     );
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-    if (mounted) setState(() {
-      _fullscreen = false;
-      _videoEpoch++;
-    });
+    if (mounted)
+      setState(() {
+        _fullscreen = false;
+        _videoEpoch++;
+      });
   }
 
   void toggleMute() => _toggleMute();
@@ -295,11 +296,11 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
   /// really playing, then it replaces the old one in a single swap: no black
   /// gap, and a superseded/failed attempt cleans up after itself.
   Future<void> _tuneTexture(
-      LiveTvChannel channel,
-      int generation, {
-        TranscodeQualityPreset quality = kLiveTvPreviewQuality,
-        bool quiet = false,
-      }) async {
+    LiveTvChannel channel,
+    int generation, {
+    TranscodeQualityPreset quality = kLiveTvPreviewQuality,
+    bool quiet = false,
+  }) async {
     LiveTvPlaybackSession? session;
     vp.VideoPlayerController? vc;
     var committed = false;
@@ -490,7 +491,10 @@ class LiveTvPreviewState extends State<LiveTvPreview> with WidgetsBindingObserve
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         tooltip: _muted ? 'Unmute' : 'Mute',
-                        icon: Icon(_muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded, color: Colors.white),
+                        icon: Icon(
+                          _muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                          color: Colors.white,
+                        ),
                         onPressed: (player == null && vc == null) ? null : _toggleMute,
                       ),
                       if (widget.showFullscreenButton)
@@ -582,11 +586,14 @@ class _LiveFullscreenState extends State<_LiveFullscreen> {
                   fit: StackFit.expand,
                   children: [
                     if (player == null)
-                      const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()))
+                      const ColoredBox(
+                        color: Colors.black,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
                     else if (player is vp.VideoPlayerController)
                       _TextureVideo(controller: player, cover: false)
                     else if (player is Player)
-                        Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
+                      Video(key: ValueKey(player), player: player, hasFirstFrame: _kAlwaysRevealed),
                     AnimatedOpacity(
                       opacity: _showControls ? 1 : 0,
                       duration: const Duration(milliseconds: 200),
@@ -615,7 +622,11 @@ class _LiveFullscreenState extends State<_LiveFullscreen> {
                                     [if (ch?.number != null) ch!.number!, ch?.displayName ?? ''].join('  '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 18,
+                                    ),
                                   ),
                                 ),
                                 IconButton(
