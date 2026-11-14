@@ -12,6 +12,7 @@ import '../../../app/app_mode_switch.dart';
 import '../../../app/music_detail_scope.dart';
 import '../../../app/shell_activity.dart';
 import '../../../focus/focusable_wrapper.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
@@ -24,6 +25,7 @@ import '../pages/music_library_page.dart';
 import '../pages/music_new_page.dart';
 import '../pages/music_radio_page.dart';
 import '../pages/music_search_page.dart';
+import '../settings/music_settings.dart';
 import '../theme/music_theme.dart';
 import 'music_shell_focus.dart';
 
@@ -333,6 +335,13 @@ class _MusicShellState extends State<MusicShell> {
               ),
             ],
             const Spacer(),
+            item(
+              id: 'settings',
+              icon: Symbols.settings_rounded,
+              label: t.common.settings,
+              selected: false,
+              onSelect: () => unawaited(openMusicSettings(context)),
+            ),
             if (canSwitch)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),

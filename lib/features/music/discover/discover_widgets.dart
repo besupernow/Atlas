@@ -370,6 +370,7 @@ class MusicFeedShelf extends StatelessWidget {
     this.large = false,
     this.onNavigateToSidebar,
     this.onItemTap,
+    this.onSeeAll,
   });
 
   final String title;
@@ -378,6 +379,9 @@ class MusicFeedShelf extends StatelessWidget {
   final bool large;
   final VoidCallback? onNavigateToSidebar;
   final ValueChanged<MusicFeedItem>? onItemTap;
+
+  /// Makes the title tappable with a ">" (Apple's "see all").
+  final VoidCallback? onSeeAll;
 
   static double cardSize(BuildContext context, {bool large = false}) {
     final isTV = PlatformDetector.isTV();
@@ -402,7 +406,7 @@ class MusicFeedShelf extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                _ShelfTitle(title: title, onSeeAll: onSeeAll),
                 if (subtitle != null)
                   Text(subtitle!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
@@ -428,6 +432,38 @@ class MusicFeedShelf extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A row's title; with [onSeeAll], tappable (and focusable) with a ">" after it.
+class _ShelfTitle extends StatelessWidget {
+  const _ShelfTitle({required this.title, this.onSeeAll});
+
+  final String title;
+  final VoidCallback? onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3));
+    final seeAll = onSeeAll;
+    if (seeAll == null) return text;
+    return FocusableWrapper(
+      borderRadius: 8,
+      onSelect: seeAll,
+      child: InkWell(
+        canRequestFocus: false,
+        borderRadius: BorderRadius.circular(8),
+        onTap: seeAll,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: text),
+            AppIcon(Symbols.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant, size: 26),
+          ],
+        ),
       ),
     );
   }

@@ -107,4 +107,34 @@ abstract final class MusicStrings {
   static const nothingPlayingBody = 'Pick an album, a song or a station and it shows up here.';
   static const browseMusic = 'Browse Music';
   static const upNext = 'Up Next';
+
+  // Home (Apple Music style).
+  static const madeForYou = 'Made for You';
+  static const listenAgain = 'Listen Again';
+  static const recommended = 'Recommended';
+  static String featuring(String artist) => 'Featuring $artist';
+  static const station = 'Station';
+  static String stationLike(String artist) => 'Endless music like $artist';
+  static const newReleasesForYou = 'New Releases for You';
+  static const stationsForYou = 'Stations for You';
+  static const atlasMusic = 'Atlas';
+  static const mix = 'Mix';
+  static const mixNewMusic = 'New Music';
+  static const mixFavorites = 'Favorites';
+  static const mixDiscovery = 'Discovery';
+  static const mixReplay = 'Replay';
+  static String andMore(List<String> names) => names.isEmpty
+      ? ''
+      : names.length < 3
+      ? names.join(', ')
+      : '${names.join(', ')} and more';
+
+  // Settings (music mode).
+  static const settingsMusic = 'Music';
+  static const musicPlayback = 'Music Playback';
+  static const musicPlaybackSubtitle = 'Streaming quality and picking up where you left off';
+  static const listenBrainzSubtitle = 'Not connected. Connect for recommendations picked for you';
+  static String connectedAsName(String name) => 'ListenBrainz: $name';
+  static const requestsTitle = 'Requests';
+  static String requestsConnected(String name) => 'Allseerr connected as $name';
 }

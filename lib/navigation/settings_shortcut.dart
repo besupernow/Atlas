@@ -13,10 +13,17 @@ const String kSettingsRouteName = '/settings';
 
 /// The route every settings push site uses, so a pushed settings screen is
 /// identifiable by [kSettingsRouteName].
-MaterialPageRoute<void> buildSettingsRoute() {
+///
+/// Atlas: [mode] picks which half of the app's settings show (video settings from the video
+/// side, music settings from music mode); [musicSections] are music mode's own groups, handed
+/// in by music mode so settings doesn't import it.
+MaterialPageRoute<void> buildSettingsRoute({
+  SettingsMode mode = SettingsMode.video,
+  List<Widget> Function(BuildContext context)? musicSections,
+}) {
   return MaterialPageRoute<void>(
     settings: const RouteSettings(name: kSettingsRouteName),
-    builder: (_) => const SettingsScreen(),
+    builder: (_) => SettingsScreen(mode: mode, musicSections: musicSections),
   );
 }
 

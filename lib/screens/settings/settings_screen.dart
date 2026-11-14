@@ -71,14 +71,30 @@ import 'supporter_settings_tile.dart';
 import 'tracker_service_info.dart';
 import '../../widgets/loading_indicator_box.dart';
 
+/// Atlas: which half of the app settings is opened from.
+enum SettingsMode {
+  /// Movies and TV: video playback settings.
+  video,
+
+  /// Music mode: music settings (playback, ListenBrainz, requests) instead.
+  music,
+}
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
+    this.mode = SettingsMode.video,
+    this.musicSections,
     this.downloadDirectoryWritableChecker,
     this.settingsExporter,
     this.settingsImporter,
     this.backgroundWorkDiagnosticsService,
   });
+
+  final SettingsMode mode;
+
+  /// Music mode's own groups, shown in place of video playback when [mode] is music.
+  final List<Widget> Function(BuildContext context)? musicSections;
 
   @visibleForTesting
   final Future<bool> Function(Directory directory)? downloadDirectoryWritableChecker;
@@ -227,11 +243,13 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
                         _buildDonateTile(),
                       _buildGeneralTile(),
                       _buildAppearanceTile(),
-                      _buildPlaybackTile(),
+                      if (widget.mode == SettingsMode.video) _buildPlaybackTile(),
                       //if (hasLibraries) _buildManageLibrariesTile(sheetContext),
                       //_buildServicesTile(),
                     ],
                   ),
+
+                  if (widget.mode == SettingsMode.music) ...?widget.musicSections?.call(sheetContext),
 
                   _buildConnectionsSection(sheetContext),
 

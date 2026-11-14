@@ -6,10 +6,11 @@ import '../../../app/app_mode_switch.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/music/mini_player.dart';
+import 'music_profile_button.dart';
 
 /// Atlas: the frame every music tab page uses: a big bold title (Apple Music style), the switch
-/// back to movies and TV in the top-right on phones and desktop (TV has it in the rail), then
-/// the page's content, with room at the bottom for the mini player.
+/// back to movies and TV and the profile picture in the top-right on phones and desktop (TV has
+/// both in the rail), then the page's content, with room at the bottom for the mini player.
 class MusicPage extends StatelessWidget {
   const MusicPage({super.key, required this.title, required this.children, this.actions = const [], this.onRefresh});
 
@@ -56,6 +57,9 @@ class MusicPage extends StatelessWidget {
                     icon: AppIcon(AppModeSwitch.icon(AppMode.music)),
                     onPressed: AppModeSwitch.toggle,
                   ),
+                // Atlas: the profile picture, like the movies Discover page (TV has Settings in
+                // the rail instead).
+                if (!isTV) ...[const SizedBox(width: 4), const MusicProfileButton()],
               ],
             ),
           ),
