@@ -113,7 +113,6 @@ abstract final class MusicStrings {
   static const listenAgain = 'Listen Again';
   static const recommended = 'Recommended';
   static String featuring(String artist) => 'Featuring $artist';
-  static const station = 'Station';
   static String stationLike(String artist) => 'Endless music like $artist';
   static const newReleasesForYou = 'New Releases for You';
   static const stationsForYou = 'Stations for You';

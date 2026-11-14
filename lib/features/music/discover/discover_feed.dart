@@ -107,8 +107,16 @@ class MusicDiscovery {
 
   Map<String, DiscoverStatus>? _known;
 
-  Future<Map<String, DiscoverStatus>> known() async =>
-      _known ??= await quietly(allseerr?.knownAlbums() ?? Future.value(const {}), const {}, 'known albums');
+  Future<Map<String, DiscoverStatus>> known() async {
+    final cached = _known;
+    if (cached != null) return cached;
+    final seerr = allseerr;
+    final fetched = seerr == null
+        ? const <String, DiscoverStatus>{}
+        : await quietly(seerr.knownAlbums(), const <String, DiscoverStatus>{}, 'known albums');
+    _known = fetched;
+    return fetched;
+  }
 
   // ---- Rows.
 
