@@ -1460,16 +1460,17 @@ void main() {
     expect(h.service.currentTrack?.id, 't4');
   });
 
-  test('claimVideo stops the session and disposes the audio core', () async {
+  test('claimVideo disposes the audio core and parks the session', () async {
     await h.playTracks([t1, t2]);
     final player = h.player;
 
     await PlaybackCoordinator.instance.claimVideo();
 
     expect(player.disposed, isTrue);
-    expect(h.service.status, MusicPlaybackStatus.idle);
-    expect(h.service.currentTrack, isNull);
-    expect(h.service.queue, isEmpty);
+    // Atlas: the queue and track stay (paused, no player) so Now Playing still shows them.
+    expect(h.service.status, MusicPlaybackStatus.paused);
+    expect(h.service.currentTrack?.id, 't1');
+    expect(h.service.queue, hasLength(2));
     expect(h.controls.cleared, isTrue);
     // The played track's session was closed on the way out.
     expect(h.client.reportsFor('stopped').map((r) => r.itemId), ['t1']);

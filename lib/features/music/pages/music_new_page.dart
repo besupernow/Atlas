@@ -1,73 +1,68 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../media/artist_discography.dart';
-import '../../../media/media_item.dart';
-import '../data/music_catalog.dart';
+import '../discover/discover_feed.dart';
+import '../discover/discover_models.dart';
+import '../discover/music_feed_page.dart';
 import '../music_strings.dart';
-import '../shell/music_shell_focus.dart';
-import '../widgets/music_page.dart';
-import '../widgets/music_shelves.dart';
 
-/// Atlas: music mode's New page: the newest releases in the library by release date, split into
-/// albums and singles/EPs, plus what was added most recently.
-class MusicNewPage extends StatefulWidget {
+/// Atlas: music mode's New: what's actually new out there, not what's new on the server.
+/// Fresh albums and EPs from the last few weeks (ListenBrainz, through Allseerr), new music
+/// from the artists you play, what everyone's spinning this week, and who's trending. Anything
+/// we don't have can be previewed and requested right from the card.
+class MusicNewPage extends StatelessWidget {
   const MusicNewPage({super.key});
 
-  @override
-  State<MusicNewPage> createState() => _MusicNewPageState();
-}
+  static final _specs = [
+    MusicFeedSpec(
+      id: 'new-for-you',
+      load: (d) async => MusicFeedRow(
+        id: 'new-for-you',
+        title: MusicStrings.newForYou,
+        subtitle: MusicStrings.newForYouSubtitle,
+        large: true,
+        items: await d.newForYou(),
+      ),
+    ),
+    MusicFeedSpec(
+      id: 'new-everywhere',
+      load: (d) async => MusicFeedRow(
+        id: 'new-everywhere',
+        title: MusicStrings.newEverywhere,
+        subtitle: MusicStrings.newEverywhereSubtitle,
+        items: await d.newReleases(),
+      ),
+    ),
+    MusicFeedSpec(
+      id: 'hot',
+      load: (d) async => MusicFeedRow(
+        id: 'hot',
+        title: MusicStrings.hotRightNow,
+        subtitle: MusicStrings.popularSubtitle,
+        items: await d.popularAlbums(),
+      ),
+    ),
+    MusicFeedSpec(
+      id: 'trending-artists',
+      load: (d) async => MusicFeedRow(
+        id: 'trending-artists',
+        title: MusicStrings.trendingArtists,
+        items: await d.trendingArtists(),
+      ),
+    ),
+  ];
 
-class _MusicNewPageState extends State<MusicNewPage> {
-  List<MusicShelf>? _shelves;
-  bool _failed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
+  static List<MusicFeedItem> _hero(Map<String, MusicFeedRow> rows) {
+    final everywhere = rows['new-everywhere']?.items ?? const [];
+    final forYou = rows['new-for-you']?.items ?? const [];
+    return [...forYou.take(3), ...everywhere].take(6).toList();
   }
 
-  Future<void> _load() async {
-    final catalog = MusicCatalog.of(context);
-    try {
-      final results = await Future.wait([catalog.newReleases(limit: 60), catalog.recentlyAddedAlbums(limit: 30)]);
-      if (!mounted) return;
-      final releases = results[0];
-      final singles = <MediaItem>[];
-      final albums = <MediaItem>[];
-      for (final release in releases) {
-        (classifyReleaseByShape(release) == DiscographyGroupKind.singlesAndEps ? singles : albums).add(release);
-      }
-      setState(() {
-        _failed = false;
-        _shelves = [
-          MusicShelf(id: 'new-albums', title: MusicStrings.newReleases, icon: Symbols.album_rounded, items: albums),
-          MusicShelf(id: 'new-singles', title: MusicStrings.newSinglesAndEps, icon: Symbols.music_note_rounded, items: singles),
-          MusicShelf(id: 'recently-added', title: MusicStrings.recentlyAdded, icon: Symbols.new_releases_rounded, items: results[1]),
-        ];
-      });
-    } catch (_) {
-      if (mounted) setState(() => _failed = true);
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final shelves = _shelves;
-    return MusicPage(
-      title: MusicStrings.newTab,
-      onRefresh: _load,
-      children: [
-        if (shelves == null)
-          MusicPagePlaceholder(message: _failed ? MusicStrings.loadFailed : null)
-        else if (shelves.every((shelf) => shelf.items.isEmpty))
-          const MusicPagePlaceholder(message: MusicStrings.nothingYet)
-        else
-          MusicShelves(shelves: shelves, onNavigateToSidebar: MusicShellFocus.maybeOf(context)?.focusRail),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => MusicFeedPage(
+    title: MusicStrings.newTab,
+    heroEyebrow: MusicStrings.newReleases,
+    specs: _specs,
+    hero: _hero,
+    emptyMessage: MusicStrings.requestUnavailable,
+  );
 }

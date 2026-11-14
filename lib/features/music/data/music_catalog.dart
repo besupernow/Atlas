@@ -53,13 +53,13 @@ class MusicCatalog {
 
   /// Items of [kind] from every library, merged, at most [limit].
   Future<List<MediaItem>> items(
-      MediaKind kind, {
-        String? sort,
-        LibrarySortDirection direction = LibrarySortDirection.descending,
-        List<LibraryFilter> filters = const [],
-        int limit = 30,
-        String? search,
-      }) async {
+    MediaKind kind, {
+    String? sort,
+    LibrarySortDirection direction = LibrarySortDirection.descending,
+    List<LibraryFilter> filters = const [],
+    int limit = 30,
+    String? search,
+  }) async {
     final query = LibraryQuery(
       kind: kind,
       limit: limit,
@@ -73,9 +73,9 @@ class MusicCatalog {
             .fetchLibraryPagedContent(source.library.id, query: query, libraryKind: source.library.kind)
             .then((page) => page.items)
             .catchError((Object error) {
-          appLogger.w('Music: ${kind.name} from ${source.library.title} failed', error: error);
-          return const <MediaItem>[];
-        }),
+              appLogger.w('Music: ${kind.name} from ${source.library.title} failed', error: error);
+              return const <MediaItem>[];
+            }),
     ]);
     final merged = [for (final page in pages) ...page];
     if (pages.length > 1 && sort != null) merged.sort((a, b) => _compare(a, b, sort, direction));
@@ -84,13 +84,13 @@ class MusicCatalog {
 
   /// One page of [kind] for the library lists: [offset] counts across all libraries in order.
   Future<({List<MediaItem> items, bool hasMore})> page(
-      MediaKind kind, {
-        required int offset,
-        int size = 100,
-        String sort = 'title',
-        LibrarySortDirection direction = LibrarySortDirection.ascending,
-        List<LibraryFilter> Function(MusicSource source)? filtersFor,
-      }) async {
+    MediaKind kind, {
+    required int offset,
+    int size = 100,
+    String sort = 'title',
+    LibrarySortDirection direction = LibrarySortDirection.ascending,
+    List<LibraryFilter> Function(MusicSource source)? filtersFor,
+  }) async {
     var skip = offset;
     for (var i = 0; i < sources.length; i++) {
       final source = sources[i];
@@ -140,12 +140,11 @@ class MusicCatalog {
     return [for (final track in tracks) if ((track.viewCount ?? 0) > 0) track];
   }
 
-  Future<List<MediaItem>> favoriteAlbums({int limit = 24}) => items(
-    MediaKind.album,
-    sort: 'addedAt',
-    limit: limit,
-    filters: const [LibraryFilter(field: MediaFilterField.favorite, values: ['1'])],
-  );
+  /// Only favorited items.
+  static const favoriteFilter = [LibraryFilter(field: MediaFilterField.favorite, values: ['1'])];
+
+  Future<List<MediaItem>> favoriteAlbums({int limit = 24}) =>
+      items(MediaKind.album, sort: 'addedAt', limit: limit, filters: favoriteFilter);
 
   /// Artists for radio stations: the ones behind the most played songs first, then a random
   /// handful so there's always something.
@@ -168,13 +167,13 @@ class MusicCatalog {
         source.client
             .fetchLibraryGenres(source.library.id, libraryKind: source.library.kind)
             .then((genres) {
-          for (final LibraryGenre genre in genres) {
-            (byTitle[genre.title] ??= {})[source.library.id] = genre.filterValue;
-          }
-        })
+              for (final LibraryGenre genre in genres) {
+                (byTitle[genre.title] ??= {})[source.library.id] = genre.filterValue;
+              }
+            })
             .catchError((Object error) {
-          appLogger.w('Music: genres from ${source.library.title} failed', error: error);
-        }),
+              appLogger.w('Music: genres from ${source.library.title} failed', error: error);
+            }),
     ]);
     final titles = byTitle.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return [for (final title in titles) MusicGenre(title, byTitle[title]!)];
@@ -192,20 +191,20 @@ class MusicCatalog {
         if (genre.filterValues.containsKey(source.library.id))
           source.client
               .fetchLibraryPagedContent(
-            source.library.id,
-            query: LibraryQuery(
-              kind: MediaKind.track,
-              limit: limit,
-              sort: const LibrarySort(field: 'random'),
-              filters: genreFilters(genre, source),
-            ),
-            libraryKind: source.library.kind,
-          )
+                source.library.id,
+                query: LibraryQuery(
+                  kind: MediaKind.track,
+                  limit: limit,
+                  sort: const LibrarySort(field: 'random'),
+                  filters: genreFilters(genre, source),
+                ),
+                libraryKind: source.library.kind,
+              )
               .then((page) => page.items)
               .catchError((Object error) {
-            appLogger.w('Music: ${genre.title} songs from ${source.library.title} failed', error: error);
-            return const <MediaItem>[];
-          }),
+                appLogger.w('Music: ${genre.title} songs from ${source.library.title} failed', error: error);
+                return const <MediaItem>[];
+              }),
     ]);
     return [for (final page in pages) ...page]..shuffle();
   }
@@ -227,9 +226,9 @@ class MusicCatalog {
             .fetchPlaylistsPage(playlistType: 'audio', size: 200)
             .then((page) => page.items)
             .catchError((Object error) {
-          appLogger.w('Music: playlists failed', error: error);
-          return const <MediaPlaylist>[];
-        }),
+              appLogger.w('Music: playlists failed', error: error);
+              return const <MediaPlaylist>[];
+            }),
     ]);
     return [for (final page in pages) ...page];
   }

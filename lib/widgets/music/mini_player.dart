@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/app_mode.dart';
+import '../../features/music/music_strings.dart';
 import '../../focus/focusable_action_bar.dart';
 import '../../focus/focusable_wrapper.dart';
 import '../../i18n/strings.g.dart';
 import '../../media/ids.dart';
 import '../../media/media_item.dart';
 import '../../mixins/context_menu_tap_mixin.dart';
+import '../../providers/libraries_provider.dart';
 import '../../services/music/music_playback_service.dart';
 import '../../theme/mono_motion.dart';
 import '../../theme/mono_tokens.dart';
@@ -18,6 +21,7 @@ import '../../utils/music_navigation.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/video_player_navigation.dart';
+import '../app_icon.dart';
 import '../media_context_menu.dart';
 import '../optimized_media_image.dart';
 import '../overlay_sheet.dart';
@@ -198,30 +202,40 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
 
     // Nothing has ever played this session — skip the whole overlay tree
     // (also keeps barren test shells without MonoTokens happy).
-    if (_lastTrack == null) return const SizedBox.shrink();
+    // Atlas: in music mode the mini player is always there, like Apple Music's: the last song
+    // (parked when a video plays, restored at launch) or a "Nothing playing" card.
+    final hasMusicLibraries = context.select<LibrariesProvider?, bool>((l) => l?.hasMusicLibraries ?? false);
+    final modes = AppModeController.instance;
+    if (_lastTrack == null && !hasMusicLibraries) return const SizedBox.shrink();
 
     final suppress = context.read<MusicUiRouteObserver?>()?.suppress ?? _noSuppression;
     final openSheets = OverlaySheetController.openSheetCount;
     return ListenableBuilder(
-      listenable: Listenable.merge([suppress, openSheets]),
+      listenable: Listenable.merge([suppress, openSheets, modes]),
       builder: (context, _) {
+        final musicMode = modes.isMusic && hasMusicLibraries;
         final hasSession = track != null && !suppress.value && !_dismissed;
+        final idle = musicMode && !hasSession && !suppress.value;
         // Sheets render inside the routes' subtrees, BELOW this overlay —
         // hide the card while any sheet is up so it never floats over one.
-        final visible = hasSession && openSheets.value == 0;
+        final visible = (hasSession || idle) && openSheets.value == 0;
         final useSideNav = PlatformDetector.shouldUseSideNavigation(context);
         // Report off the session (not sheet) state so the underlying
         // screen's scroll padding doesn't jump while a sheet is open.
-        _reportOverlayHeight(hasSession ? _cardHeight + (useSideNav ? 32 : 24) : 0);
+        _reportOverlayHeight(hasSession || idle ? _cardHeight + (useSideNav ? 32 : 24) : 0);
 
-        final Widget child = visible
+        final current = hasSession ? track : null;
+        final Widget child = !visible
+            ? const SizedBox.shrink(key: ValueKey('mini_player_hidden'))
+            : current != null
             ? _MiniPlayerCard(
-          key: const ValueKey('mini_player_card'),
-          track: track,
-          desktop: useSideNav,
-          onDismissed: _handleDismissed,
-        )
-            : const SizedBox.shrink(key: ValueKey('mini_player_hidden'));
+                key: const ValueKey('mini_player_card'),
+                track: current,
+                desktop: useSideNav,
+                dismissible: !musicMode,
+                onDismissed: _handleDismissed,
+              )
+            : const _MiniPlayerIdleCard(key: ValueKey('mini_player_idle'));
 
         final switcher = AnimatedSwitcher(
           duration: MonoMotion.shape(context),
@@ -242,7 +256,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         }
 
         final (bottomInset, startInset) = context.select<MiniPlayerInsetController?, (double, double)>(
-              (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
+          (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
         );
         final padding = MediaQuery.paddingOf(context);
         final isLtr = Directionality.of(context) == TextDirection.ltr;
@@ -276,7 +290,16 @@ class _MiniPlayerCard extends StatefulWidget {
   final bool desktop;
   final VoidCallback onDismissed;
 
-  const _MiniPlayerCard({super.key, required this.track, required this.desktop, required this.onDismissed});
+  /// Atlas: swipe-to-stop is off in music mode, where the mini player always stays.
+  final bool dismissible;
+
+  const _MiniPlayerCard({
+    super.key,
+    required this.track,
+    required this.desktop,
+    required this.onDismissed,
+    this.dismissible = true,
+  });
 
   @override
   State<_MiniPlayerCard> createState() => _MiniPlayerCardState();
@@ -425,6 +448,7 @@ class _MiniPlayerCardState extends State<_MiniPlayerCard> with ContextMenuTapMix
 
     card = MediaContextMenu(key: contextMenuKey, item: widget.track, child: card);
 
+    if (!widget.dismissible) return card;
     card = Dismissible(
       key: const ValueKey('mini_player_dismiss'),
       direction: DismissDirection.horizontal,
@@ -433,6 +457,68 @@ class _MiniPlayerCardState extends State<_MiniPlayerCard> with ContextMenuTapMix
     );
 
     return card;
+  }
+}
+
+/// Atlas: the mini player in music mode before anything has played.
+class _MiniPlayerIdleCard extends StatelessWidget {
+  const _MiniPlayerIdleCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    final accent = Theme.of(context).colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tk.radiusLg),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      child: Material(
+        color: tk.surface,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(tk.radiusLg),
+        child: InkWell(
+          canRequestFocus: false,
+          onTap: () => unawaited(openNowPlaying(context)),
+          child: SizedBox(
+            height: _MusicMiniPlayerOverlayState._cardHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(tk.radiusSm),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [accent, Color.lerp(accent, Colors.black, 0.45)!],
+                      ),
+                    ),
+                    child: const Center(
+                      child: AppIcon(Symbols.music_note_rounded, color: Colors.white, fill: 1),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      MusicStrings.nothingPlaying,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: TextStyle(fontSize: 14, fontWeight: .w600, color: tk.textMuted),
+                    ),
+                  ),
+                  AppIcon(Symbols.play_arrow_rounded, color: tk.textMuted.withValues(alpha: 0.5), fill: 1),
+                  const SizedBox(width: 12),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

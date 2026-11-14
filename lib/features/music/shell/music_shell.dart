@@ -12,7 +12,6 @@ import '../../../app/app_mode_switch.dart';
 import '../../../app/music_detail_scope.dart';
 import '../../../app/shell_activity.dart';
 import '../../../focus/focusable_wrapper.dart';
-import '../../../services/music/music_playback_service.dart';
 import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
@@ -214,11 +213,11 @@ class _MusicShellState extends State<MusicShell> {
           child: Scaffold(
             body: useRail
                 ? Row(
-              children: [
-                KeyedSubtree(key: _barKey, child: _rail(context)),
-                Expanded(child: content),
-              ],
-            )
+                    children: [
+                      KeyedSubtree(key: _barKey, child: _rail(context)),
+                      Expanded(child: content),
+                    ],
+                  )
                 : content,
             bottomNavigationBar: useRail ? null : KeyedSubtree(key: _barKey, child: _bottomBar(context)),
           ),
@@ -248,7 +247,8 @@ class _MusicShellState extends State<MusicShell> {
   Widget _rail(BuildContext context) {
     final theme = Theme.of(context);
     final isTV = PlatformDetector.isTV();
-    final playing = isTV ? context.select<MusicPlaybackService?, bool>((s) => s?.currentTrack != null) : false;
+    // TV has no mini player, so Now Playing is always in the rail (it says when nothing is playing).
+    final playing = isTV;
     final canSwitch = AppModeSwitch.available(context);
 
     Widget item({required String id, required IconData icon, required String label, required bool selected, required VoidCallback onSelect}) {

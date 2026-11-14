@@ -1746,7 +1746,35 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
 
   /// The coordinator's video claim uses the exact same full-stop path, so
   /// the audio core is guaranteed disposed when it resolves.
-  Future<void> _stopForVideoClaim() => _stopSession(endStatus: MusicPlaybackStatus.idle);
+  /// Atlas: a video starting parks the music session instead of ending it. The audio core goes
+  /// (the video needs it), but the queue, the track and the playhead stay, paused, exactly like a
+  /// session restored at launch: Now Playing and the mini player keep showing what was playing,
+  /// and Play picks it up where it left off.
+  Future<void> _stopForVideoClaim() async {
+    final track = _currentTrack;
+    if (track == null || _status == MusicPlaybackStatus.idle || _status == MusicPlaybackStatus.error) {
+      return _stopSession(endStatus: MusicPlaybackStatus.idle);
+    }
+    final at = position;
+    beginPlayIntent();
+    _generation++;
+    _launchObserver?.mark('stopped');
+    _launchObserver?.detach(stage: 'stopped');
+    _launchObserver = null;
+    _observedGeneration = null;
+    _invalidateArmRequests();
+    _cancelTimersAndFinalizeTrack();
+    _currentSource = null;
+    _armed = null;
+    _staleArm = null;
+    _pendingRestoreResume = _PendingResume(globalKey: track.globalKey, position: at);
+    _resumeAfterInterruption = false;
+    _pausedByCarRestriction = false;
+    _persistSessionSnapshot(positionOverride: at);
+    _positionController.add(at);
+    _setStatus(MusicPlaybackStatus.paused, forceNotify: true);
+    await _teardownPlayerAndControls(awaitStop: true);
+  }
 
   Future<void> _stopSession({required MusicPlaybackStatus endStatus}) async {
     beginPlayIntent();

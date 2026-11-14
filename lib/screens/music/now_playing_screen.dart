@@ -41,14 +41,17 @@ import '../../widgets/music/repeat_mode.dart';
 import '../../widgets/optimized_media_image.dart';
 import '../../widgets/overlay_sheet.dart';
 import 'queue_sheet.dart';
+import '../../features/music/music_strings.dart';
 import '../../utils/error_message_utils.dart';
 
 /// Full-screen music player. Pushed via [openNowPlaying]; popping never
 /// touches playback — audio continues under the mini-player.
 ///
 /// Layouts: mobile portrait (big art / transport stack), desktop & landscape
-/// (two-pane with an inline queue panel), and TV (full-bleed art with a
-/// d-pad transport chain).
+/// (two-pane: art beside the song and controls; Atlas dropped the inline
+/// queue list, Up Next is the queue button), and TV (full-bleed art with a
+/// d-pad transport chain). With nothing playing it shows a "Nothing playing"
+/// card instead of closing.
 ///
 /// D-pad chain (TV): transport row autofocuses play/pause (LEFT/RIGHT rove,
 /// edges trapped) · UP → seek bar (LEFT/RIGHT = ±10s with key-repeat
@@ -96,7 +99,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   final FocusNode _lyricsPaneFocusNode = FocusNode(debugLabel: 'now_playing_lyrics_pane');
   final GlobalKey<FocusableActionBarState> _utilityBarKey = GlobalKey<FocusableActionBarState>();
 
-  bool _poppedForIdle = false;
 
   @override
   void initState() {
@@ -246,23 +248,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     }
   }
 
-  /// Leaves the screen once the session has ended. Another screen (an artist
-  /// or album page, or the video that claimed audio) may have been pushed on
-  /// top meanwhile: popping would close that one, so a covered route removes
-  /// itself instead. The first route stays rather than strand an empty
-  /// navigator.
-  void _closeForIdle() {
-    if (!mounted) return;
-    final route = ModalRoute.of(context);
-    if (route == null || route.isFirst || !route.isActive) return;
-    final navigator = Navigator.of(context);
-    if (route.isCurrent) {
-      navigator.pop();
-    } else {
-      navigator.removeRoute(route);
-    }
-  }
-
   // -------------------------------------------------------------------
   // Build
   // -------------------------------------------------------------------
@@ -274,13 +259,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     final track = service.currentTrack;
 
     if (track == null) {
-      // Session ended elsewhere (stop / error / video claimed audio) — an
-      // empty player is a dead end, leave the screen.
-      if (!_poppedForIdle) {
-        _poppedForIdle = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _closeForIdle());
-      }
-      return Scaffold(backgroundColor: tk.bg, body: const SizedBox.expand());
+      // Atlas: nothing playing (never played, or the session was stopped): say so and offer a
+      // way back, instead of an empty screen or vanishing.
+      return _NothingPlaying(onBrowse: _pop);
     }
 
     final client = context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId));
@@ -409,7 +390,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   Widget _buildWideLayout(MusicPlaybackService service, MediaItem track, MediaServerClient? client) {
-    final tk = tokens(context);
     return Column(
       children: [
         _buildTopBar(track, service.playContext),
@@ -419,28 +399,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             child: Row(
               crossAxisAlignment: .stretch,
               children: [
-                Expanded(flex: 9, child: _buildArtworkOrLyrics(service, track, client)),
-                const SizedBox(width: 32),
+                Expanded(flex: 10, child: _buildArtworkOrLyrics(service, track, client)),
+                const SizedBox(width: 48),
+                // Atlas: no track list beside the art; just the song, big, and the controls.
+                // Up Next is a button away (the queue sheet).
                 Expanded(
-                  flex: 11,
-                  child: Column(
-                    crossAxisAlignment: .stretch,
-                    children: [
-                      _buildTrackInfo(track, centered: false),
-                      const SizedBox(height: 8),
-                      _buildSeekBar(track),
-                      _buildWideControlBand(service),
-                      const SizedBox(height: 12),
-                      // Inline queue panel — same widget the queue sheet uses.
-                      Expanded(
-                        child: Material(
-                          color: tk.bg.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(tk.radiusLg),
-                          clipBehavior: Clip.antiAlias,
-                          child: const QueueList(),
-                        ),
+                  flex: 10,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Column(
+                        mainAxisSize: .min,
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          _buildTrackInfo(track, centered: false, large: true),
+                          const SizedBox(height: 20),
+                          _buildSeekBar(track),
+                          const SizedBox(height: 8),
+                          _buildWideControlBand(service),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -602,6 +581,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             onPressed: _toggleLyrics,
           ),
         ),
+        const SizedBox(width: 4),
+        FocusableButton(
+          onPressed: () => unawaited(showQueueSheet(_sheetContext)),
+          child: IconButton(
+            icon: AppIcon(Symbols.queue_music_rounded, fill: 1, size: 22, color: tk.textMuted),
+            tooltip: t.music.queue,
+            onPressed: () => unawaited(showQueueSheet(_sheetContext)),
+          ),
+        ),
         if (PlatformDetector.isDesktop(context)) ...[const SizedBox(width: 4), _buildVolumeCluster(service)],
       ],
     );
@@ -692,10 +680,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
-  Widget _buildTrackInfo(MediaItem track, {required bool centered}) {
+  Widget _buildTrackInfo(MediaItem track, {required bool centered, bool large = false}) {
     final tk = tokens(context);
     final textTheme = Theme.of(context).textTheme;
+    final accent = Theme.of(context).colorScheme.primary;
     final artist = track.trackArtistTitle;
+    final album = track.albumTitle;
 
     return Column(
       crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
@@ -705,7 +695,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           maxLines: 1,
           overflow: .ellipsis,
           textAlign: centered ? TextAlign.center : TextAlign.start,
-          style: textTheme.headlineSmall?.copyWith(fontWeight: .w600, color: tk.text),
+          style: (large ? textTheme.headlineMedium : textTheme.headlineSmall)?.copyWith(
+            fontWeight: .w800,
+            letterSpacing: -0.4,
+            color: tk.text,
+          ),
         ),
         if (artist != null && artist.isNotEmpty)
           MouseRegion(
@@ -719,9 +713,22 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   maxLines: 1,
                   overflow: .ellipsis,
                   textAlign: centered ? TextAlign.center : TextAlign.start,
-                  style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
+                  style: (large ? textTheme.titleLarge : textTheme.titleMedium)?.copyWith(
+                    color: accent,
+                    fontWeight: .w600,
+                  ),
                 ),
               ),
+            ),
+          ),
+        if (large && album != null && album.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              album,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: textTheme.bodyLarge?.copyWith(color: tk.textMuted),
             ),
           ),
       ],
@@ -928,14 +935,26 @@ class _Artwork extends StatelessWidget {
             ? math.min(constraints.maxWidth, constraints.maxHeight * 0.62)
             : math.min(constraints.maxWidth * 0.85, constraints.maxHeight);
         if (side <= 0 || !side.isFinite) return const SizedBox.shrink();
+        // Atlas: Apple Music style: the art sits big with a deep shadow while playing and
+        // settles back a little when paused.
+        final shown = isPlaying ? side : side * 0.86;
         return Center(
           child: AnimatedContainer(
             duration: MonoMotion.shape(context),
             curve: MonoMotion.emphasized,
-            width: side,
-            height: side,
+            width: shown,
+            height: shown,
             clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(isPlaying ? tk.radiusLg : 28)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(isPlaying ? tk.radiusLg : 28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isPlaying ? 0.45 : 0.25),
+                  blurRadius: isPlaying ? 48 : 24,
+                  offset: Offset(0, isPlaying ? 24 : 10),
+                ),
+              ],
+            ),
             child: OptimizedMediaImage(
               client: client,
               imagePath: track.thumbPath,
@@ -974,15 +993,29 @@ class _Background extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         ColoredBox(color: tk.bg),
+        // Atlas: the art's colors wash the whole screen (the blurred cover, stronger than before),
+        // fading into the page toward the controls.
         Opacity(
-          opacity: heavyScrim ? 0.22 : 0.3,
+          opacity: heavyScrim ? 0.4 : 0.62,
           child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60, tileMode: TileMode.mirror),
-            child: OptimizedMediaImage(
-              client: client,
-              imagePath: track.thumbPath,
-              imageType: ImageType.square,
-              fit: BoxFit.cover,
+            imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80, tileMode: TileMode.mirror),
+            child: Transform.scale(
+              scale: 1.3,
+              child: OptimizedMediaImage(
+                client: client,
+                imagePath: track.thumbPath,
+                imageType: ImageType.square,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [tk.bg.withValues(alpha: 0.05), tk.bg.withValues(alpha: 0.35), tk.bg.withValues(alpha: 0.7)],
             ),
           ),
         ),
@@ -1267,3 +1300,86 @@ class _NowPlayingSeekBarState extends State<_NowPlayingSeekBar> {
     );
   }
 }
+
+/// Atlas: Now Playing with nothing to play: a calm card that says so, and the way back.
+class _NothingPlaying extends StatelessWidget {
+  const _NothingPlaying({required this.onBrowse});
+
+  final VoidCallback onBrowse;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Scaffold(
+      backgroundColor: tk.bg,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, -0.35),
+                radius: 1.1,
+                colors: [accent.withValues(alpha: 0.28), tk.bg],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: .min,
+                  children: [
+                    Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(32),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [accent, Color.lerp(accent, Colors.black, 0.5)!],
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 40, offset: const Offset(0, 16)),
+                        ],
+                      ),
+                      child: const Center(
+                        child: AppIcon(Symbols.music_note_rounded, size: 88, color: Colors.white, fill: 1),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      MusicStrings.nothingPlaying,
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: .w800, color: tk.text),
+                    ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: Text(
+                        MusicStrings.nothingPlayingBody,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(color: tk.textMuted),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      autofocus: true,
+                      onPressed: onBrowse,
+                      icon: const AppIcon(Symbols.library_music_rounded, fill: 1),
+                      label: const Text(MusicStrings.browseMusic),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

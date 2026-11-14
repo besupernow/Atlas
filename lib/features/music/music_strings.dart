@@ -43,4 +43,68 @@ abstract final class MusicStrings {
   static const noResults = 'No results.';
   static const loadFailed = "Couldn't load this. Pull to try again.";
   static const loadMore = 'Load more';
+
+  // Discovery.
+  static const topPicks = 'Top Picks for You';
+  static const featured = 'Featured';
+  static const recommendedForYou = 'Recommended for You';
+  static const recommendedSubtitle = 'From what you play, on the server or not (yet)';
+  static const pickedForYou = 'Picked for You';
+  static const pickedSubtitle = 'Already on the server';
+  static String moreLike(String artist) => 'More Like $artist';
+  static const moreLikeSubtitle = 'Artists you might love';
+  static const popularThisWeek = 'Popular This Week';
+  static const popularSubtitle = "What everyone's playing";
+  static const trendingArtists = 'Trending Artists';
+  static const newForYou = 'New From Artists You Play';
+  static const newForYouSubtitle = 'Out in the last month';
+  static const newEverywhere = 'New This Month';
+  static const newEverywhereSubtitle = 'Albums and EPs, fresh out';
+  static const hotRightNow = 'Hot Right Now';
+  static const stationsSubtitle = 'Endless mixes from your server';
+
+  static const notOnServer = 'Not on the server';
+  static const request = 'Request';
+  static const requesting = 'Requesting…';
+  static const requested = 'Requested';
+  static const downloading = 'Downloading';
+  static const onServer = 'On the Server';
+  static const open = 'Open';
+  static const play = 'Play';
+  static const shuffle = 'Shuffle';
+  static const preview = 'Preview';
+  static const stop = 'Stop';
+  static const tracks = 'Tracks';
+  static const noPreview = 'No preview for this one';
+  static const requestFailed = "Couldn't request it. Try again in a bit.";
+  static const requestSent = "Requested. It'll show up in your music when it's ready.";
+  static const requestUnavailable = 'Requests need Allseerr connected (Settings > Services).';
+  static const discography = 'Discography';
+  static const albumsAndEps = 'Albums & EPs';
+  static const singles = 'Singles';
+  static const openOnServer = 'Open on the Server';
+
+  // ListenBrainz.
+  static const listenBrainz = 'ListenBrainz';
+  static const connectTitle = 'Make Home yours';
+  static const connectBody =
+      "Connect your ListenBrainz account and Home fills up with music picked for you, on the server or not yet. Your plays already go there if you scrobble.";
+  static const connect = 'Connect ListenBrainz';
+  static const usernameHint = 'ListenBrainz username';
+  static const save = 'Connect';
+  static const cancel = 'Cancel';
+  static const disconnect = 'Disconnect';
+  static const userNotFound = "That ListenBrainz user doesn't exist.";
+  static const connectedAs = 'Connected as';
+
+  // Library.
+  static const libraryEmpty = 'Favorite albums, artists and songs, and the playlists you make, live here.';
+  static const favoriteAlbums = 'Favorite Albums';
+  static const recentlyFavorited = 'In Your Library';
+
+  // Now Playing.
+  static const nothingPlaying = 'Nothing playing';
+  static const nothingPlayingBody = 'Pick an album, a song or a station and it shows up here.';
+  static const browseMusic = 'Browse Music';
+  static const upNext = 'Up Next';
 }

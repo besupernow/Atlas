@@ -7,14 +7,17 @@ import '../../../media/media_kind.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/focusable_list_tile.dart';
 import '../data/music_catalog.dart';
+import '../discover/discover_feed.dart';
+import '../discover/discover_models.dart';
+import '../discover/discover_widgets.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/music_page.dart';
-import '../widgets/music_shelves.dart';
 import 'music_lists.dart';
 
-/// Atlas: music mode's Library: Playlists, Artists, Albums, Songs and Genres, then the albums
-/// added most recently.
+/// Atlas: music mode's Library, like Apple Music's: only what you've saved. Your playlists,
+/// and the artists, albums and songs you've favorited (the heart). Everything else on the
+/// server lives in Home, New, Radio and Search.
 class MusicLibraryPage extends StatefulWidget {
   const MusicLibraryPage({super.key});
 
@@ -23,8 +26,7 @@ class MusicLibraryPage extends StatefulWidget {
 }
 
 class _MusicLibraryPageState extends State<MusicLibraryPage> {
-  final _shelvesKey = GlobalKey<MusicShelvesState>();
-  MusicShelf? _recent;
+  List<MusicFeedItem>? _saved;
 
   @override
   void initState() {
@@ -33,11 +35,9 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
   }
 
   Future<void> _load() async {
-    final items = await MusicCatalog.of(context).recentlyAddedAlbums(limit: 30);
+    final items = await MusicCatalog.of(context).favoriteAlbums(limit: 30).catchError((Object _) => const []);
     if (!mounted) return;
-    setState(() {
-      _recent = MusicShelf(id: 'library-recent', title: MusicStrings.recentlyAdded, icon: Symbols.new_releases_rounded, items: items);
-    });
+    setState(() => _saved = MusicDiscovery.server(items));
   }
 
   void _open(Widget page) {
@@ -46,13 +46,21 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final recent = _recent;
+    final theme = Theme.of(context);
+    final saved = _saved;
     final entries = <(IconData, String, Widget Function())>[
       (Symbols.queue_music_rounded, MusicStrings.playlists, () => const MusicPlaylistsPage()),
-      (Symbols.artist_rounded, MusicStrings.artists, () => const MusicItemGridPage(kind: MediaKind.artist, title: MusicStrings.artists)),
-      (Symbols.album_rounded, MusicStrings.albums, () => const MusicItemGridPage(kind: MediaKind.album, title: MusicStrings.albums)),
-      (Symbols.music_note_rounded, MusicStrings.songs, () => const MusicSongsPage()),
-      (Symbols.category_rounded, MusicStrings.genres, () => const MusicGenresPage()),
+      (
+        Symbols.artist_rounded,
+        MusicStrings.artists,
+        () => const MusicItemGridPage(kind: MediaKind.artist, title: MusicStrings.artists, favoritesOnly: true),
+      ),
+      (
+        Symbols.album_rounded,
+        MusicStrings.albums,
+        () => const MusicItemGridPage(kind: MediaKind.album, title: MusicStrings.albums, favoritesOnly: true),
+      ),
+      (Symbols.music_note_rounded, MusicStrings.songs, () => const MusicSongsPage(favoritesOnly: true)),
     ];
     final focus = MusicShellFocus.maybeOf(context);
     return MusicPage(
@@ -63,14 +71,36 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
           Padding(
             padding: MusicPage.padding(context),
             child: FocusableListTile(
-              leading: AppIcon(icon, fill: 1, color: Theme.of(context).colorScheme.primary),
-              title: Text(label, style: Theme.of(context).textTheme.titleMedium),
+              leading: AppIcon(icon, fill: 1.0, color: theme.colorScheme.primary),
+              title: Text(label, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               trailing: const AppIcon(Symbols.chevron_right_rounded),
               onTap: () => _open(page()),
             ),
           ),
-        if (recent != null)
-          MusicShelves(key: _shelvesKey, shelves: [recent], onNavigateToSidebar: focus?.focusRail),
+        if (saved == null)
+          const MusicPagePlaceholder()
+        else if (saved.isEmpty)
+          Padding(
+            padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 32)),
+            child: Column(
+              children: [
+                AppIcon(Symbols.favorite_rounded, size: 48, color: theme.colorScheme.primary, fill: 1.0),
+                const SizedBox(height: 12),
+                Text(
+                  MusicStrings.libraryEmpty,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          )
+        else
+          MusicFeedShelf(
+            title: MusicStrings.recentlyFavorited,
+            items: saved,
+            large: true,
+            onNavigateToSidebar: focus?.focusRail,
+          ),
       ],
     );
   }

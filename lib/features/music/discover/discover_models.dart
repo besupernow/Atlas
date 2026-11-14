@@ -1,0 +1,184 @@
+import '../../../media/media_item.dart';
+
+/// Where an album stands for this household: not here, asked for, on its way, or on the server.
+/// Mirrors Allseerr's media status (1 unknown … 5 available).
+enum DiscoverStatus {
+  notRequested,
+  requested,
+  downloading,
+  partial,
+  available;
+
+  static DiscoverStatus fromSeerr(Object? status) => switch (status) {
+    2 => DiscoverStatus.requested,
+    3 => DiscoverStatus.downloading,
+    4 => DiscoverStatus.partial,
+    5 => DiscoverStatus.available,
+    _ => DiscoverStatus.notRequested,
+  };
+
+  bool get onServer => this == DiscoverStatus.available || this == DiscoverStatus.partial;
+  bool get inProgress => this == DiscoverStatus.requested || this == DiscoverStatus.downloading;
+}
+
+/// An album from outside the server (ListenBrainz, MusicBrainz, through Allseerr), keyed by its
+/// MusicBrainz release group id, which is also what an Allseerr request is made with.
+class DiscoverAlbum {
+  const DiscoverAlbum({
+    required this.mbid,
+    required this.title,
+    required this.artistName,
+    this.artistMbid,
+    this.coverUrl,
+    this.releaseDate,
+    this.type,
+    this.status = DiscoverStatus.notRequested,
+    this.reason,
+  });
+
+  final String mbid;
+  final String title;
+  final String artistName;
+  final String? artistMbid;
+  final String? coverUrl;
+  final String? releaseDate;
+
+  /// Album, EP, Single…
+  final String? type;
+  final DiscoverStatus status;
+
+  /// Why it's here ("Because you play Phoebe Bridgers"), when a row explains itself.
+  final String? reason;
+
+  String? get year => releaseDate != null && releaseDate!.length >= 4 ? releaseDate!.substring(0, 4) : null;
+
+  DiscoverAlbum copyWith({DiscoverStatus? status, String? coverUrl, String? reason}) => DiscoverAlbum(
+    mbid: mbid,
+    title: title,
+    artistName: artistName,
+    artistMbid: artistMbid,
+    coverUrl: coverUrl ?? this.coverUrl,
+    releaseDate: releaseDate,
+    type: type,
+    status: status ?? this.status,
+    reason: reason ?? this.reason,
+  );
+
+  /// From an Allseerr `AlbumResult`.
+  static DiscoverAlbum? fromSeerr(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final id = json['id'] as String?;
+    final title = json['title'] as String?;
+    if (id == null || title == null) return null;
+    final media = json['mediaInfo'];
+    return DiscoverAlbum(
+      mbid: id,
+      title: title,
+      artistName: json['artistName'] as String? ?? '',
+      artistMbid: json['artistId'] as String?,
+      coverUrl: _largeCover(json['posterPath'] as String?) ?? coverArtArchiveUrl(id),
+      releaseDate: json['releaseDate'] as String?,
+      type: json['albumType'] as String?,
+      status: DiscoverStatus.fromSeerr(media is Map ? media['status'] : null),
+    );
+  }
+
+  /// The Cover Art Archive's front cover for a release group (redirects to the image).
+  static String coverArtArchiveUrl(String releaseGroupMbid, {int size = 500}) =>
+      'https://coverartarchive.org/release-group/$releaseGroupMbid/front-$size';
+
+  /// ListenBrainz hands out 250px thumbnails; ask the archive for the 500px one instead.
+  static String? _largeCover(String? url) => url?.replaceFirst('_thumb250.jpg', '_thumb500.jpg');
+}
+
+/// An artist from outside the server.
+class DiscoverArtist {
+  const DiscoverArtist({required this.mbid, required this.name, this.imageUrl, this.backdropUrl, this.reason});
+
+  final String mbid;
+  final String name;
+  final String? imageUrl;
+  final String? backdropUrl;
+  final String? reason;
+
+  static DiscoverArtist? fromSeerr(Object? json, {String? reason}) {
+    if (json is! Map<String, dynamic>) return null;
+    final id = json['id'] as String?;
+    final name = json['name'] as String?;
+    if (id == null || name == null) return null;
+    return DiscoverArtist(
+      mbid: id,
+      name: name,
+      imageUrl: json['artistThumb'] as String?,
+      backdropUrl: json['artistBackdrop'] as String?,
+      reason: reason,
+    );
+  }
+}
+
+/// One song of an album's track list.
+class DiscoverTrack {
+  const DiscoverTrack({required this.title, required this.number, this.length, this.disc = 1, this.artist});
+
+  final String title;
+  final String number;
+  final Duration? length;
+  final int disc;
+  final String? artist;
+}
+
+/// Everything the request sheet shows about an album.
+class DiscoverAlbumDetails {
+  const DiscoverAlbumDetails({
+    required this.album,
+    required this.tracks,
+    this.genres = const [],
+    this.artistImageUrl,
+    this.artistBackdropUrl,
+    this.about,
+  });
+
+  final DiscoverAlbum album;
+  final List<DiscoverTrack> tracks;
+  final List<String> genres;
+  final String? artistImageUrl;
+  final String? artistBackdropUrl;
+  final String? about;
+}
+
+/// One card in a music row: something on the server, an album that isn't (yet), or an artist
+/// that isn't.
+sealed class MusicFeedItem {
+  const MusicFeedItem();
+
+  /// Stable id for focus memory and dedupe.
+  String get key;
+}
+
+final class ServerFeedItem extends MusicFeedItem {
+  const ServerFeedItem(this.item, {this.reason});
+
+  final MediaItem item;
+  final String? reason;
+
+  @override
+  String get key => 'server:${item.globalKey}';
+}
+
+final class ExternalAlbumItem extends MusicFeedItem {
+  const ExternalAlbumItem(this.album);
+
+  final DiscoverAlbum album;
+
+  @override
+  String get key => 'album:${album.mbid}';
+}
+
+final class ExternalArtistItem extends MusicFeedItem {
+  const ExternalArtistItem(this.artist);
+
+  final DiscoverArtist artist;
+
+  @override
+  String get key => 'artist:${artist.mbid}';
+}

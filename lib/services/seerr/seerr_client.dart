@@ -210,6 +210,16 @@ class SeerrClient {
     return SeerrRequest.fromJson(data as Map<String, dynamic>);
   }
 
+  // ---------- Atlas: raw reads and writes (Allseerr's music routes) ----------
+
+  /// GET [path] (under /api/v1) and return the decoded JSON. Atlas music mode reads Allseerr's
+  /// music routes (`/discover/music`, `/music/<mbid>`, `/artist/<mbid>/similar`, `/media`) through
+  /// this, with the same session handling as every other call.
+  Future<dynamic> getJson(String path, {Map<String, Object?>? query}) => _request('GET', path, query: query);
+
+  /// POST [body] to [path] (under /api/v1) and return the decoded JSON.
+  Future<dynamic> postJson(String path, Map<String, Object?> body) => _request('POST', path, body: body);
+
   // ---------- Sonarr / Radarr options (request sheet advanced pickers) ----------
 
   Future<List<SeerrServiceInstance>> getRadarrServices() => _serviceList('/service/radarr');

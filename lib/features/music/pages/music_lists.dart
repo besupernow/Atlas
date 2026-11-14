@@ -63,11 +63,14 @@ mixin _PagedMusicList<T extends StatefulWidget> on State<T> {
 
 /// Atlas: every artist or album (optionally in one genre) as a grid of cards.
 class MusicItemGridPage extends StatefulWidget {
-  const MusicItemGridPage({super.key, required this.kind, required this.title, this.genre});
+  const MusicItemGridPage({super.key, required this.kind, required this.title, this.genre, this.favoritesOnly = false});
 
   final MediaKind kind;
   final String title;
   final MusicGenre? genre;
+
+  /// Only what's been favorited (the Library).
+  final bool favoritesOnly;
 
   @override
   State<MusicItemGridPage> createState() => _MusicItemGridPageState();
@@ -86,7 +89,11 @@ class _MusicItemGridPageState extends State<MusicItemGridPage> with _PagedMusicL
     return catalog.page(
       widget.kind,
       offset: offset,
-      filtersFor: genre == null ? null : (source) => catalog.genreFilters(genre, source),
+      filtersFor: genre != null
+          ? (source) => catalog.genreFilters(genre, source)
+          : widget.favoritesOnly
+          ? (_) => MusicCatalog.favoriteFilter
+          : null,
     );
   }
 
@@ -110,7 +117,7 @@ class _MusicItemGridPageState extends State<MusicItemGridPage> with _PagedMusicL
                   childAspectRatio: 0.78,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                      (context, index) => FocusableMediaCard(
+                  (context, index) => FocusableMediaCard(
                     item: items[index],
                     viewModeOverride: ViewMode.grid,
                     cardShapeOverride: CardShape.square,
@@ -130,7 +137,10 @@ class _MusicItemGridPageState extends State<MusicItemGridPage> with _PagedMusicL
 
 /// Atlas: every song, A to Z. Tapping one plays the list from there.
 class MusicSongsPage extends StatefulWidget {
-  const MusicSongsPage({super.key});
+  const MusicSongsPage({super.key, this.favoritesOnly = false});
+
+  /// Only favorited songs (the Library).
+  final bool favoritesOnly;
 
   @override
   State<MusicSongsPage> createState() => _MusicSongsPageState();
@@ -145,7 +155,11 @@ class _MusicSongsPageState extends State<MusicSongsPage> with _PagedMusicList<Mu
 
   @override
   Future<({List<MediaItem> items, bool hasMore})> fetchPage(MusicCatalog catalog, int offset) =>
-      catalog.page(MediaKind.track, offset: offset);
+      catalog.page(
+        MediaKind.track,
+        offset: offset,
+        filtersFor: widget.favoritesOnly ? (_) => MusicCatalog.favoriteFilter : null,
+      );
 
   void _play(MediaItem track, {bool shuffle = false}) {
     unawaited(
@@ -234,25 +248,25 @@ class _MusicGenresPageState extends State<MusicGenresPage> {
           : genres.isEmpty
           ? const MusicPagePlaceholder(message: MusicStrings.nothingYet)
           : ListView.builder(
-        padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
-        itemCount: genres.length,
-        itemBuilder: (context, index) {
-          final genre = genres[index];
-          return FocusableListTile(
-            autofocus: index == 0 && PlatformDetector.isTV(),
-            leading: AppIcon(Symbols.graphic_eq_rounded, color: Theme.of(context).colorScheme.primary),
-            title: Text(genre.title),
-            trailing: const AppIcon(Symbols.chevron_right_rounded),
-            onTap: () => unawaited(
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MusicItemGridPage(kind: MediaKind.album, title: genre.title, genre: genre),
-                ),
-              ),
+              padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
+              itemCount: genres.length,
+              itemBuilder: (context, index) {
+                final genre = genres[index];
+                return FocusableListTile(
+                  autofocus: index == 0 && PlatformDetector.isTV(),
+                  leading: AppIcon(Symbols.graphic_eq_rounded, color: Theme.of(context).colorScheme.primary),
+                  title: Text(genre.title),
+                  trailing: const AppIcon(Symbols.chevron_right_rounded),
+                  onTap: () => unawaited(
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MusicItemGridPage(kind: MediaKind.album, title: genre.title, genre: genre),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
@@ -296,20 +310,20 @@ class _MusicPlaylistsPageState extends State<MusicPlaylistsPage> {
           : playlists.isEmpty
           ? const MusicPagePlaceholder(message: MusicStrings.nothingYet)
           : GridView.builder(
-        padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
-        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: isTV ? 220 : 180,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.78,
-        ),
-        itemCount: playlists.length,
-        itemBuilder: (context, index) => FocusableMediaCard(
-          item: playlists[index],
-          viewModeOverride: ViewMode.grid,
-          cardShapeOverride: CardShape.square,
-        ),
-      ),
+              padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: isTV ? 220 : 180,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.78,
+              ),
+              itemCount: playlists.length,
+              itemBuilder: (context, index) => FocusableMediaCard(
+                item: playlists[index],
+                viewModeOverride: ViewMode.grid,
+                cardShapeOverride: CardShape.square,
+              ),
+            ),
     );
   }
 }
