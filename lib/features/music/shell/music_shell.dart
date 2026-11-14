@@ -24,6 +24,7 @@ import '../pages/music_home_page.dart';
 import '../pages/music_library_page.dart';
 import '../pages/music_new_page.dart';
 import '../pages/music_radio_page.dart';
+import '../pages/music_release_page.dart';
 import '../pages/music_search_page.dart';
 import '../settings/music_settings.dart';
 import '../theme/music_theme.dart';
@@ -200,6 +201,7 @@ class _MusicShellState extends State<MusicShell> {
 
     final content = MusicDetailScope(
       artistPage: (artist) => MusicArtistPage(artist: artist),
+      albumPage: (album) => MusicReleasePage(album: album),
       child: MusicShellFocus(focusRail: useRail ? _focusRail : () {}, child: _tabs()),
     );
 

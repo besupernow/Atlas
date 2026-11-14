@@ -17,6 +17,7 @@ import '../../../utils/provider_extensions.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
+import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
@@ -35,7 +36,8 @@ Future<void> openFeedItem(BuildContext context, MusicFeedItem item) async {
         case MediaKind.artist:
           await navigateToArtist(context, item);
         case MediaKind.track:
-          await playTrackWithAlbumContext(context, item);
+          // A song opens its release (album or single), it doesn't just start playing.
+          await openTrackRelease(context, item);
         default:
           await navigateToAlbum(context, item);
       }
@@ -44,6 +46,23 @@ Future<void> openFeedItem(BuildContext context, MusicFeedItem item) async {
     case ExternalArtistItem(:final artist):
       await showArtistDiscoverySheet(context, artist);
   }
+}
+
+/// Open the album (or single) a server song is on.
+Future<void> openTrackRelease(BuildContext context, MediaItem track) async {
+  final albumId = track.parentId;
+  final client = context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId));
+  if (albumId == null || client == null) {
+    await playTrackWithAlbumContext(context, track);
+    return;
+  }
+  final album = await client.fetchItem(albumId).catchError((Object _) => null);
+  if (!context.mounted) return;
+  if (album == null) {
+    await playTrackWithAlbumContext(context, track);
+    return;
+  }
+  await navigateToAlbum(context, album);
 }
 
 /// Play a server album straight away (hero cards).
@@ -331,7 +350,7 @@ class MusicFeedCard extends StatelessWidget {
         focusNode: focusNode,
         borderRadius: round ? size : 16,
         onSelect: open,
-        onLongPress: external != null && MusicPreviews.supported ? () => unawaited(previewAlbum(context, external)) : null,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
         onNavigateLeft: onNavigateLeft,
         onFocusChange: onFocusChange,
         semanticLabel: [title, subtitle].whereType<String>().join(', '),
@@ -339,6 +358,8 @@ class MusicFeedCard extends StatelessWidget {
           canRequestFocus: false,
           borderRadius: BorderRadius.circular(16),
           onTap: open,
+          onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+          onSecondaryTapUp: (details) => unawaited(MusicItemMenu.show(context, item, position: details.globalPosition)),
           child: Column(
             crossAxisAlignment: round ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
@@ -889,6 +910,19 @@ class _HeroCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Ask Allseerr for [album] (an album, EP or single). False when it couldn't (not connected,
+/// no MusicBrainz match, server error).
+Future<bool> requestAlbum(BuildContext context, DiscoverAlbum album) async {
+  final seerr = AllseerrMusic.of(context);
+  if (seerr == null) return false;
+  try {
+    await seerr.request(album);
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 

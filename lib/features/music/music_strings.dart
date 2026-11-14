@@ -154,4 +154,40 @@ abstract final class MusicStrings {
   static const newRelease = 'New Release';
   static const openAlbum = 'Open album';
   static const label = 'Label';
+
+  // Context menu and Now Playing (round 4).
+  static const viewDetails = 'View Details';
+  static const goToArtist = 'Go to Artist';
+  static const goToAlbum = 'Go to Album';
+  static const playNext = 'Play Next';
+  static const addToQueue = 'Add to Queue';
+  static const startStation = 'Start Station';
+  static const love = 'Love';
+  static const unlove = 'Remove Love';
+  static const loved = 'Loved';
+  static const unloved = 'Removed from Loved';
+  static const addToPlaylist = 'Add to Playlist';
+  static const newPlaylist = 'New Playlist';
+  static const playlistName = 'Playlist name';
+  static const addedToPlaylist = 'Added to playlist';
+  static const willPlayNext = 'Plays next';
+  static const addedToQueue = 'Added to the queue';
+  static const lyricsTab = 'Lyrics';
+  static const playingTab = 'Playing';
+
+  // Release page.
+  static const singleLabel = 'Single';
+  static const epLabel = 'EP';
+  static const albumLabel = 'Album';
+  static const compilationLabel = 'Compilation';
+  static String songCount(int count) => count == 1 ? '1 song' : '$count songs';
+  static String minutes(int count) => count == 1 ? '1 minute' : '$count minutes';
+  static String moreBy(String artist) => artist.isEmpty ? 'More Like This' : 'More by $artist';
+
+  // Search.
+  static const searchHintEverywhere = 'Artists, albums, songs';
+  static const searchEmptyHint = 'Search your server and everything else. Anything we don\'t have can be previewed and requested.';
+  static const topResult = 'Top Result';
+  static const artistLabel = 'Artist';
+  static const more = 'More';
 }

@@ -11,6 +11,7 @@ import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
 import '../discover/music_previews.dart';
 import '../music_strings.dart';
+import 'music_item_menu.dart';
 import 'music_page.dart';
 
 /// Atlas: the songs chart as Apple Music lays it out: columns of four you swipe through, each
@@ -40,7 +41,6 @@ class TopSongsShelf extends StatelessWidget {
           Padding(
             padding: padding,
             child: const MusicSectionHeader(
-              kicker: MusicStrings.kickerTrending,
               title: MusicStrings.topSongs,
               subtitle: MusicStrings.topSongsSubtitle,
             ),
@@ -103,12 +103,16 @@ class _TopSongRow extends StatelessWidget {
     return FocusableWrapper(
       borderRadius: 10,
       onSelect: open,
-      onLongPress: canPreview ? () => _preview(context) : null,
+      onLongPress: () => unawaited(MusicItemMenu.show(context, ExternalAlbumItem(track.album))),
       onNavigateLeft: onNavigateLeft,
       child: InkWell(
         canRequestFocus: false,
         borderRadius: BorderRadius.circular(10),
         onTap: open,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, ExternalAlbumItem(track.album))),
+        onSecondaryTapUp: (details) => unawaited(
+          MusicItemMenu.show(context, ExternalAlbumItem(track.album), position: details.globalPosition),
+        ),
         child: Row(
           children: [
             ClipRRect(

@@ -20,6 +20,7 @@ import '../../../widgets/music/track_row.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
+import '../widgets/art_backdrop.dart';
 import '../widgets/music_page.dart';
 import '../widgets/music_shelves.dart';
 
@@ -179,7 +180,14 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      body: ListView(
+      body: ArtBackdrop(
+        image: OptimizedMediaImage(
+          client: _client,
+          imagePath: _artist.thumbPath,
+          imageType: ImageType.square,
+          fit: BoxFit.cover,
+        ),
+        child: ListView(
         padding: EdgeInsets.zero,
         children: [
           _ArtistHero(artist: _artist, client: _client),
@@ -269,6 +277,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           SizedBox(height: 24 + MusicPage.bottomRoom(context)),
         ],
       ),
+      ),
     );
   }
 }
@@ -290,31 +299,24 @@ class _ArtistHero extends StatelessWidget {
     final height = isTV ? size.height * 0.52 : (wide ? 380.0 : size.width * 0.95);
     final art = artist.artPath;
     final useArt = art != null && art.isNotEmpty && (wide || isTV);
-    final surface = theme.colorScheme.surface;
-
     return SizedBox(
       height: height,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          OptimizedMediaImage(
-            client: client,
-            imagePath: useArt ? art : artist.thumbPath,
-            imageType: useArt ? ImageType.art : ImageType.square,
-            width: size.width,
+          // Sharp at the top, melting into the blurred colors behind the page.
+          FadingArt(
             height: height,
-            fit: BoxFit.cover,
-            alignment: useArt ? Alignment.center : const Alignment(0, -0.4),
-            fallbackIcon: Symbols.artist_rounded,
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0, 0.45, 1],
-                colors: [Colors.black.withValues(alpha: 0.25), Colors.transparent, surface],
-              ),
+            fadeFrom: 0.45,
+            image: OptimizedMediaImage(
+              client: client,
+              imagePath: useArt ? art : artist.thumbPath,
+              imageType: useArt ? ImageType.art : ImageType.square,
+              width: size.width,
+              height: height,
+              fit: BoxFit.cover,
+              alignment: useArt ? Alignment.center : const Alignment(0, -0.4),
+              fallbackIcon: Symbols.artist_rounded,
             ),
           ),
           Positioned(
