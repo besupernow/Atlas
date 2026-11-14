@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../utils/atlas_developer_options.dart';
 import '../../i18n/strings.g.dart';
 import '../../models/audio_channel_limit.dart';
-import '../../models/audio_quality_preset.dart';
 import '../../models/transcode_quality_preset.dart';
 import '../../models/player_setting_scope.dart';
 import '../../utils/audio_channel_limit_labels.dart';
@@ -137,7 +136,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 // Desktop has no hardware-decode probe, so this is where a
                 // machine too weak for a codec says so (#2443).
                 if (PlatformDetector.isDesktopOS()) _videoCodecsTile(),
-                _musicQualityTile(),
+                // Atlas: music quality lives in music mode's settings.
               ],
             ),
 
@@ -263,12 +262,6 @@ class PlaybackSettingsScreen extends StatelessWidget {
         icon: Symbols.dns_rounded,
         title: t.settings.followServerTrackSelections,
         subtitle: t.settings.followServerTrackSelectionsDescription,
-      ),
-      SettingSwitchTile(
-        pref: SettingsService.resumeMusicOnLaunch,
-        icon: Symbols.music_history_rounded,
-        title: t.settings.resumeMusicOnLaunch,
-        subtitle: t.settings.resumeMusicOnLaunchDescription,
       ),
       SettingSwitchTile(
         pref: SettingsService.showChapterMarkersOnTimeline,
@@ -743,17 +736,6 @@ class PlaybackSettingsScreen extends StatelessWidget {
         if (!codec.isRefusable) codec.id,
     },
   );
-
-  Widget _musicQualityTile() => SettingSelectionTile<AudioQualityPreset>(
-    pref: SettingsService.musicQualityPreset,
-    icon: Symbols.music_note_rounded,
-    title: t.settings.musicQualityTitle,
-    subtitleBuilder: _musicQualityLabel,
-    options: AudioQualityPreset.values.map((p) => DialogOption(value: p, title: _musicQualityLabel(p))).toList(),
-  );
-
-  String _musicQualityLabel(AudioQualityPreset preset) =>
-      preset.isOriginal ? t.videoControls.qualityOriginal : '${preset.bitrateKbps} kbps';
 
   Widget _mpvConfigTile() => SettingNavigationTile(
     icon: Symbols.tune_rounded,

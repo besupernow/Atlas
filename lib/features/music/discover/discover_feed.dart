@@ -206,7 +206,15 @@ class MusicDiscovery {
 
 /// A row on a discovery page, loaded on its own.
 class MusicFeedRow {
-  const MusicFeedRow({required this.id, required this.title, this.subtitle, required this.items, this.large = false});
+  const MusicFeedRow({
+    required this.id,
+    required this.title,
+    this.subtitle,
+    this.items = const [],
+    this.large = false,
+    this.seeAll,
+    this.custom,
+  });
 
   final String id;
   final String title;
@@ -215,4 +223,12 @@ class MusicFeedRow {
 
   /// Bigger cards (the first rows of a page).
   final bool large;
+
+  /// Loads the full list for the header's ">" (Apple's "see all").
+  final Future<List<MusicFeedItem>> Function()? seeAll;
+
+  /// A row that draws itself (Top Picks, Made for You). Given the "focus the rail" callback.
+  final Widget Function(BuildContext context, VoidCallback? focusRail)? custom;
+
+  bool get isEmpty => custom == null && items.isEmpty;
 }

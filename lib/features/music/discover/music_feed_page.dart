@@ -91,7 +91,7 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
           if (!mounted || generation != _generation) return;
           setState(() {
             _pending.remove(spec.id);
-            if (row == null || row.items.isEmpty) {
+            if (row == null || row.isEmpty) {
               _rows.remove(spec.id);
             } else {
               _rows[spec.id] = row;
@@ -99,6 +99,18 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
           });
         }(),
     ]);
+  }
+
+  void _openSeeAll(MusicFeedRow row, ValueChanged<MusicFeedItem>? onItemTap) {
+    final load = row.seeAll;
+    if (load == null) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => MusicFeedGridPage(title: row.title, load: load, onItemTap: onItemTap),
+        ),
+      ),
+    );
   }
 
   @override
@@ -119,20 +131,88 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
           MusicHeroCarousel(items: hero, eyebrow: widget.heroEyebrow, onNavigateToSidebar: focus?.focusRail),
         if (widget.header case final header?) header(context),
         for (final (spec, row) in ordered)
-          MusicFeedShelf(
-            key: ValueKey(row.id),
-            title: row.title,
-            subtitle: row.subtitle,
-            items: row.items,
-            large: row.large,
-            onItemTap: spec.onItemTap,
-            onNavigateToSidebar: focus?.focusRail,
-          ),
+          if (row.custom case final custom?)
+            KeyedSubtree(key: ValueKey(row.id), child: custom(context, focus?.focusRail))
+          else
+            MusicFeedShelf(
+              key: ValueKey(row.id),
+              title: row.title,
+              subtitle: row.subtitle,
+              items: row.items,
+              large: row.large,
+              onItemTap: spec.onItemTap,
+              onNavigateToSidebar: focus?.focusRail,
+              onSeeAll: row.seeAll == null ? null : () => _openSeeAll(row, spec.onItemTap),
+            ),
         if (loading && ordered.length < 2)
           const MusicPagePlaceholder()
         else if (!loading && ordered.isEmpty)
           MusicPagePlaceholder(message: widget.emptyMessage),
       ],
+    );
+  }
+}
+
+/// Atlas: a row's full list ("see all"), as a grid.
+class MusicFeedGridPage extends StatefulWidget {
+  const MusicFeedGridPage({super.key, required this.title, required this.load, this.onItemTap});
+
+  final String title;
+  final Future<List<MusicFeedItem>> Function() load;
+  final ValueChanged<MusicFeedItem>? onItemTap;
+
+  @override
+  State<MusicFeedGridPage> createState() => _MusicFeedGridPageState();
+}
+
+class _MusicFeedGridPageState extends State<MusicFeedGridPage> {
+  List<MusicFeedItem>? _items;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      widget.load().then(
+        (items) {
+          if (mounted) setState(() => _items = items);
+        },
+        onError: (Object _) {
+          if (mounted) setState(() => _failed = true);
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _items;
+    final size = MusicFeedShelf.cardSize(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: items == null
+          ? MusicPagePlaceholder(message: _failed ? MusicStrings.loadFailed : null)
+          : items.isEmpty
+          ? const MusicPagePlaceholder(message: MusicStrings.nothingYet)
+          : GridView.builder(
+              padding: MusicPage.padding(
+                context,
+              ).add(EdgeInsets.only(top: 12, bottom: 24 + MusicPage.bottomRoom(context))),
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: size + 16,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 14,
+                childAspectRatio: size / (size + 62),
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) => LayoutBuilder(
+                builder: (context, constraints) => MusicFeedCard(
+                  item: items[index],
+                  size: constraints.maxWidth,
+                  onTap: widget.onItemTap,
+                ),
+              ),
+            ),
     );
   }
 }
