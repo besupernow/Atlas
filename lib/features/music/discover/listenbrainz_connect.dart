@@ -10,85 +10,104 @@ import '../widgets/music_page.dart';
 import 'listenbrainz.dart';
 
 /// Ask for (or change, or remove) this profile's ListenBrainz username.
-Future<void> showListenBrainzConnect(BuildContext context) async {
-  final current = ListenBrainzAccount.username(context);
-  final controller = TextEditingController(text: current ?? '');
-  String? error;
-  var checking = false;
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) {
-        Future<void> save() async {
-          final name = controller.text.trim();
-          if (name.isEmpty) return;
-          setDialogState(() {
-            checking = true;
-            error = null;
-          });
-          bool ok;
-          try {
-            ok = await ListenBrainzAccount.exists(name);
-          } catch (_) {
-            ok = true; // Offline or rate-limited: trust the name, it'll show up once it loads.
-          }
-          if (!dialogContext.mounted) return;
-          if (!ok) {
-            setDialogState(() {
-              checking = false;
-              error = MusicStrings.userNotFound;
-            });
-            return;
-          }
-          if (context.mounted) await ListenBrainzAccount.setUsername(context, name);
-          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-        }
+Future<void> showListenBrainzConnect(BuildContext context) => showDialog<void>(
+  context: context,
+  builder: (_) => _ListenBrainzDialog(host: context),
+);
 
-        return AlertDialog(
-          icon: const AppIcon(Symbols.graphic_eq_rounded, size: 32),
-          title: const Text(MusicStrings.listenBrainz),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(MusicStrings.connectBody),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                autocorrect: false,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => unawaited(save()),
-                decoration: InputDecoration(
-                  labelText: MusicStrings.usernameHint,
-                  errorText: error,
-                  prefixIcon: const AppIcon(Symbols.person_rounded),
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            if (current != null)
-              TextButton(
-                onPressed: () async {
-                  await ListenBrainzAccount.setUsername(context, null);
-                  if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-                },
-                child: const Text(MusicStrings.disconnect),
-              ),
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text(MusicStrings.cancel)),
-            FilledButton(
-              onPressed: checking ? null : () => unawaited(save()),
-              child: checking
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text(MusicStrings.save),
+/// The dialog owns its text field's controller, so the controller lives exactly as long as the
+/// dialog (including its closing animation).
+class _ListenBrainzDialog extends StatefulWidget {
+  const _ListenBrainzDialog({required this.host});
+
+  /// Where the account is saved from (the dialog's own context sits above the profile).
+  final BuildContext host;
+
+  @override
+  State<_ListenBrainzDialog> createState() => _ListenBrainzDialogState();
+}
+
+class _ListenBrainzDialogState extends State<_ListenBrainzDialog> {
+  late final String? _current = ListenBrainzAccount.username(widget.host);
+  late final TextEditingController _controller = TextEditingController(text: _current ?? '');
+  String? _error;
+  bool _checking = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty || _checking) return;
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
+    bool ok;
+    try {
+      ok = await ListenBrainzAccount.exists(name);
+    } catch (_) {
+      ok = true; // Offline or rate-limited: trust the name, it'll load once ListenBrainz answers.
+    }
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _checking = false;
+        _error = MusicStrings.userNotFound;
+      });
+      return;
+    }
+    if (widget.host.mounted) await ListenBrainzAccount.setUsername(widget.host, name);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _disconnect() async {
+    if (widget.host.mounted) await ListenBrainzAccount.setUsername(widget.host, null);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const AppIcon(Symbols.graphic_eq_rounded, size: 32),
+      title: const Text(MusicStrings.listenBrainz),
+      scrollable: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(MusicStrings.connectBody),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            autocorrect: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => unawaited(_save()),
+            decoration: InputDecoration(
+              labelText: MusicStrings.usernameHint,
+              errorText: _error,
+              prefixIcon: const AppIcon(Symbols.person_rounded),
+              border: const OutlineInputBorder(),
             ),
-          ],
-        );
-      },
-    ),
-  );
-  controller.dispose();
+          ),
+        ],
+      ),
+      actions: [
+        if (_current != null)
+          TextButton(onPressed: () => unawaited(_disconnect()), child: const Text(MusicStrings.disconnect)),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text(MusicStrings.cancel)),
+        FilledButton(
+          onPressed: _checking ? null : () => unawaited(_save()),
+          child: _checking
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text(MusicStrings.save),
+        ),
+      ],
+    );
+  }
 }
 
 /// The card on Home until someone connects ListenBrainz.

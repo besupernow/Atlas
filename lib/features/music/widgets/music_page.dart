@@ -68,7 +68,12 @@ class MusicPage extends StatelessWidget {
       ],
     );
     return Scaffold(
-      body: onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list),
+      body: Stack(
+        children: [
+          const Positioned(top: 0, left: 0, right: 0, child: _Aurora()),
+          onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list),
+        ],
+      ),
     );
   }
 }
@@ -115,6 +120,48 @@ class MusicPagePlaceholder extends StatelessWidget {
           message!,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+}
+
+/// Atlas: music mode's signature: a soft wash of the accent color (and its neighbor on the
+/// color wheel) glowing down from the top of every page, fading out before the content.
+class _Aurora extends StatelessWidget {
+  const _Aurora();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final height = MediaQuery.sizeOf(context).height * 0.45;
+    final strength = dark ? 0.32 : 0.18;
+    return IgnorePointer(
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(-0.9, -1.1),
+                  radius: 1.1,
+                  colors: [scheme.primary.withValues(alpha: strength), scheme.primary.withValues(alpha: 0)],
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(1, -1.2),
+                  radius: 0.9,
+                  colors: [scheme.tertiary.withValues(alpha: strength * 0.8), scheme.tertiary.withValues(alpha: 0)],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../data/music_catalog.dart';
+import '../data/music_sources.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/music_page.dart';
@@ -33,10 +34,18 @@ class _MusicRadioPageState extends State<MusicRadioPage> {
   List<MusicGenre> _genres = const [];
   bool _failed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
+  String? _sources;
+
+  /// Loads once the music libraries are there (music mode is built before they load), and
+  /// again if they change.
+  /// Called from build (where watching providers is allowed).
+  void _watchSources() {
+    final sources = watchMusicSources(context);
+    if (sources == _sources) return;
+    _sources = sources;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load());
+    });
   }
 
   @override
@@ -84,6 +93,7 @@ class _MusicRadioPageState extends State<MusicRadioPage> {
 
   @override
   Widget build(BuildContext context) {
+    _watchSources();
     final artists = _artists;
     final focus = MusicShellFocus.maybeOf(context);
     final theme = Theme.of(context);

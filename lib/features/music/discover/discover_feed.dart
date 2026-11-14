@@ -3,7 +3,9 @@ import 'package:flutter/widgets.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../data/music_catalog.dart';
+import '../music_strings.dart';
 import 'allseerr_music.dart';
+import 'deezer.dart';
 import 'discover_models.dart';
 import 'listenbrainz.dart';
 
@@ -34,7 +36,10 @@ class MusicDiscovery {
   static DateTime _indexedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Forget the server index (after a refresh or a finished request).
-  static void invalidate() => _index = null;
+  static void invalidate() {
+    _index = null;
+    _artistIndex = null;
+  }
 
   Future<Map<String, MediaItem>> _serverAlbums() {
     final stale = DateTime.now().difference(_indexedAt) > const Duration(minutes: 10);
@@ -156,16 +161,120 @@ class MusicDiscovery {
     ].take(16).toList();
   }
 
-  /// Artists like the ones this person plays most, with the reason.
-  Future<({String artist, List<MusicFeedItem> items})?> moreLike({int rank = 0}) async {
+  // ---- The server's artists, by name (for marking related artists we already have).
+
+  static Future<Map<String, MediaItem>>? _artistIndex;
+
+  Future<Map<String, MediaItem>> _serverArtists() {
+    return _artistIndex ??= () async {
+      final index = <String, MediaItem>{};
+      try {
+        for (var offset = 0; offset < 20000;) {
+          final page = await catalog.page(MediaKind.artist, offset: offset, size: 500);
+          for (final artist in page.items) {
+            index[Deezer.normal(artist.title ?? '')] = artist;
+          }
+          if (!page.hasMore || page.items.isEmpty) break;
+          offset += page.items.length;
+        }
+      } catch (_) {
+        _artistIndex = null;
+      }
+      return index;
+    }();
+  }
+
+  /// Cards for [artists]: the server's artist page where we have them.
+  Future<List<MusicFeedItem>> resolveArtists(List<DiscoverArtist> artists, {int limit = 30}) async {
+    final index = await _serverArtists();
+    final seen = <String>{};
+    return [
+      for (final artist in artists)
+        if (seen.add(Deezer.normal(artist.name)))
+          if (index[Deezer.normal(artist.name)] case final server?)
+            ServerFeedItem(server, reason: artist.reason)
+          else
+            ExternalArtistItem(artist),
+    ].take(limit).toList();
+  }
+
+  // ---- Who this person listens to.
+
+  Future<List<DiscoverArtist>>? _seeds;
+
+  /// The artists this person plays most: ListenBrainz's stats when connected, otherwise the
+  /// server's play counts, otherwise a few artists from the server.
+  Future<List<DiscoverArtist>> seeds({int count = 3}) => _seeds ??= () async {
+    final names = <String>[];
     final lb = listenBrainz;
-    final seerr = allseerr;
-    if (lb == null || seerr == null) return null;
-    final top = await quietly(lb.topArtists(count: rank + 1), const <({String mbid, String name})>[], 'top artists');
-    if (top.length <= rank) return null;
-    final artist = top[rank];
-    final similar = await quietly(seerr.similarArtists(artist.mbid), const <DiscoverArtist>[], 'similar artists');
-    return (artist: artist.name, items: [for (final a in similar) ExternalArtistItem(a)]);
+    if (lb != null) {
+      final top = await quietly(lb.topArtists(count: count), const <({String mbid, String name})>[], 'top artists');
+      names.addAll(top.map((artist) => artist.name));
+    }
+    if (names.length < count) {
+      final played = await quietly(catalog.mostPlayed(limit: 60), const <MediaItem>[], 'most played');
+      for (final track in played) {
+        final name = track.albumArtistTitle ?? track.trackArtistTitle;
+        if (name != null && name.isNotEmpty && !names.contains(name)) names.add(name);
+        if (names.length >= count) break;
+      }
+    }
+    if (names.length < count) {
+      final artists = await quietly(catalog.items(MediaKind.artist, sort: 'random', limit: count), const <MediaItem>[], 'artists');
+      for (final artist in artists) {
+        final name = artist.title;
+        if (name != null && name.isNotEmpty && !names.contains(name)) names.add(name);
+      }
+    }
+    return [for (final name in names.take(count)) DiscoverArtist(mbid: 'name:$name', name: name)];
+  }();
+
+  /// Albums artists like yours are known for (Deezer's related artists), with why.
+  Future<List<DiscoverAlbum>> similarAlbums() async {
+    final seeds = await this.seeds();
+    final perSeed = await Future.wait([
+      for (final seed in seeds)
+        () async {
+          final related = await quietly(Deezer.related(seed, limit: 8), const <DiscoverArtist>[], 'related artists');
+          final albums = await Future.wait([
+            for (final artist in related.take(5))
+              quietly(Deezer.signatureAlbum(artist, reason: MusicStrings.likeArtist(seed.name)), null, 'top album'),
+          ]);
+          return albums.whereType<DiscoverAlbum>().toList();
+        }(),
+    ]);
+    // Round-robin so every seed shows up early.
+    final merged = <DiscoverAlbum>[];
+    for (var i = 0; perSeed.any((list) => i < list.length); i++) {
+      for (final list in perSeed) {
+        if (i < list.length) merged.add(list[i]);
+      }
+    }
+    return merged;
+  }
+
+  /// Recommended for You: ListenBrainz's picks and albums like your artists', on the server or
+  /// not (yet).
+  Future<List<MusicFeedItem>> recommended(List<DiscoverAlbum> listenBrainzPicks, {int limit = 30}) async {
+    final similar = await quietly(similarAlbums(), const <DiscoverAlbum>[], 'similar albums');
+    final merged = <DiscoverAlbum>[];
+    final seen = <String>{};
+    for (var i = 0; i < listenBrainzPicks.length || i < similar.length; i++) {
+      for (final album in [if (i < listenBrainzPicks.length) listenBrainzPicks[i], if (i < similar.length) similar[i]]) {
+        if (seen.add(albumKey(album.artistName, album.title))) merged.add(album);
+      }
+    }
+    return resolve(merged, known: await known(), limit: limit);
+  }
+
+  /// Artists like the one this person plays most (or the [rank]th), with the name.
+  Future<({String artist, List<MusicFeedItem> items})?> moreLike({int rank = 0}) async {
+    final seeds = await this.seeds();
+    if (seeds.length <= rank) return null;
+    final seed = seeds[rank];
+    final related = await quietly(Deezer.related(seed, limit: 20), const <DiscoverArtist>[], 'related artists');
+    if (related.isEmpty) return null;
+    return (artist: seed.name, items: await resolveArtists(related));
   }
 
   /// New albums from artists this person plays (ListenBrainz).
@@ -176,37 +285,35 @@ class MusicDiscovery {
     return resolve([for (final album in albums) album.toDiscover()], known: await known(), limit: 30);
   }
 
-  /// New albums and EPs everywhere (Allseerr, from ListenBrainz).
-  Future<List<MusicFeedItem>> newReleases({int pages = 2}) async {
-    final seerr = allseerr;
-    if (seerr == null) return const [];
-    final lists = await Future.wait([
-      for (var page = 1; page <= pages; page++)
-        quietly(seerr.freshReleases(page: page), const <DiscoverAlbum>[], 'new releases'),
-    ]);
-    return resolve([for (final list in lists) ...list], limit: 40);
-  }
+  /// This week's new releases (Deezer's editors).
+  Future<List<MusicFeedItem>> newReleases({int limit = 60}) async =>
+      resolve(await Deezer.newReleases(limit: limit), limit: limit);
 
-  /// What everyone's playing this week.
-  Future<List<MusicFeedItem>> popularAlbums() async {
-    final seerr = allseerr;
-    if (seerr == null) return const [];
-    return resolve(await quietly(seerr.topAlbums(), const <DiscoverAlbum>[], 'popular albums'), limit: 20);
-  }
+  /// The most played albums right now, in chart order.
+  Future<List<MusicFeedItem>> topAlbums({int limit = 50}) async =>
+      resolve(await Deezer.topAlbums(limit: limit), limit: limit);
 
-  Future<List<MusicFeedItem>> trendingArtists() async {
-    final seerr = allseerr;
-    if (seerr == null) return const [];
-    final artists = await quietly(seerr.topArtists(), const <DiscoverArtist>[], 'trending artists');
-    return [for (final artist in artists) ExternalArtistItem(artist)];
-  }
+  /// The most played artists right now.
+  Future<List<MusicFeedItem>> topArtists() async => resolveArtists(await Deezer.topArtists());
 
-  /// An artist's discography as cards (server copies where we have them).
-  Future<List<MusicFeedItem>> discography(String artistMbid) async {
+  /// An artist's releases as cards (server copies where we have them).
+  Future<List<MusicFeedItem>> discographyOf(DiscoverArtist artist) async {
+    var albums = await quietly(Deezer.albumsBy(artist), const <DiscoverAlbum>[], 'discography');
     final seerr = allseerr;
-    if (seerr == null) return const [];
-    final albums = await seerr.discography(artistMbid);
+    if (albums.isEmpty && seerr != null && artist.hasMbid && !artist.mbid.startsWith('name:')) {
+      albums = await quietly(seerr.discography(artist.mbid), const <DiscoverAlbum>[], 'discography');
+    }
     return resolve(albums, limit: 200);
+  }
+
+  /// Artists like [artist].
+  Future<List<MusicFeedItem>> similarTo(DiscoverArtist artist) async {
+    var related = await quietly(Deezer.related(artist), const <DiscoverArtist>[], 'related artists');
+    final seerr = allseerr;
+    if (related.isEmpty && seerr != null && artist.hasMbid && !artist.mbid.startsWith('name:')) {
+      related = await quietly(seerr.similarArtists(artist.mbid), const <DiscoverArtist>[], 'similar artists');
+    }
+    return resolveArtists(related);
   }
 
   static List<MusicFeedItem> server(List<MediaItem> items) => [for (final item in items) ServerFeedItem(item)];
@@ -222,9 +329,17 @@ class MusicFeedRow {
     this.large = false,
     this.seeAll,
     this.custom,
+    this.kicker,
+    this.ranked = false,
   });
 
   final String id;
+
+  /// The small colored word above the title ("THIS WEEK", "FOR YOU").
+  final String? kicker;
+
+  /// Chart order: big numbers beside the cards.
+  final bool ranked;
   final String title;
   final String? subtitle;
   final List<MusicFeedItem> items;

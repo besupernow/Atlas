@@ -102,14 +102,63 @@ class AllseerrMusic {
   }
 
   /// Ask for [album]. Allseerr sends it to Lidarr (auto-approved for the family).
+  /// An album from Deezer has no MusicBrainz id, so a request first matches it.
   Future<DiscoverStatus> request(DiscoverAlbum album) async {
-    final data = await _client.postJson('/request', {'mediaType': 'music', 'mediaId': album.mbid});
+    final target = album.hasMbid ? album : await match(album);
+    if (target == null) throw StateError('No MusicBrainz match for ${album.artistName} - ${album.title}');
+    final data = await _client.postJson('/request', {'mediaType': 'music', 'mediaId': target.mbid});
     final media = data is Map<String, dynamic> ? data['media'] : null;
     var status = DiscoverStatus.fromSeerr(media is Map ? media['status'] : null);
     if (!status.onServer && !status.inProgress) status = DiscoverStatus.requested;
+    StatusOverrides.instance.set(target.mbid, status);
     StatusOverrides.instance.set(album.mbid, status);
     return status;
   }
+
+  static final Map<String, Future<DiscoverAlbum?>> _matches = {};
+
+  /// [album] matched to MusicBrainz through Allseerr's search (artist and title), carrying
+  /// what Allseerr knows about it (requested, on the server). Remembered for the session.
+  Future<DiscoverAlbum?> match(DiscoverAlbum album) {
+    if (album.hasMbid) return Future.value(album);
+    return _matches.putIfAbsent(album.mbid, () async {
+      try {
+        final data = await _client.getJson('/search', query: {'query': '${album.artistName} ${album.title}', 'type': 'music'});
+        final results = data is Map<String, dynamic> ? data['results'] : null;
+        if (results is! List) return null;
+        final wantTitle = _normal(album.title);
+        final wantArtist = _normal(album.artistName);
+        DiscoverAlbum? loose;
+        for (final json in results) {
+          if (json is! Map<String, dynamic> || json['mediaType'] != 'album') continue;
+          final found = DiscoverAlbum.fromSeerr(json);
+          if (found == null) continue;
+          final gotArtist = _normal(found.artistName);
+          if (!(gotArtist.contains(wantArtist) || wantArtist.contains(gotArtist))) continue;
+          final gotTitle = _normal(found.title);
+          final matched = found.copyWith(coverUrl: album.coverUrl, deezerId: album.deezerId);
+          if (gotTitle == wantTitle) {
+            StatusOverrides.instance.set(album.mbid, matched.status);
+            return matched;
+          }
+          if (gotTitle.startsWith(wantTitle) || wantTitle.startsWith(gotTitle)) loose ??= matched;
+        }
+        if (loose != null) StatusOverrides.instance.set(album.mbid, loose.status);
+        return loose;
+      } catch (error) {
+        _matches.remove(album.mbid);
+        appLogger.w('Music discovery: matching ${album.title} failed', error: error);
+        return null;
+      }
+    });
+  }
+
+  static String _normal(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'\((deluxe|expanded|remaster|anniversary|bonus|explicit)[^)]*\)|\[[^\]]*\]'), '')
+      .replaceAll('&', 'and')
+      .replaceAll(RegExp(r'^the '), '')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
   /// Every album Allseerr knows the household has or asked for, by release group id. Used to
   /// mark albums from ListenBrainz as on the server or on their way.

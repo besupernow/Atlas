@@ -78,7 +78,7 @@ abstract final class MusicStrings {
   static const noPreview = 'No preview for this one';
   static const requestFailed = "Couldn't request it. Try again in a bit.";
   static const requestSent = "Requested. It'll show up in your music when it's ready.";
-  static const requestUnavailable = 'Requests need Allseerr connected (Settings > Services).';
+  static const requestUnavailable = "Requests need Allseerr, and it isn't connected right now.";
   static const discography = 'Discography';
   static const albumsAndEps = 'Albums & EPs';
   static const singles = 'Singles';
@@ -134,6 +134,24 @@ abstract final class MusicStrings {
   static const musicPlaybackSubtitle = 'Streaming quality and picking up where you left off';
   static const listenBrainzSubtitle = 'Not connected. Connect for recommendations picked for you';
   static String connectedAsName(String name) => 'ListenBrainz: $name';
-  static const requestsTitle = 'Requests';
-  static String requestsConnected(String name) => 'Allseerr connected as $name';
+
+  // New and discovery (round 3).
+  static String likeArtist(String artist) => 'Like $artist';
+  static const kickerForYou = 'FOR YOU';
+  static const kickerOutNow = 'OUT NOW';
+  static const kickerTrending = 'TRENDING';
+  static const kickerCharts = 'CHARTS';
+  static const kickerPopular = 'POPULAR';
+  static const kickerJustPlayed = 'JUST PLAYED';
+  static const kickerFromYourServer = 'ON THE SERVER';
+  static const kickerMixes = 'MIXES';
+  static const kickerFresh = 'FRESH';
+  static const topSongsSubtitle = 'The most played songs right now';
+  static const topAlbums = 'Top Albums';
+  static const topAlbumsSubtitle = 'The most played albums right now';
+  static const topArtists = 'Artists Everyone Is Playing';
+  static const newReleasesSubtitle = 'Picked by editors this week';
+  static const newRelease = 'New Release';
+  static const openAlbum = 'Open album';
+  static const label = 'Label';
 }

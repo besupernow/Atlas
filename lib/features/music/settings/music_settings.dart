@@ -2,13 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:provider/provider.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../models/audio_quality_preset.dart';
 import '../../../navigation/settings_shortcut.dart';
-import '../../../providers/seerr_account_provider.dart';
-import '../../../screens/settings/seerr_settings_screen.dart';
 import '../../../screens/settings/settings_screen.dart';
 import '../../../screens/settings/settings_utils.dart';
 import '../../../services/settings_service.dart';
@@ -24,7 +21,7 @@ import '../music_strings.dart';
 Future<void> openMusicSettings(BuildContext context) =>
     Navigator.of(context).push(buildSettingsRoute(mode: SettingsMode.music, musicSections: musicSettingsSections));
 
-/// Music mode's groups in Settings: playback, ListenBrainz, requests.
+/// Music mode's groups in Settings: playback and ListenBrainz.
 List<Widget> musicSettingsSections(BuildContext context) => [
   SettingsGroup(
     title: MusicStrings.settingsMusic,
@@ -36,7 +33,6 @@ List<Widget> musicSettingsSections(BuildContext context) => [
         destinationBuilder: (_) => const MusicPlaybackSettingsScreen(),
       ),
       const _ListenBrainzTile(),
-      const _RequestsTile(),
     ],
   ),
 ];
@@ -57,30 +53,6 @@ class _ListenBrainzTile extends StatelessWidget {
           onTap: () => unawaited(showListenBrainzConnect(context)),
         );
       },
-    );
-  }
-}
-
-class _RequestsTile extends StatelessWidget {
-  const _RequestsTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final SeerrAccountProvider? seerr;
-    try {
-      seerr = context.watch<SeerrAccountProvider?>();
-    } on ProviderNotFoundException {
-      return const SizedBox.shrink();
-    }
-    if (seerr == null) return const SizedBox.shrink();
-    final name = seerr.displayName;
-    return SettingNavigationTile(
-      icon: Symbols.library_add_rounded,
-      title: MusicStrings.requestsTitle,
-      subtitle: seerr.isConnected
-          ? MusicStrings.requestsConnected(name ?? t.services.names.seerr)
-          : MusicStrings.requestUnavailable,
-      destinationBuilder: (_) => const SeerrSettingsScreen(),
     );
   }
 }

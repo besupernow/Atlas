@@ -34,8 +34,11 @@ class DiscoverAlbum {
     this.type,
     this.status = DiscoverStatus.notRequested,
     this.reason,
+    this.deezerId,
   });
 
+  /// The MusicBrainz release group id, or `dz:<deezer id>` for an album that came from Deezer
+  /// and hasn't been matched to MusicBrainz yet (see [hasMbid]; requests match it first).
   final String mbid;
   final String title;
   final String artistName;
@@ -50,18 +53,31 @@ class DiscoverAlbum {
   /// Why it's here ("Because you play Phoebe Bridgers"), when a row explains itself.
   final String? reason;
 
+  /// Deezer's id, for albums from Deezer's charts and releases (art, track list, previews).
+  final int? deezerId;
+
+  bool get hasMbid => !mbid.startsWith('dz:');
+
   String? get year => releaseDate != null && releaseDate!.length >= 4 ? releaseDate!.substring(0, 4) : null;
 
-  DiscoverAlbum copyWith({DiscoverStatus? status, String? coverUrl, String? reason}) => DiscoverAlbum(
-    mbid: mbid,
+  DiscoverAlbum copyWith({
+    String? mbid,
+    DiscoverStatus? status,
+    String? coverUrl,
+    String? reason,
+    int? deezerId,
+    String? artistMbid,
+  }) => DiscoverAlbum(
+    mbid: mbid ?? this.mbid,
     title: title,
     artistName: artistName,
-    artistMbid: artistMbid,
+    artistMbid: artistMbid ?? this.artistMbid,
     coverUrl: coverUrl ?? this.coverUrl,
     releaseDate: releaseDate,
     type: type,
     status: status ?? this.status,
     reason: reason ?? this.reason,
+    deezerId: deezerId ?? this.deezerId,
   );
 
   /// From an Allseerr `AlbumResult`.
@@ -93,13 +109,24 @@ class DiscoverAlbum {
 
 /// An artist from outside the server.
 class DiscoverArtist {
-  const DiscoverArtist({required this.mbid, required this.name, this.imageUrl, this.backdropUrl, this.reason});
+  const DiscoverArtist({
+    required this.mbid,
+    required this.name,
+    this.imageUrl,
+    this.backdropUrl,
+    this.reason,
+    this.deezerId,
+  });
 
+  /// The MusicBrainz artist id, or `dz:<deezer id>` for an artist from Deezer.
   final String mbid;
   final String name;
   final String? imageUrl;
   final String? backdropUrl;
   final String? reason;
+  final int? deezerId;
+
+  bool get hasMbid => !mbid.startsWith('dz:');
 
   static DiscoverArtist? fromSeerr(Object? json, {String? reason}) {
     if (json is! Map<String, dynamic>) return null;
@@ -118,11 +145,21 @@ class DiscoverArtist {
 
 /// One song of an album's track list.
 class DiscoverTrack {
-  const DiscoverTrack({required this.title, required this.number, this.length, this.disc = 1, this.artist});
+  const DiscoverTrack({
+    required this.title,
+    required this.number,
+    this.length,
+    this.disc = 1,
+    this.artist,
+    this.previewUrl,
+  });
 
   final String title;
   final String number;
   final Duration? length;
+
+  /// A 30-second clip (Deezer), when there is one.
+  final String? previewUrl;
   final int disc;
   final String? artist;
 }
