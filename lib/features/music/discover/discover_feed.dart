@@ -81,12 +81,12 @@ class MusicDiscovery {
   /// Cards for [albums]: the server's copy where there is one, otherwise the album itself with
   /// what Allseerr knows about it.
   Future<List<MusicFeedItem>> resolve(
-    List<DiscoverAlbum> albums, {
-    Map<String, DiscoverStatus> known = const {},
-    bool serverOnly = false,
-    bool externalOnly = false,
-    int limit = 20,
-  }) async {
+      List<DiscoverAlbum> albums, {
+        Map<String, DiscoverStatus> known = const {},
+        bool serverOnly = false,
+        bool externalOnly = false,
+        int limit = 20,
+      }) async {
     final index = await _serverAlbums();
     final seen = <String>{};
     final items = <MusicFeedItem>[];
