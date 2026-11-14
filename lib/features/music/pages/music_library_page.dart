@@ -7,6 +7,7 @@ import '../../../media/media_kind.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/focusable_list_tile.dart';
 import '../data/music_catalog.dart';
+import '../data/music_sources.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
@@ -28,10 +29,18 @@ class MusicLibraryPage extends StatefulWidget {
 class _MusicLibraryPageState extends State<MusicLibraryPage> {
   List<MusicFeedItem>? _saved;
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
+  String? _sources;
+
+  /// Loads once the music libraries are there (music mode is built before they load), and
+  /// again if they change.
+  /// Called from build (where watching providers is allowed).
+  void _watchSources() {
+    final sources = watchMusicSources(context);
+    if (sources == _sources) return;
+    _sources = sources;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load());
+    });
   }
 
   Future<void> _load() async {
@@ -46,6 +55,7 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    _watchSources();
     final theme = Theme.of(context);
     final saved = _saved;
     final entries = <(IconData, String, Widget Function())>[

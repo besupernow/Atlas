@@ -19,6 +19,7 @@ import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
 import '../widgets/music_page.dart';
 import 'allseerr_music.dart';
+import 'deezer.dart';
 import 'discover_models.dart';
 import 'music_previews.dart';
 import 'music_request_sheet.dart';
@@ -99,6 +100,8 @@ class MusicArt extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: shape,
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        // A hairline edge so dark covers don't melt into a dark page.
+        border: shadow ? Border.all(color: Colors.white.withValues(alpha: 0.07)) : null,
         boxShadow: shadow
             ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 18, offset: const Offset(0, 8))]
             : null,
@@ -248,7 +251,19 @@ class AlbumPreviewButton extends StatelessWidget {
 /// Start (or stop) [album]'s previews; says so when there aren't any.
 Future<void> previewAlbum(BuildContext context, DiscoverAlbum album) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
-  final clips = MusicPreviews.forAlbum(album.artistName, album.title);
+  final clips = album.deezerId == null
+      ? MusicPreviews.forAlbum(album.artistName, album.title)
+      : quietly(
+          Deezer.details(album).then(
+            (details) => [
+              for (final track in details?.tracks ?? const <DiscoverTrack>[])
+                if (track.previewUrl case final url?)
+                  PreviewClip(title: track.title, url: url, number: int.tryParse(track.number)),
+            ],
+          ),
+          const <PreviewClip>[],
+          'Deezer previews',
+        );
   await MusicPreviewPlayer.instance.playAlbum(context, album.mbid, clips);
   if ((await clips).isEmpty) {
     messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.noPreview)));
@@ -371,12 +386,18 @@ class MusicFeedShelf extends StatelessWidget {
     this.onNavigateToSidebar,
     this.onItemTap,
     this.onSeeAll,
+    this.kicker,
+    this.ranked = false,
   });
 
   final String title;
   final String? subtitle;
   final List<MusicFeedItem> items;
   final bool large;
+  final String? kicker;
+
+  /// Chart order: big outlined numbers beside each card.
+  final bool ranked;
   final VoidCallback? onNavigateToSidebar;
   final ValueChanged<MusicFeedItem>? onItemTap;
 
@@ -393,7 +414,6 @@ class MusicFeedShelf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
     final size = cardSize(context, large: large);
     final padding = MusicPage.padding(context);
     return Padding(
@@ -403,14 +423,7 @@ class MusicFeedShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ShelfTitle(title: title, onSeeAll: onSeeAll),
-                if (subtitle != null)
-                  Text(subtitle!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              ],
-            ),
+            child: MusicSectionHeader(kicker: kicker, title: title, subtitle: subtitle, onSeeAll: onSeeAll),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -422,13 +435,23 @@ class MusicFeedShelf extends StatelessWidget {
               clipBehavior: Clip.none,
               itemCount: items.length,
               separatorBuilder: (_, _) => SizedBox(width: large ? 18 : 14),
-              itemBuilder: (context, index) => MusicFeedCard(
-                key: ValueKey(items[index].key),
-                item: items[index],
-                size: size,
-                onNavigateLeft: index == 0 ? onNavigateToSidebar : null,
-                onTap: onItemTap,
-              ),
+              itemBuilder: (context, index) {
+                final card = MusicFeedCard(
+                  key: ValueKey(items[index].key),
+                  item: items[index],
+                  size: size,
+                  onNavigateLeft: index == 0 ? onNavigateToSidebar : null,
+                  onTap: onItemTap,
+                );
+                if (!ranked) return card;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _RankNumber(rank: index + 1, height: size),
+                    card,
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -437,32 +460,113 @@ class MusicFeedShelf extends StatelessWidget {
   }
 }
 
-/// A row's title; with [onSeeAll], tappable (and focusable) with a ">" after it.
-class _ShelfTitle extends StatelessWidget {
-  const _ShelfTitle({required this.title, this.onSeeAll});
+/// Atlas: a section's heading, magazine style: a small accent-colored word on top ("FOR
+/// YOU", "CHARTS"), the title big and tight, an optional line under it, and with [onSeeAll] a
+/// tappable ">" (Apple's "see all").
+class MusicSectionHeader extends StatelessWidget {
+  const MusicSectionHeader({super.key, required this.title, this.kicker, this.subtitle, this.onSeeAll});
 
   final String title;
+  final String? kicker;
+  final String? subtitle;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final text = Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3));
+    final scheme = theme.colorScheme;
+    final titleText = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.4, height: 1.1),
+    );
     final seeAll = onSeeAll;
-    if (seeAll == null) return text;
-    return FocusableWrapper(
-      borderRadius: 8,
-      onSelect: seeAll,
-      child: InkWell(
-        canRequestFocus: false,
-        borderRadius: BorderRadius.circular(8),
-        onTap: seeAll,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(child: text),
-            AppIcon(Symbols.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant, size: 26),
-          ],
+    final titleRow = seeAll == null
+        ? titleText
+        : FocusableWrapper(
+            borderRadius: 8,
+            onSelect: seeAll,
+            child: InkWell(
+              canRequestFocus: false,
+              borderRadius: BorderRadius.circular(8),
+              onTap: seeAll,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(child: titleText),
+                  const SizedBox(width: 2),
+                  AppIcon(Symbols.chevron_right_rounded, color: scheme.onSurfaceVariant, size: 26),
+                ],
+              ),
+            ),
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (kicker case final word?)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  word,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        titleRow,
+        if (subtitle case final line?)
+          Text(line, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+      ],
+    );
+  }
+}
+
+/// A chart position drawn as a big outlined numeral beside the card.
+class _RankNumber extends StatelessWidget {
+  const _RankNumber({required this.rank, required this.height});
+
+  final int rank;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final size = height * 0.62;
+    final style = TextStyle(fontSize: size, height: 1, fontWeight: FontWeight.w900, letterSpacing: -size * 0.08);
+    return SizedBox(
+      height: height,
+      child: Align(
+        alignment: Alignment.bottomRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Stack(
+            children: [
+              Text(
+                '$rank',
+                style: style.copyWith(
+                  foreground: Paint()
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 2.5
+                    ..color = scheme.primary,
+                ),
+              ),
+              Text('$rank', style: style.copyWith(color: scheme.primary.withValues(alpha: 0.12))),
+            ],
+          ),
         ),
       ),
     );
@@ -533,7 +637,7 @@ class _MusicHeroCarouselState extends State<MusicHeroCarousel> {
       _fraction = fraction;
       if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     }
-    final height = isTV ? 340.0 : (wide ? 300.0 : 400.0);
+    final height = isTV ? 340.0 : (wide ? 320.0 : 420.0);
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -613,132 +717,174 @@ class _HeroCard extends StatelessWidget {
     };
     final external = item is ExternalAlbumItem ? (item as ExternalAlbumItem).album : null;
     final server = item is ServerFeedItem ? (item as ServerFeedItem).item : null;
-    final artSize = wide ? 220.0 : 200.0;
+    final kind = external?.type ?? (server != null ? MusicStrings.onServer : null);
 
-    final buttons = <Widget>[
-      if (server != null) ...[
-        FilledButton.icon(
-          onPressed: () => unawaited(playServerAlbum(context, server)),
-          icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1.0),
-          label: const Text(MusicStrings.play),
-          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
-        ),
-        const SizedBox(width: 8),
-        IconButton.filledTonal(
-          onPressed: () => unawaited(playServerAlbum(context, server, shuffle: true)),
-          icon: const AppIcon(Symbols.shuffle_rounded),
-          tooltip: MusicStrings.shuffle,
-        ),
-      ],
-      if (external != null) ...[
-        if (MusicPreviews.supported) ...[
+    final buttons = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (server != null) ...[
           FilledButton.icon(
-            onPressed: () => unawaited(previewAlbum(context, external)),
-            icon: ListenableBuilder(
-              listenable: MusicPreviewPlayer.instance,
-              builder: (_, _) => AppIcon(
-                MusicPreviewPlayer.instance.playingKey == external.mbid ? Symbols.stop_rounded : Symbols.play_arrow_rounded,
-                fill: 1.0,
-              ),
-            ),
-            label: const Text(MusicStrings.preview),
+            onPressed: () => unawaited(playServerAlbum(context, server)),
+            icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1.0),
+            label: const Text(MusicStrings.play),
             style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
           ),
-          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            onPressed: () => unawaited(playServerAlbum(context, server, shuffle: true)),
+            icon: const AppIcon(Symbols.shuffle_rounded),
+            tooltip: MusicStrings.shuffle,
+          ),
         ],
-        RequestButton(album: external, compact: true),
+        if (external != null) ...[
+          if (MusicPreviews.supported)
+            ListenableBuilder(
+              listenable: MusicPreviewPlayer.instance,
+              builder: (context, _) {
+                final playing = MusicPreviewPlayer.instance.playingKey == external.mbid;
+                return FilledButton.icon(
+                  onPressed: () => unawaited(previewAlbum(context, external)),
+                  icon: AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, fill: 1.0),
+                  label: Text(playing ? MusicStrings.stop : MusicStrings.preview),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                );
+              },
+            ),
+          RequestButton(album: external, compact: true),
+        ],
       ],
-    ];
+    );
 
     final text = Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          (reason ?? eyebrow).toUpperCase(),
-          style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70, letterSpacing: 1.2, fontWeight: FontWeight.w700),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                (reason ?? eyebrow).toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  letterSpacing: 1.6,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (kind != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white54),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  kind.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
         Text(
           title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          textAlign: wide ? TextAlign.start : TextAlign.center,
-          style: (wide ? theme.textTheme.headlineMedium : theme.textTheme.headlineSmall)?.copyWith(
+          style: (wide ? theme.textTheme.displaySmall : theme.textTheme.headlineMedium)?.copyWith(
             color: Colors.white,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            height: 1.1,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -1,
+            height: 1.0,
           ),
         ),
-        if (subtitle.isNotEmpty)
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
           Text(
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
           ),
+        ],
         const SizedBox(height: 14),
-        Row(mainAxisSize: MainAxisSize.min, children: buttons),
+        buttons,
       ],
     );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: Material(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: Colors.black,
         child: InkWell(
           canRequestFocus: false,
           onTap: () => unawaited(openFeedItem(context, item)),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // The cover, blown up and blurred, as the backdrop.
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40, tileMode: TileMode.decal),
-                child: Transform.scale(scale: 1.4, child: MusicArt(item: item, size: 600, radius: 0, shadow: false)),
-              ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: wide ? Alignment.centerLeft : Alignment.topCenter,
-                    end: wide ? Alignment.centerRight : Alignment.bottomCenter,
-                    colors: [Colors.black.withValues(alpha: 0.15), Colors.black.withValues(alpha: 0.62)],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: wide
-                    ? Row(
-                        children: [
-                          Stack(
-                            children: [
-                              MusicArt(item: item, size: artSize, radius: 18),
-                              if (external != null)
-                                Positioned(top: 10, right: 10, child: NotOnServerBadge(status: external.status, mbid: external.mbid, size: 30)),
-                            ],
-                          ),
-                          const SizedBox(width: 28),
-                          Expanded(child: text),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Stack(
-                            children: [
-                              MusicArt(item: item, size: artSize, radius: 18),
-                              if (external != null)
-                                Positioned(top: 10, right: 10, child: NotOnServerBadge(status: external.status, mbid: external.mbid, size: 30)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          text,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final artSize = constraints.maxHeight - 48;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Phones: the cover is the poster. Wide: the cover, blown up and blurred,
+                  // with the sharp cover on the right.
+                  if (wide)
+                    ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50, tileMode: TileMode.decal),
+                      child: Transform.scale(scale: 1.5, child: MusicArt(item: item, size: 600, radius: 0, shadow: false)),
+                    )
+                  else
+                    MusicArt(item: item, size: constraints.maxWidth, radius: 0, shadow: false),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: wide ? Alignment.centerLeft : Alignment.topCenter,
+                        end: wide ? Alignment.centerRight : Alignment.bottomCenter,
+                        stops: wide ? const [0, 0.7] : const [0.35, 1],
+                        colors: [
+                          Colors.black.withValues(alpha: wide ? 0.7 : 0),
+                          Colors.black.withValues(alpha: wide ? 0.15 : 0.88),
                         ],
                       ),
-              ),
-            ],
+                    ),
+                  ),
+                  if (wide)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
+                        children: [
+                          Expanded(child: Align(alignment: Alignment.centerLeft, child: text)),
+                          const SizedBox(width: 24),
+                          Stack(
+                            children: [
+                              MusicArt(item: item, size: artSize, radius: 20),
+                              if (external != null)
+                                Positioned(
+                                  top: 10,
+                                  right: 10,
+                                  child: NotOnServerBadge(status: external.status, mbid: external.mbid, size: 30),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    if (external != null)
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: NotOnServerBadge(status: external.status, mbid: external.mbid, size: 30),
+                      ),
+                    Positioned(left: 20, right: 20, bottom: 20, child: text),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),

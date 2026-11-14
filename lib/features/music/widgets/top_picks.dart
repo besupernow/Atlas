@@ -182,7 +182,6 @@ class TopPicksShelf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (picks.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
     final width = cardWidth(context);
     final padding = MusicPage.padding(context);
     return Padding(
@@ -192,10 +191,7 @@ class TopPicksShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: Text(
-              MusicStrings.topPicks,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3),
-            ),
+            child: const MusicSectionHeader(kicker: MusicStrings.kickerForYou, title: MusicStrings.topPicks),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -413,10 +409,7 @@ class MixShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: Text(
-              MusicStrings.madeForYou,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3),
-            ),
+            child: const MusicSectionHeader(kicker: MusicStrings.kickerMixes, title: MusicStrings.madeForYou),
           ),
           const SizedBox(height: 12),
           SizedBox(

@@ -35,8 +35,10 @@ class _HomeData {
     recentlyPlayed = quietly(d.catalog.recentlyPlayed(), const <MediaItem>[], 'recently played');
     stations = quietly(d.catalog.stationArtists(limit: 12), const <MediaItem>[], 'stations');
     rawRecommendations = quietly(d.recommendations(), const <DiscoverAlbum>[], 'recommendations');
+    // ListenBrainz's picks plus albums like the artists you play (Deezer), so Home has
+    // recommendations even before ListenBrainz knows you.
     recommendations = quietly(
-      rawRecommendations.then((albums) async => d.resolve(albums, known: await d.known(), limit: 24)),
+      rawRecommendations.then((albums) => d.recommended(albums)),
       const <MusicFeedItem>[],
       'recommendation cards',
     );
@@ -111,6 +113,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       id: 'recently-played',
       load: (d) async => MusicFeedRow(
         id: 'recently-played',
+        kicker: MusicStrings.kickerJustPlayed,
         title: MusicStrings.recentlyPlayed,
         items: MusicDiscovery.server(await _shared(d).recentlyPlayed),
         seeAll: () async => MusicDiscovery.server(await d.catalog.recentlyPlayed(limit: 60)),
@@ -143,6 +146,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       id: 'recommended',
       load: (d) async => MusicFeedRow(
         id: 'recommended',
+        kicker: MusicStrings.kickerForYou,
         title: MusicStrings.recommendedForYou,
         subtitle: MusicStrings.recommendedSubtitle,
         // The first few are already in Top Picks.
@@ -153,6 +157,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       id: 'new-for-you',
       load: (d) async => MusicFeedRow(
         id: 'new-for-you',
+        kicker: MusicStrings.kickerFresh,
         title: MusicStrings.newReleasesForYou,
         subtitle: MusicStrings.newForYouSubtitle,
         items: await d.newForYou(),
@@ -165,6 +170,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       },
       load: (d) async => MusicFeedRow(
         id: 'stations',
+        kicker: MusicStrings.kickerFromYourServer,
         title: MusicStrings.stationsForYou,
         subtitle: MusicStrings.stationsSubtitle,
         items: MusicDiscovery.server(await _shared(d).stations),
@@ -177,6 +183,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
         if (row == null) return null;
         return MusicFeedRow(
           id: 'more-like',
+          kicker: MusicStrings.kickerForYou,
           title: MusicStrings.moreLike(row.artist),
           subtitle: MusicStrings.moreLikeSubtitle,
           items: row.items,
@@ -187,6 +194,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       id: 'picked',
       load: (d) async => MusicFeedRow(
         id: 'picked',
+        kicker: MusicStrings.kickerFromYourServer,
         title: MusicStrings.pickedForYou,
         subtitle: MusicStrings.pickedSubtitle,
         items: await d.pickedForYou(await _shared(d).rawRecommendations),
@@ -196,6 +204,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       id: 'recently-added',
       load: (d) async => MusicFeedRow(
         id: 'recently-added',
+        kicker: MusicStrings.kickerFromYourServer,
         title: MusicStrings.recentlyAdded,
         items: MusicDiscovery.server(await d.catalog.recentlyAddedAlbums()),
         seeAll: () async => MusicDiscovery.server(await d.catalog.recentlyAddedAlbums(limit: 100)),

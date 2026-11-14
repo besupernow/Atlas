@@ -13,6 +13,7 @@ import '../../../widgets/app_icon.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
 import 'allseerr_music.dart';
+import 'deezer.dart';
 import 'discover_feed.dart';
 import 'discover_models.dart';
 import 'discover_widgets.dart';
@@ -153,17 +154,46 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
     super.dispose();
   }
 
+  /// Deezer for the art, track list and previews (its metadata is the best we can reach);
+  /// Allseerr for whether we have it or asked for it (and the MusicBrainz id requests need).
   Future<void> _load() async {
     final seerr = AllseerrMusic.of(context);
     final discovery = MusicDiscovery.of(context);
+    final album = widget.album;
     final results = await Future.wait<Object?>([
-      seerr == null ? Future.value() : quietly(seerr.album(widget.album), null, 'album details'),
-      quietly(discovery.serverCopy(widget.album), null, 'server copy'),
+      quietly(Deezer.details(album), null, 'Deezer album'),
+      if (seerr == null)
+        Future.value()
+      else if (album.hasMbid)
+        quietly(seerr.album(album), null, 'album details')
+      else
+        quietly(seerr.match(album), null, 'MusicBrainz match'),
+      quietly(discovery.serverCopy(album), null, 'server copy'),
     ]);
     if (!mounted) return;
+    final deezer = results[0] as DeezerAlbumDetails?;
+    final fromSeerr = results[1];
+    final seerrDetails = fromSeerr is DiscoverAlbumDetails ? fromSeerr : null;
+    final matched = fromSeerr is DiscoverAlbum ? fromSeerr : seerrDetails?.album;
+    final merged = (matched ?? album).copyWith(
+      coverUrl: deezer?.album.coverUrl ?? album.coverUrl,
+      deezerId: deezer?.album.deezerId ?? album.deezerId,
+    );
+    final tracks = (deezer?.tracks.isNotEmpty ?? false) ? deezer!.tracks : (seerrDetails?.tracks ?? const <DiscoverTrack>[]);
+    final previews = [
+      for (final track in tracks)
+        if (track.previewUrl case final url?) PreviewClip(title: track.title, url: url, number: int.tryParse(track.number)),
+    ];
     setState(() {
-      _details = results[0] as DiscoverAlbumDetails?;
-      _serverCopy = results[1] as MediaItem?;
+      _details = DiscoverAlbumDetails(
+        album: merged,
+        tracks: tracks,
+        genres: (deezer?.genres.isNotEmpty ?? false) ? deezer!.genres : (seerrDetails?.genres ?? const []),
+        about: seerrDetails?.about,
+        artistImageUrl: seerrDetails?.artistImageUrl,
+      );
+      _serverCopy = results[2] as MediaItem?;
+      if (previews.isNotEmpty) _clips = Future.value(previews);
     });
   }
 
@@ -425,21 +455,18 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
 
   Future<void> _load() async {
     final discovery = MusicDiscovery.of(context);
-    final seerr = discovery.allseerr;
-    final results = await Future.wait<Object>([
-      quietly(discovery.discography(widget.artist.mbid), const <MusicFeedItem>[], 'discography'),
-      seerr == null
-          ? Future.value(const <DiscoverArtist>[])
-          : quietly(seerr.similarArtists(widget.artist.mbid), const <DiscoverArtist>[], 'similar artists'),
+    final results = await Future.wait([
+      quietly(discovery.discographyOf(widget.artist), const <MusicFeedItem>[], 'discography'),
+      quietly(discovery.similarTo(widget.artist), const <MusicFeedItem>[], 'similar artists'),
     ]);
     if (!mounted) return;
-    final all = results[0] as List<MusicFeedItem>;
+    final all = results[0];
     bool isSingle(MusicFeedItem item) =>
         item is ExternalAlbumItem && (item.album.type ?? '').toLowerCase() == 'single';
     setState(() {
       _albums = [for (final item in all) if (!isSingle(item)) item];
       _singles = [for (final item in all) if (isSingle(item)) item];
-      _similar = [for (final artist in results[1] as List<DiscoverArtist>) ExternalArtistItem(artist)];
+      _similar = results[1];
     });
   }
 

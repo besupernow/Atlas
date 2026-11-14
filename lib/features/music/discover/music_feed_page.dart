@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/music_sources.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/music_page.dart';
+import 'allseerr_music.dart';
+import 'deezer.dart';
 import 'discover_feed.dart';
 import 'discover_models.dart';
 import 'discover_widgets.dart';
@@ -26,7 +29,8 @@ class MusicFeedPage extends StatefulWidget {
     super.key,
     required this.title,
     required this.specs,
-    required this.hero,
+    this.hero,
+    this.heroLoader,
     required this.heroEyebrow,
     this.actions = const [],
     this.header,
@@ -37,7 +41,10 @@ class MusicFeedPage extends StatefulWidget {
   final List<MusicFeedSpec> specs;
 
   /// Picks the banner's items once rows have loaded (by row id).
-  final List<MusicFeedItem> Function(Map<String, MusicFeedRow> rows) hero;
+  final List<MusicFeedItem> Function(Map<String, MusicFeedRow> rows)? hero;
+
+  /// Or loads the banner's items on their own.
+  final Future<List<MusicFeedItem>> Function(MusicDiscovery discovery)? heroLoader;
   final String heroEyebrow;
   final List<Widget> actions;
 
@@ -52,13 +59,27 @@ class MusicFeedPage extends StatefulWidget {
 class _MusicFeedPageState extends State<MusicFeedPage> {
   final Map<String, MusicFeedRow> _rows = {};
   final Set<String> _pending = {};
+  List<MusicFeedItem> _loadedHero = const [];
   int _generation = 0;
+  String? _sources;
 
   @override
   void initState() {
     super.initState();
     ListenBrainzAccount.changes.addListener(_reload);
-    unawaited(_load());
+  }
+
+  /// Loads the first time the libraries (and Allseerr) are there, and again whenever they
+  /// change, so the page never sits empty waiting for a pull to refresh.
+  /// Called from build (where watching providers is allowed).
+  void _watchSources() {
+    final sources = watchMusicSources(context);
+    if (sources == _sources) return;
+    final first = _sources == null;
+    _sources = sources;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load(fresh: !first));
+    });
   }
 
   @override
@@ -70,9 +91,20 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
   void _reload() => unawaited(_load());
 
   Future<void> _load({bool fresh = false}) async {
-    if (fresh) MusicDiscovery.invalidate();
+    if (fresh) {
+      MusicDiscovery.invalidate();
+      Deezer.clearCache();
+    }
     final generation = ++_generation;
     final discovery = MusicDiscovery.of(context);
+    final heroLoader = widget.heroLoader;
+    if (heroLoader != null) {
+      unawaited(
+        quietly(heroLoader(discovery), const <MusicFeedItem>[], 'banner').then((items) {
+          if (mounted && generation == _generation) setState(() => _loadedHero = items);
+        }),
+      );
+    }
     setState(() {
       _pending
         ..clear()
@@ -115,8 +147,9 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    _watchSources();
     final focus = MusicShellFocus.maybeOf(context);
-    final hero = widget.hero(_rows);
+    final hero = widget.hero?.call(_rows) ?? _loadedHero;
     final loading = _pending.isNotEmpty;
     final ordered = [
       for (final spec in widget.specs)
@@ -143,6 +176,8 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
               onItemTap: spec.onItemTap,
               onNavigateToSidebar: focus?.focusRail,
               onSeeAll: row.seeAll == null ? null : () => _openSeeAll(row, spec.onItemTap),
+              kicker: row.kicker,
+              ranked: row.ranked,
             ),
         if (loading && ordered.length < 2)
           const MusicPagePlaceholder()
