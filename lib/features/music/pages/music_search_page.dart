@@ -3,17 +3,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../focus/focusable_wrapper.dart';
 import '../../../utils/music_navigation.dart';
-import '../../../widgets/music/track_row.dart';
+import '../../../widgets/app_icon.dart';
 import '../../../widgets/search_input_field.dart';
-import '../data/music_catalog.dart';
+import '../discover/discover_feed.dart';
+import '../discover/discover_models.dart';
+import '../discover/discover_widgets.dart';
+import '../discover/music_previews.dart';
+import '../discover/music_search.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
+import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
-import '../widgets/music_shelves.dart';
 
-/// Atlas: music search. Results come back grouped: artists, albums, then songs. Only music
-/// libraries are searched, so no movies or shows turn up here.
+/// Atlas: music search, across the server and everything out there. Typos are fine and popular
+/// things come first (see [MusicSearch]). A top result, then artists, albums and songs; ours
+/// play, the rest can be previewed and requested right from the results.
 class MusicSearchPage extends StatefulWidget {
   const MusicSearchPage({super.key});
 
@@ -24,10 +30,9 @@ class MusicSearchPage extends StatefulWidget {
 class MusicSearchPageState extends State<MusicSearchPage> {
   final _controller = TextEditingController();
   final _fieldFocus = FocusNode(debugLabel: 'music.search');
-  final _shelvesKey = GlobalKey<MusicShelvesState>();
   Timer? _debounce;
   String _query = '';
-  MusicSearchResults? _results;
+  MusicSearchOutcome? _results;
   bool _searching = false;
   int _generation = 0;
 
@@ -54,7 +59,7 @@ class MusicSearchPageState extends State<MusicSearchPage> {
     if (query == _query) return;
     _query = query;
     _debounce?.cancel();
-    if (query.isEmpty) {
+    if (query.length < 2) {
       _generation++;
       setState(() {
         _results = null;
@@ -62,14 +67,14 @@ class MusicSearchPageState extends State<MusicSearchPage> {
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), () => unawaited(_search(query)));
+    _debounce = Timer(const Duration(milliseconds: 450), () => unawaited(_search(query)));
   }
 
   Future<void> _search(String query) async {
     final generation = ++_generation;
     setState(() => _searching = true);
     try {
-      final results = await MusicCatalog.of(context).search(query);
+      final results = await MusicSearch(MusicDiscovery.of(context)).search(query);
       if (!mounted || generation != _generation) return;
       setState(() {
         _results = results;
@@ -84,6 +89,7 @@ class MusicSearchPageState extends State<MusicSearchPage> {
   Widget build(BuildContext context) {
     final results = _results;
     final focus = MusicShellFocus.maybeOf(context);
+    final top = results?.top;
     return MusicPage(
       title: MusicStrings.search,
       children: [
@@ -92,47 +98,239 @@ class MusicSearchPageState extends State<MusicSearchPage> {
           child: SearchInputField(
             controller: _controller,
             focusNode: _fieldFocus,
-            hintText: MusicStrings.searchHint,
+            hintText: MusicStrings.searchHintEverywhere,
             debugLabel: 'music.search',
             onNavigateLeft: focus?.focusRail,
-            onNavigateDown: () => _shelvesKey.currentState?.focusFirst(),
           ),
         ),
-        if (_searching && results == null)
-          const MusicPagePlaceholder()
-        else if (results != null && results.isEmpty)
+        if (_searching)
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: LinearProgressIndicator(minHeight: 2)),
+        if (results == null && !_searching)
+          const MusicPagePlaceholder(message: MusicStrings.searchEmptyHint)
+        else if (results != null && results.isEmpty && !_searching)
           const MusicPagePlaceholder(message: MusicStrings.noResults)
         else if (results != null) ...[
-            MusicShelves(
-              key: _shelvesKey,
-              onNavigateUp: _fieldFocus.requestFocus,
-              onNavigateToSidebar: focus?.focusRail,
-              shelves: [
-                MusicShelf(id: 'search-artists', title: MusicStrings.artists, icon: Symbols.person_rounded, items: results.artists),
-                MusicShelf(id: 'search-albums', title: MusicStrings.albums, icon: Symbols.album_rounded, items: results.albums),
-              ],
+          if (top != null) _TopResult(item: top),
+          MusicFeedShelf(
+            title: MusicStrings.artists,
+            items: results.artists.where((item) => item.key != top?.key).toList(),
+            onNavigateToSidebar: focus?.focusRail,
+          ),
+          if (results.songs.isNotEmpty) ...[
+            Padding(
+              padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 22, bottom: 6)),
+              child: const MusicSectionHeader(title: MusicStrings.songs),
             ),
-            if (results.songs.isNotEmpty) ...[
-              const MusicSectionTitle(MusicStrings.songs),
-              Padding(
-                padding: MusicPage.padding(context),
+            Padding(
+              padding: MusicPage.padding(context),
+              child: Column(
+                children: [for (final song in results.songs) _SongResult(song: song)],
+              ),
+            ),
+          ],
+          MusicFeedShelf(
+            title: MusicStrings.albums,
+            items: results.albums.where((item) => item.key != top?.key).toList(),
+            onNavigateToSidebar: focus?.focusRail,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The best match, big: art, name, what it is, and the obvious action.
+class _TopResult extends StatelessWidget {
+  const _TopResult({required this.item});
+
+  final MusicFeedItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (String title, String kind) = switch (item) {
+      ServerFeedItem(:final item) => (item.title ?? '', item.albumArtistTitle ?? MusicStrings.onServer),
+      ExternalAlbumItem(:final album) => (album.title, [album.type ?? MusicStrings.albumLabel, album.artistName].join(' · ')),
+      ExternalArtistItem(:final artist) => (artist.name, MusicStrings.artistLabel),
+    };
+    void open() => unawaited(openFeedItem(context, item));
+    return Padding(
+      padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 14)),
+      child: FocusableWrapper(
+        borderRadius: 22,
+        onSelect: open,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+        child: Material(
+          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            canRequestFocus: false,
+            onTap: open,
+            onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+            onSecondaryTapUp: (details) =>
+                unawaited(MusicItemMenu.show(context, item, position: details.globalPosition)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  MusicArt(item: item, size: 104, radius: 14),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          MusicStrings.topResult.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            letterSpacing: 1.4,
+                            fontWeight: FontWeight.w800,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                        ),
+                        Text(
+                          kind,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (item case ExternalAlbumItem(:final album)) ...[
+                    const SizedBox(width: 8),
+                    RequestButton(album: album, compact: true),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A song in the results. Ours: tap plays it. Not ours: tap opens its release, the button
+/// previews it, the menu requests it.
+class _SongResult extends StatelessWidget {
+  const _SongResult({required this.song});
+
+  final SearchSong song;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final server = song.server;
+    final external = song.external;
+    final MusicFeedItem item = server != null ? ServerFeedItem(server) : ExternalAlbumItem(external!.album);
+
+    void open() {
+      if (server != null) {
+        unawaited(MusicPreviewPlayer.instance.cancel().then((_) {
+          if (context.mounted) unawaited(playTrackWithAlbumContext(context, server));
+        }));
+      } else {
+        unawaited(openFeedItem(context, item));
+      }
+    }
+
+    final preview = external?.previewUrl;
+    final subtitle = [
+      song.artist,
+      if (server == null) external?.album.title else server.albumTitle,
+    ].whereType<String>().where((part) => part.isNotEmpty).join(' · ');
+
+    return FocusableWrapper(
+      borderRadius: 12,
+      onSelect: open,
+      onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+      child: InkWell(
+        canRequestFocus: false,
+        borderRadius: BorderRadius.circular(12),
+        onTap: open,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+        onSecondaryTapUp: (details) => unawaited(MusicItemMenu.show(context, item, position: details.globalPosition)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  MusicArt(item: item, size: 52, radius: 8, shadow: false),
+                  if (server == null)
+                    const Positioned(right: 2, bottom: 2, child: AppIcon(Symbols.cloud_rounded, size: 14, color: Colors.white, fill: 1.0)),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final (index, track) in results.songs.take(25).indexed)
-                      TrackRow(
-                        item: track,
-                        showArtist: true,
-                        showTrackNumber: false,
-                        isFirst: index == 0,
-                        isLast: index == results.songs.take(25).length - 1,
-                        onTap: () => unawaited(playTrackWithAlbumContext(context, track)),
-                      ),
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
                   ],
                 ),
               ),
+              if (server != null)
+                IconButton(
+                  tooltip: MusicStrings.play,
+                  onPressed: open,
+                  icon: AppIcon(Symbols.play_arrow_rounded, color: scheme.primary, fill: 1.0),
+                )
+              else if (preview != null && external != null && MusicPreviews.supported)
+                ListenableBuilder(
+                  listenable: MusicPreviewPlayer.instance,
+                  builder: (context, _) {
+                    final player = MusicPreviewPlayer.instance;
+                    final playing = player.isPlaying(external.previewKey);
+                    return IconButton(
+                      tooltip: MusicStrings.preview,
+                      onPressed: () => unawaited(
+                        player.toggle(context, external.previewKey, [PreviewClip(title: external.title, url: preview)]),
+                      ),
+                      icon: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (playing)
+                            SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: CircularProgressIndicator(value: player.loading ? null : player.progress, strokeWidth: 2),
+                            ),
+                          AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, color: scheme.primary, fill: 1.0),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              IconButton(
+                tooltip: MusicStrings.more,
+                onPressed: () => unawaited(MusicItemMenu.show(context, item)),
+                icon: const AppIcon(Symbols.more_horiz_rounded),
+              ),
             ],
-          ],
-      ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -20,7 +20,6 @@ class MusicNewPage extends StatelessWidget {
       id: 'new-releases',
       load: (d) async => MusicFeedRow(
         id: 'new-releases',
-        kicker: MusicStrings.kickerOutNow,
         title: MusicStrings.newReleases,
         subtitle: MusicStrings.newReleasesSubtitle,
         large: true,
@@ -45,7 +44,6 @@ class MusicNewPage extends StatelessWidget {
       id: 'new-for-you',
       load: (d) async => MusicFeedRow(
         id: 'new-for-you',
-        kicker: MusicStrings.kickerForYou,
         title: MusicStrings.newForYou,
         subtitle: MusicStrings.newForYouSubtitle,
         items: await d.newForYou(),
@@ -55,7 +53,6 @@ class MusicNewPage extends StatelessWidget {
       id: 'top-albums',
       load: (d) async => MusicFeedRow(
         id: 'top-albums',
-        kicker: MusicStrings.kickerCharts,
         title: MusicStrings.topAlbums,
         subtitle: MusicStrings.topAlbumsSubtitle,
         ranked: true,
@@ -67,7 +64,6 @@ class MusicNewPage extends StatelessWidget {
       id: 'top-artists',
       load: (d) async => MusicFeedRow(
         id: 'top-artists',
-        kicker: MusicStrings.kickerPopular,
         title: MusicStrings.topArtists,
         items: await d.topArtists(),
       ),

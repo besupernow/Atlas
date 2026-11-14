@@ -73,6 +73,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   bool _showLyrics = false;
 
+  /// Atlas: the switcher at the top: lyrics, the player, or what's up next.
+  _NowPlayingTab _tab = _NowPlayingTab.playing;
+
   /// Atlas: accent colors taken from the album art (null until worked out, or when there's no
   /// art or the device runs in reduced-performance mode).
   ColorScheme? _artScheme;
@@ -150,8 +153,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   Future<Lyrics?> _lyricsFutureFor(MediaItem track) =>
       _lyricsCache.putIfAbsent(track.globalKey, () => context.read<MusicPlaybackService>().fetchLyrics(track));
 
-  void _toggleLyrics() {
-    setState(() => _showLyrics = !_showLyrics);
+  void _toggleLyrics() => _selectTab(_tab == _NowPlayingTab.lyrics ? _NowPlayingTab.playing : _NowPlayingTab.lyrics);
+
+  void _selectTab(_NowPlayingTab tab) {
+    setState(() {
+      _tab = tab;
+      _showLyrics = tab == _NowPlayingTab.lyrics;
+    });
     if (_showLyrics && InputModeTracker.isKeyboardMode(context)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _showLyrics) _lyricsPaneFocusNode.requestFocus();
@@ -353,16 +361,20 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   // -------------------------------------------------------------------
 
   Widget _buildPortraitLayout(MusicPlaybackService service, MediaItem track, MediaServerClient? client) {
+    final playing = _tab == _NowPlayingTab.playing;
     Widget upper = Column(
       children: [
         _buildTopBar(track, service.playContext),
+        // Atlas: on Lyrics and Up Next the song shrinks to a small header (Apple Music style).
+        if (!playing) _buildCompactHeader(track, client),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: playing ? 24 : 8, vertical: 8),
             child: _buildArtworkOrLyrics(service, track, client),
           ),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(32, 8, 32, 0), child: _buildTrackInfo(track, centered: true)),
+        if (playing)
+          Padding(padding: const EdgeInsets.fromLTRB(32, 8, 32, 0), child: _buildTrackInfo(track, centered: true)),
       ],
     );
     // Touch only — desktop keeps mouse drags for text selection and the
@@ -383,9 +395,54 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         Expanded(child: upper),
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: _buildSeekBar(track)),
         _buildTransportRow(service),
-        _buildUtilityRow(showQueueButton: true),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
       ],
+    );
+  }
+
+  /// The song as one line with its cover, above the lyrics or the queue.
+  Widget _buildCompactHeader(MediaItem track, MediaServerClient? client) {
+    final tk = tokens(context);
+    final textTheme = Theme.of(context).textTheme;
+    final artist = track.trackArtistTitle;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: OptimizedMediaImage(
+              client: client,
+              imagePath: track.thumbPath,
+              imageType: ImageType.square,
+              width: 56,
+              height: 56,
+              fallbackIcon: Symbols.music_note_rounded,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              children: [
+                Text(
+                  track.title ?? '',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: textTheme.titleMedium?.copyWith(fontWeight: .w700, color: tk.text),
+                ),
+                if (artist != null && artist.isNotEmpty)
+                  Text(
+                    artist,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -433,7 +490,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   Widget _buildTvLayout(MusicPlaybackService service, MediaItem track, MediaServerClient? client) {
     final tk = tokens(context);
     final textTheme = Theme.of(context).textTheme;
-    final sourceTitle = _playingFromTitle(track, service.playContext);
     final artist = track.trackArtistTitle;
 
     return Padding(
@@ -450,16 +506,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: sourceTitle == null
-                          ? const SizedBox.shrink()
-                          : Text(
-                              t.music.playingFrom(title: sourceTitle),
-                              maxLines: 1,
-                              overflow: .ellipsis,
-                              style: TextStyle(fontSize: 14, color: tk.textMuted),
-                            ),
-                    ),
+                    const Spacer(),
                     _buildOverflowButton(track, focusable: true),
                   ],
                 ),
@@ -501,7 +548,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   /// screen's element asserts; the screen already watches the service.
   Widget _buildTopBar(MediaItem track, MusicPlayContext? playContext) {
     final tk = tokens(context);
-    final sourceTitle = _playingFromTitle(track, playContext);
     // macOS pins the traffic lights at y=21 (16pt buttons → center 29, see
     // WindowUtilsPlugin.customButtonPositions); a fixed 58px row centers the
     // close button on that line regardless of the platform visual density
@@ -526,16 +572,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               ),
               context: context,
             )!,
+            // Atlas: Lyrics / Playing / Up Next, where "Playing from …" used to be.
             Expanded(
-              child: sourceTitle == null
-                  ? const SizedBox.shrink()
-                  : Text(
-                      t.music.playingFrom(title: sourceTitle),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: TextStyle(fontSize: 13, color: tk.textMuted),
-                    ),
+              child: Center(
+                child: _NowPlayingTabs(selected: _tab, onSelected: _selectTab),
+              ),
             ),
             _buildOverflowButton(track),
           ],
@@ -544,52 +585,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
-  /// Album and ad-hoc queues follow the active track's album as the queue
-  /// crosses album boundaries. Artist/playlist/mix contexts remain stable
-  /// provenance labels for the session they created.
-  String? _playingFromTitle(MediaItem track, MusicPlayContext? playContext) {
-    final followsCurrentAlbum =
-        playContext == null ||
-        playContext.kind == MusicPlayContextKind.album ||
-        playContext.kind == MusicPlayContextKind.tracks;
-    final title = (followsCurrentAlbum ? track.albumTitle : playContext.title)?.trim();
-    if (title == null || title.isEmpty) return null;
-    return toBulletedString([title, if (followsCurrentAlbum && track.albumYear != null) '${track.albumYear}']);
-  }
-
   /// Wide-layout control band: the transport row stays exactly centered
   /// (equal-width flanks), with lyrics + a desktop volume slider as a
   /// right-aligned cluster that scales down instead of overflowing when the
   /// pane is narrow.
   Widget _buildWideControlBand(MusicPlaybackService service) {
-    final tk = tokens(context);
-    final colorScheme = Theme.of(context).colorScheme;
-
     final cluster = Row(
       mainAxisSize: .min,
       children: [
-        FocusableButton(
-          onPressed: _toggleLyrics,
-          child: IconButton(
-            icon: AppIcon(
-              Symbols.lyrics_rounded,
-              fill: 1,
-              size: 22,
-              color: _showLyrics ? colorScheme.primary : tk.textMuted,
-            ),
-            tooltip: t.music.lyrics,
-            onPressed: _toggleLyrics,
-          ),
-        ),
-        const SizedBox(width: 4),
-        FocusableButton(
-          onPressed: () => unawaited(showQueueSheet(_sheetContext)),
-          child: IconButton(
-            icon: AppIcon(Symbols.queue_music_rounded, fill: 1, size: 22, color: tk.textMuted),
-            tooltip: t.music.queue,
-            onPressed: () => unawaited(showQueueSheet(_sheetContext)),
-          ),
-        ),
         if (PlatformDetector.isDesktop(context)) ...[const SizedBox(width: 4), _buildVolumeCluster(service)],
       ],
     );
@@ -743,7 +746,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }) {
     return AnimatedSwitcher(
       duration: MonoMotion.fill(context),
-      child: _showLyrics
+      child: _tab == _NowPlayingTab.queue && !tvArt
+          ? const KeyedSubtree(
+              key: ValueKey('now_playing_queue'),
+              child: Material(type: MaterialType.transparency, child: QueueList()),
+            )
+          : _showLyrics
           ? KeyedSubtree(
               key: const ValueKey('now_playing_lyrics'),
               child: LyricsView(
@@ -1377,6 +1385,64 @@ class _NothingPlaying extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _NowPlayingTab { lyrics, playing, queue }
+
+/// Atlas: the pill at the top of Now Playing that switches between the lyrics, the player and
+/// the queue.
+class _NowPlayingTabs extends StatelessWidget {
+  const _NowPlayingTabs({required this.selected, required this.onSelected});
+
+  final _NowPlayingTab selected;
+  final ValueChanged<_NowPlayingTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    final scheme = Theme.of(context).colorScheme;
+    final labels = {
+      _NowPlayingTab.lyrics: MusicStrings.lyricsTab,
+      _NowPlayingTab.playing: MusicStrings.playingTab,
+      _NowPlayingTab.queue: MusicStrings.upNext,
+    };
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: tk.text.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(MonoTokens.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: .min,
+        children: [
+          for (final tab in _NowPlayingTab.values)
+            FocusableButton(
+              onPressed: () => onSelected(tab),
+              child: GestureDetector(
+                onTap: () => onSelected(tab),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: tab == selected ? scheme.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(MonoTokens.radiusFull),
+                  ),
+                  child: Text(
+                    labels[tab]!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: tab == selected ? .w700 : .w500,
+                      color: tab == selected ? scheme.onPrimary : tk.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

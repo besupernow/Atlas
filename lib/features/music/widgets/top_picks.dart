@@ -17,6 +17,7 @@ import '../discover/discover_widgets.dart';
 import '../discover/music_mixes.dart';
 import '../discover/music_previews.dart';
 import '../music_strings.dart';
+import 'music_item_menu.dart';
 import 'music_page.dart';
 
 /// One card in Top Picks for You, with the small label above it ("Made for You",
@@ -191,7 +192,7 @@ class TopPicksShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: const MusicSectionHeader(kicker: MusicStrings.kickerForYou, title: MusicStrings.topPicks),
+            child: const MusicSectionHeader(title: MusicStrings.topPicks),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -221,6 +222,13 @@ class _TopPickCard extends StatelessWidget {
   final TopPick pick;
   final double width;
   final VoidCallback? onNavigateLeft;
+
+  /// What the long-press menu is about (mixes have none).
+  MusicFeedItem? get _menuItem => switch (pick) {
+    MixPick() => null,
+    ItemPick(:final item) => item,
+    StationPick(:final artist) => ServerFeedItem(artist),
+  };
 
   void _open(BuildContext context) {
     switch (pick) {
@@ -342,9 +350,7 @@ class _TopPickCard extends StatelessWidget {
           FocusableWrapper(
             borderRadius: 14,
             onSelect: () => _open(context),
-            onLongPress: external != null && MusicPreviews.supported
-                ? () => unawaited(previewAlbum(context, external))
-                : null,
+            onLongPress: _menuItem == null ? null : () => unawaited(MusicItemMenu.show(context, _menuItem!)),
             onNavigateLeft: onNavigateLeft,
             child: Container(
               decoration: BoxDecoration(
@@ -360,6 +366,12 @@ class _TopPickCard extends StatelessWidget {
                   child: InkWell(
                     canRequestFocus: false,
                     onTap: () => _open(context),
+                    onLongPress: _menuItem == null ? null : () => unawaited(MusicItemMenu.show(context, _menuItem!)),
+                    onSecondaryTapUp: _menuItem == null
+                        ? null
+                        : (details) => unawaited(
+                            MusicItemMenu.show(context, _menuItem!, position: details.globalPosition),
+                          ),
                     child: Column(
                       children: [
                         Stack(
@@ -409,7 +421,7 @@ class MixShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: const MusicSectionHeader(kicker: MusicStrings.kickerMixes, title: MusicStrings.madeForYou),
+            child: const MusicSectionHeader(title: MusicStrings.madeForYou),
           ),
           const SizedBox(height: 12),
           SizedBox(

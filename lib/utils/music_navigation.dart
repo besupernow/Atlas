@@ -61,11 +61,15 @@ Future<void> openArtistById(BuildContext context, MediaServerClient client, Stri
 /// Push the album detail screen for [album] on the profile navigator.
 /// [isOffline] makes the screen read its track list from downloads.
 Future<void> navigateToAlbum(BuildContext context, MediaItem album, {bool isOffline = false}) async {
-  // Atlas: inside music mode the album opens in the current tab.
-  final navigator = MusicDetailScope.maybeOf(context) != null ? Navigator.of(context) : _contentNavigatorOf(context);
+  // Atlas: inside music mode the album opens in the current tab, on music mode's own page.
+  final musicScope = MusicDetailScope.maybeOf(context);
+  final albumPage = musicScope?.albumPage;
+  final navigator = musicScope != null ? Navigator.of(context) : _contentNavigatorOf(context);
   await navigator.push(
     MaterialPageRoute(
-      builder: (context) => AlbumDetailScreen(album: album, isOffline: isOffline),
+      builder: (context) => albumPage != null && !isOffline
+          ? albumPage(album)
+          : AlbumDetailScreen(album: album, isOffline: isOffline),
     ),
   );
 }

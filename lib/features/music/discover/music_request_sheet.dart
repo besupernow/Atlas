@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -12,6 +11,7 @@ import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
+import '../widgets/art_backdrop.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_feed.dart';
@@ -71,37 +71,14 @@ class _Backdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surface;
+    final url = imageUrl;
     return Material(
-      color: surface,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (imageUrl != null)
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60, tileMode: TileMode.decal),
-              child: Opacity(
-                opacity: 0.85,
-                child: OptimizedMediaImage(
-                  client: null,
-                  imagePath: imageUrl,
-                  imageType: ImageType.square,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0, 0.45, 1],
-                colors: [surface.withValues(alpha: 0.25), surface.withValues(alpha: 0.8), surface],
-              ),
-            ),
-          ),
-          child,
-        ],
+      color: Theme.of(context).colorScheme.surface,
+      child: ArtBackdrop(
+        image: url == null
+            ? null
+            : OptimizedMediaImage(client: null, imagePath: url, imageType: ImageType.square, fit: BoxFit.cover),
+        child: child,
       ),
     );
   }
@@ -283,14 +260,39 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
       child: Stack(
         children: [
           ListView(
-            padding: EdgeInsets.fromLTRB(wide ? 48 : 20, wide ? 56 : 48, wide ? 48 : 20, 32),
+            padding: EdgeInsets.fromLTRB(wide ? 48 : 20, wide ? 56 : 0, wide ? 48 : 20, 32),
             children: [
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [cover, const SizedBox(width: 32), Expanded(child: header)])
               else ...[
-                Center(child: cover),
-                const SizedBox(height: 22),
-                header,
+                // The cover edge to edge, melting into its own colors (like the release page).
+                Transform.translate(
+                  offset: const Offset(-20, 0),
+                  child: SizedBox(
+                    width: MediaQuery.sizeOf(context).width,
+                    child: Stack(
+                      children: [
+                        FadingArt(
+                          height: MediaQuery.sizeOf(context).width,
+                          fadeFrom: 0.6,
+                          image: OptimizedMediaImage(
+                            client: null,
+                            imagePath: album.coverUrl,
+                            imageType: ImageType.square,
+                            fit: BoxFit.cover,
+                            fallbackIcon: Symbols.album_rounded,
+                          ),
+                        ),
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          child: NotOnServerBadge(status: album.status, mbid: album.mbid, size: 32),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Transform.translate(offset: const Offset(0, -48), child: header),
               ],
               const SizedBox(height: 28),
               if (details == null)
