@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../media/library_query.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../data/music_catalog.dart';
@@ -275,6 +276,73 @@ class MusicDiscovery {
     final related = await quietly(Deezer.related(seed, limit: 20), const <DiscoverArtist>[], 'related artists');
     if (related.isEmpty) return null;
     return (artist: seed.name, items: await resolveArtists(related));
+  }
+
+  // ---- Dynamic categories (Apple Music style rows that depend on what you play).
+
+  Future<List<MusicGenreChannel>>? _genres;
+
+  /// The genres this person leans toward: what their played songs are tagged with (counted
+  /// heavily), plus the genres their library has, then the popular ones.
+  Future<List<MusicGenreChannel>> genreChannels() => _genres ??= () async {
+    final counts = <String, int>{};
+    final played = await quietly(catalog.mostPlayed(limit: 80), const <MediaItem>[], 'most played');
+    for (final track in played) {
+      for (final genre in track.genres ?? const <String>[]) {
+        counts[genre] = (counts[genre] ?? 0) + 3;
+      }
+    }
+    final library = await quietly(catalog.genres(), const <MusicGenre>[], 'genres');
+    for (final genre in library) {
+      counts[genre.title] = (counts[genre.title] ?? 0) + 1;
+    }
+    return MusicGenreChannel.rank(counts);
+  }();
+
+  /// Albums like the ones by [artist]: what their related artists are known for.
+  Future<List<MusicFeedItem>> becauseYouListened(String artist, {int limit = 16}) async {
+    final related = await quietly(
+      Deezer.related(DiscoverArtist(mbid: 'name:$artist', name: artist), limit: 10),
+      const <DiscoverArtist>[],
+      'related artists',
+    );
+    final albums = await Future.wait([
+      for (final other in related.take(8)) quietly(Deezer.signatureAlbum(other), null, 'top album'),
+    ]);
+    return resolve(albums.whereType<DiscoverAlbum>().toList(), known: await known(), limit: limit);
+  }
+
+  /// The artists behind what was played most recently (newest first, no repeats).
+  Future<List<String>> recentArtists({int count = 3}) async {
+    final recent = await quietly(catalog.recentlyPlayed(limit: 30), const <MediaItem>[], 'recently played');
+    final names = <String>[];
+    for (final track in recent) {
+      final name = track.albumArtistTitle ?? track.trackArtistTitle;
+      if (name != null && name.isNotEmpty && !names.contains(name)) names.add(name);
+      if (names.length >= count) break;
+    }
+    return names;
+  }
+
+  /// The most played albums in one genre right now (Deezer's chart), on the server or not.
+  Future<List<MusicFeedItem>> genreTop(MusicGenreChannel genre, {int limit = 20}) async =>
+      resolve(await Deezer.topAlbums(genre: genre.id, limit: limit), known: await known(), limit: limit);
+
+  /// This week's new releases in one genre (Deezer's editors).
+  Future<List<MusicFeedItem>> genreNew(MusicGenreChannel genre, {int limit = 24}) async =>
+      resolve(await Deezer.newReleases(genre: genre.id, limit: limit), limit: limit);
+
+  /// Albums on the server played a while ago and not since.
+  Future<List<MusicFeedItem>> rediscover({int limit = 16}) async {
+    final albums = await quietly(
+      catalog.items(MediaKind.album, sort: 'lastViewedAt', direction: LibrarySortDirection.ascending, limit: 80),
+      const <MediaItem>[],
+      'rediscover',
+    );
+    return [
+      for (final album in albums)
+        if ((album.lastViewedAt ?? 0) > 0) ServerFeedItem(album),
+    ].take(limit).toList();
   }
 
   /// New albums from artists this person plays (ListenBrainz).

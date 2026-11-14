@@ -60,14 +60,47 @@ class MusicNewPage extends StatelessWidget {
         seeAll: () => d.topAlbums(limit: 100),
       ),
     ),
-    MusicFeedSpec(
-      id: 'top-artists',
-      load: (d) async => MusicFeedRow(
-        id: 'top-artists',
-        title: MusicStrings.topArtists,
-        items: await d.topArtists(),
+    // Genre rows, in the order this person leans (what they play, what their library has).
+    for (var rank = 0; rank < 6; rank++) ...[
+      MusicFeedSpec(
+        id: 'new-genre-$rank',
+        load: (d) async {
+          final genres = await d.genreChannels();
+          if (genres.length <= rank) return null;
+          final genre = genres[rank];
+          return MusicFeedRow(
+            id: 'new-genre-$rank',
+            title: MusicStrings.newInGenre(genre.name),
+            subtitle: MusicStrings.newInGenreSubtitle,
+            items: await d.genreNew(genre),
+          );
+        },
       ),
-    ),
+      if (rank < 3)
+        MusicFeedSpec(
+          id: 'top-genre-$rank',
+          load: (d) async {
+            final genres = await d.genreChannels();
+            if (genres.length <= rank) return null;
+            final genre = genres[rank];
+            return MusicFeedRow(
+              id: 'top-genre-$rank',
+              title: MusicStrings.topInGenre(genre.name),
+              ranked: true,
+              items: await d.genreTop(genre),
+            );
+          },
+        ),
+      if (rank == 1)
+        MusicFeedSpec(
+          id: 'top-artists',
+          load: (d) async => MusicFeedRow(
+            id: 'top-artists',
+            title: MusicStrings.topArtists,
+            items: await d.topArtists(),
+          ),
+        ),
+    ],
   ];
 
   @override

@@ -22,3 +22,9 @@ class MusicDetailScope extends InheritedWidget {
   @override
   bool updateShouldNotify(MusicDetailScope oldWidget) => false;
 }
+
+/// Atlas: lets screens that sit above music mode (Now Playing) open an artist or album page in
+/// music mode's current tab. Music mode sets [open] while it's built; null otherwise.
+abstract final class MusicModeLinks {
+  static void Function(MediaItem item)? open;
+}

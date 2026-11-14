@@ -12,6 +12,7 @@ import '../../../widgets/app_icon.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
 import '../widgets/art_backdrop.dart';
+import '../widgets/music_page.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_feed.dart';
@@ -211,10 +212,22 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
           style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.4),
         ),
         const SizedBox(height: 4),
-        Text(
-          album.artistName,
-          textAlign: wide ? TextAlign.start : TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+        // The artist's name opens the artist.
+        InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: album.artistName.isEmpty
+              ? null
+              : () => unawaited(
+                  showArtistDiscoverySheet(
+                    context,
+                    DiscoverArtist(mbid: album.artistMbid ?? 'name:${album.artistName}', name: album.artistName),
+                  ),
+                ),
+          child: Text(
+            album.artistName,
+            textAlign: wide ? TextAlign.start : TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
+          ),
         ),
         if (meta.isNotEmpty) ...[
           const SizedBox(height: 4),
@@ -260,21 +273,21 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
       child: Stack(
         children: [
           ListView(
-            padding: EdgeInsets.fromLTRB(wide ? 48 : 20, wide ? 56 : 0, wide ? 48 : 20, 32),
+            // Room at the bottom so the mini player never covers the last songs.
+            padding: EdgeInsets.fromLTRB(wide ? 48 : 0, wide ? 56 : 0, wide ? 48 : 0, 40 + MusicPage.bottomRoom(context)),
             children: [
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [cover, const SizedBox(width: 32), Expanded(child: header)])
               else ...[
-                // The cover edge to edge, melting into its own colors (like the release page).
-                Transform.translate(
-                  offset: const Offset(-20, 0),
-                  child: SizedBox(
-                    width: MediaQuery.sizeOf(context).width,
+                // The cover edge to edge, a little taller than wide, melting slowly into its own
+                // colors (like the release page).
+                SizedBox(
+                    width: double.infinity,
                     child: Stack(
                       children: [
                         FadingArt(
-                          height: MediaQuery.sizeOf(context).width,
-                          fadeFrom: 0.6,
+                          height: MediaQuery.sizeOf(context).width * 1.08,
+                          fadeFrom: 0.38,
                           image: OptimizedMediaImage(
                             client: null,
                             imagePath: album.coverUrl,
@@ -290,11 +303,18 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
                         ),
                       ],
                     ),
-                  ),
                 ),
-                Transform.translate(offset: const Offset(0, -48), child: header),
+                Transform.translate(
+                  offset: const Offset(0, -72),
+                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: header),
+                ),
               ],
-              const SizedBox(height: 28),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: wide ? 0 : 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+              if (wide) const SizedBox(height: 28),
               if (details == null)
                 const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
               else if (details.tracks.isNotEmpty) ...[
@@ -329,6 +349,9 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
                   style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.45),
                 ),
               ],
+                  ],
+                ),
+              ),
             ],
           ),
           const _CloseButton(),
@@ -483,7 +506,7 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
       child: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.only(bottom: 32),
+            padding: EdgeInsets.only(bottom: 40 + MusicPage.bottomRoom(context)),
             children: [
               SizedBox(
                 height: size.width >= 700 ? 320 : 300,

@@ -41,6 +41,8 @@ import '../../widgets/music/repeat_mode.dart';
 import '../../widgets/optimized_media_image.dart';
 import '../../widgets/overlay_sheet.dart';
 import 'queue_sheet.dart';
+import '../../app/app_mode.dart';
+import '../../app/music_detail_scope.dart';
 import '../../features/music/music_strings.dart';
 import '../../utils/error_message_utils.dart';
 
@@ -155,6 +157,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   void _toggleLyrics() => _selectTab(_tab == _NowPlayingTab.lyrics ? _NowPlayingTab.playing : _NowPlayingTab.lyrics);
 
+  /// Atlas: the queue opens in place of the artwork (TV keeps its sheet).
+  void _toggleQueue() {
+    if (PlatformDetector.isTV()) {
+      unawaited(showQueueSheet(_sheetContext));
+      return;
+    }
+    _selectTab(_tab == _NowPlayingTab.queue ? _NowPlayingTab.playing : _NowPlayingTab.queue);
+  }
+
   void _selectTab(_NowPlayingTab tab) {
     setState(() {
       _tab = tab;
@@ -210,7 +221,31 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     final artistId = track.grandparentId;
     final client = context.getMediaClientForItemOrNull(track);
     if (artistId == null || client == null) return;
-    await openArtistById(context, client, artistId);
+    if (await _openInMusicMode(client, artistId)) return;
+    if (mounted) await openArtistById(context, client, artistId);
+  }
+
+  /// Atlas: the album name opens the album.
+  Future<void> _openAlbum(MediaItem track) async {
+    final albumId = track.parentId;
+    final client = context.getMediaClientForItemOrNull(track);
+    if (albumId == null || client == null) return;
+    if (await _openInMusicMode(client, albumId)) return;
+    final album = await client.fetchItem(albumId).catchError((Object _) => null);
+    if (album != null && mounted) await navigateToAlbum(context, album);
+  }
+
+  /// In music mode, close Now Playing and open the page on the current music tab (where the
+  /// tab bar and mini player are), like Apple Music.
+  Future<bool> _openInMusicMode(MediaServerClient client, String id) async {
+    final open = MusicModeLinks.open;
+    if (open == null || !AppModeController.instance.isMusic) return false;
+    final item = await client.fetchItem(id).catchError((Object _) => null);
+    if (item == null) return false;
+    if (!mounted) return true;
+    _pop();
+    open(item);
+    return true;
   }
 
   Future<void> _showSleepTimerSheet() async {
@@ -395,7 +430,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         Expanded(child: upper),
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: _buildSeekBar(track)),
         _buildTransportRow(service),
-        const SizedBox(height: 20),
+        _buildUtilityRow(showQueueButton: true),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -425,18 +461,24 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             child: Column(
               crossAxisAlignment: .start,
               children: [
-                Text(
-                  track.title ?? '',
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: textTheme.titleMedium?.copyWith(fontWeight: .w700, color: tk.text),
-                ),
-                if (artist != null && artist.isNotEmpty)
-                  Text(
-                    artist,
+                GestureDetector(
+                  onTap: () => unawaited(_openAlbum(track)),
+                  child: Text(
+                    track.title ?? '',
                     maxLines: 1,
                     overflow: .ellipsis,
-                    style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
+                    style: textTheme.titleMedium?.copyWith(fontWeight: .w700, color: tk.text),
+                  ),
+                ),
+                if (artist != null && artist.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => unawaited(_openArtist(track)),
+                    child: Text(
+                      artist,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
+                    ),
                   ),
               ],
             ),
@@ -572,12 +614,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               ),
               context: context,
             )!,
-            // Atlas: Lyrics / Playing / Up Next, where "Playing from …" used to be.
-            Expanded(
-              child: Center(
-                child: _NowPlayingTabs(selected: _tab, onSelected: _selectTab),
-              ),
-            ),
+            // Atlas: no "Playing from …" line; the lyrics and queue buttons below switch views.
+            const Spacer(),
             _buildOverflowButton(track),
           ],
         ),
@@ -590,9 +628,38 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   /// right-aligned cluster that scales down instead of overflowing when the
   /// pane is narrow.
   Widget _buildWideControlBand(MusicPlaybackService service) {
+    final tk = tokens(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final cluster = Row(
       mainAxisSize: .min,
       children: [
+        FocusableButton(
+          onPressed: _toggleLyrics,
+          child: IconButton(
+            icon: AppIcon(
+              Symbols.lyrics_rounded,
+              fill: 1,
+              size: 22,
+              color: _tab == _NowPlayingTab.lyrics ? colorScheme.primary : tk.textMuted,
+            ),
+            tooltip: t.music.lyrics,
+            onPressed: _toggleLyrics,
+          ),
+        ),
+        const SizedBox(width: 4),
+        FocusableButton(
+          onPressed: _toggleQueue,
+          child: IconButton(
+            icon: AppIcon(
+              Symbols.queue_music_rounded,
+              fill: 1,
+              size: 22,
+              color: _tab == _NowPlayingTab.queue ? colorScheme.primary : tk.textMuted,
+            ),
+            tooltip: t.music.queue,
+            onPressed: _toggleQueue,
+          ),
+        ),
         if (PlatformDetector.isDesktop(context)) ...[const SizedBox(width: 4), _buildVolumeCluster(service)],
       ],
     );
@@ -725,13 +792,19 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             ),
           ),
         if (large && album != null && album.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              album,
-              maxLines: 1,
-              overflow: .ellipsis,
-              style: textTheme.bodyLarge?.copyWith(color: tk.textMuted),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => unawaited(_openAlbum(track)),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  album,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: textTheme.bodyLarge?.copyWith(color: tk.textMuted),
+                ),
+              ),
             ),
           ),
       ],
@@ -901,13 +974,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           if (showQueueButton)
             FocusableAction(
               debugLabel: 'np_queue',
-              onPressed: () => unawaited(showQueueSheet(_sheetContext)),
+              onPressed: _toggleQueue,
               builder: (context, state) => _transportIcon(
                 state,
                 icon: Symbols.queue_music_rounded,
-                active: false,
+                active: _tab == _NowPlayingTab.queue,
                 tooltip: t.music.queue,
-                onPressed: () => unawaited(showQueueSheet(_sheetContext)),
+                onPressed: _toggleQueue,
                 size: 22,
               ),
             ),
@@ -1392,60 +1465,3 @@ class _NothingPlaying extends StatelessWidget {
 }
 
 enum _NowPlayingTab { lyrics, playing, queue }
-
-/// Atlas: the pill at the top of Now Playing that switches between the lyrics, the player and
-/// the queue.
-class _NowPlayingTabs extends StatelessWidget {
-  const _NowPlayingTabs({required this.selected, required this.onSelected});
-
-  final _NowPlayingTab selected;
-  final ValueChanged<_NowPlayingTab> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final tk = tokens(context);
-    final scheme = Theme.of(context).colorScheme;
-    final labels = {
-      _NowPlayingTab.lyrics: MusicStrings.lyricsTab,
-      _NowPlayingTab.playing: MusicStrings.playingTab,
-      _NowPlayingTab.queue: MusicStrings.upNext,
-    };
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: tk.text.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(MonoTokens.radiusFull),
-      ),
-      child: Row(
-        mainAxisSize: .min,
-        children: [
-          for (final tab in _NowPlayingTab.values)
-            FocusableButton(
-              onPressed: () => onSelected(tab),
-              child: GestureDetector(
-                onTap: () => onSelected(tab),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: tab == selected ? scheme.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(MonoTokens.radiusFull),
-                  ),
-                  child: Text(
-                    labels[tab]!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: tab == selected ? .w700 : .w500,
-                      color: tab == selected ? scheme.onPrimary : tk.textMuted,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-

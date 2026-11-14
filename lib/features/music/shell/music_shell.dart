@@ -12,6 +12,8 @@ import '../../../app/app_mode_switch.dart';
 import '../../../app/music_detail_scope.dart';
 import '../../../app/shell_activity.dart';
 import '../../../focus/focusable_wrapper.dart';
+import '../../../media/media_item.dart';
+import '../../../media/media_kind.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
@@ -80,6 +82,7 @@ class _MusicShellState extends State<MusicShell> {
   @override
   void initState() {
     super.initState();
+    MusicModeLinks.open = _openFromOutside;
     AppModeController.instance.addListener(_onModeChanged);
   }
 
@@ -91,8 +94,22 @@ class _MusicShellState extends State<MusicShell> {
     if (!_active) _insets?.setMusicShellInsets(null);
   }
 
+  /// Opens [item] (an artist or an album) on the current tab, for Now Playing's links.
+  void _openFromOutside(MediaItem item) {
+    final navigator = _navigators[_tab]!.currentState;
+    if (navigator == null) return;
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => item.kind == MediaKind.artist ? MusicArtistPage(artist: item) : MusicReleasePage(album: item),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    if (MusicModeLinks.open == _openFromOutside) MusicModeLinks.open = null;
     AppModeController.instance.removeListener(_onModeChanged);
     _insets?.setMusicShellInsets(null);
     for (final node in _railFocus.values) {
