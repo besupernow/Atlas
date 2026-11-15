@@ -56,7 +56,8 @@ class DiscoverAlbum {
   /// Deezer's id, for albums from Deezer's charts and releases (art, track list, previews).
   final int? deezerId;
 
-  bool get hasMbid => !mbid.startsWith('dz:');
+  /// False for albums from Deezer (`dz:`) or the iTunes Store (`it:`) not yet matched.
+  bool get hasMbid => !mbid.startsWith('dz:') && !mbid.startsWith('it:');
 
   String? get year => releaseDate != null && releaseDate!.length >= 4 ? releaseDate!.substring(0, 4) : null;
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -12,6 +13,7 @@ import '../../media/lyrics.dart';
 import '../../screens/libraries/state_messages.dart';
 import '../../services/music/music_playback_service.dart';
 import '../../theme/mono_tokens.dart';
+import '../../utils/platform_detector.dart';
 
 /// Lyrics pane for the now-playing screen (swapped in over the artwork).
 ///
@@ -169,7 +171,7 @@ class _LyricsViewState extends State<LyricsView> {
       if (lineContext == null) return;
       Scrollable.ensureVisible(
         lineContext,
-        alignment: 0.4,
+        alignment: 0.3,
         duration: animate ? const Duration(milliseconds: 300) : Duration.zero,
         curve: Curves.easeOutCubic,
       );
@@ -256,7 +258,7 @@ class _LyricsViewState extends State<LyricsView> {
       onNotification: _handleScrollNotification,
       child: SingleChildScrollView(
         controller: _scroll,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 48),
         child: Column(
           crossAxisAlignment: .stretch,
           children: [
@@ -279,34 +281,62 @@ class _LyricsViewState extends State<LyricsView> {
     );
   }
 
+  /// Atlas: Apple Music style lyrics: big, bold, left-aligned lines. The line being sung and
+  /// its neighbor are sharp; lines further away get progressively softer and blurrier. While
+  /// you scroll by hand (or the pane has d-pad focus) everything is sharp so you can read ahead.
   Widget _buildLine(BuildContext context, Lyrics lyrics, int index, {required bool showFocus}) {
     final tk = tokens(context);
     final line = lyrics.lines[index];
     final isActive = lyrics.synced && index == _activeIndex;
     final isFocusedLine = showFocus && lyrics.synced && index == _focusedLine;
+    final big = PlatformDetector.isTV() ? 40.0 : (MediaQuery.sizeOf(context).width >= 700 ? 34.0 : 28.0);
 
-    final text = Text(
-      line.text.isEmpty ? '…' : line.text,
-      textAlign: TextAlign.center,
+    // How far this line is from the one being sung (0 = sung now, or about to be).
+    final distance = !lyrics.synced || _activeIndex < 0
+        ? 0
+        : (index < _activeIndex ? _activeIndex - index : (index - _activeIndex - 1).clamp(0, 99));
+    final sharp = !lyrics.synced || showFocus || _autoScrollSuppressed || distance <= 1;
+    final blur = sharp ? 0.0 : ((distance - 1) * 1.4).clamp(0.0, 5.0);
+    final opacity = !lyrics.synced || isActive
+        ? 1.0
+        : (showFocus || _autoScrollSuppressed ? 0.6 : (0.55 - (distance - 1) * 0.08).clamp(0.22, 0.55));
+
+    Widget text = AnimatedDefaultTextStyle(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       style: TextStyle(
-        fontSize: 18,
-        height: 1.4,
-        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-        color: isActive || !lyrics.synced ? tk.text : tk.textMuted,
+        fontSize: big,
+        height: 1.22,
+        letterSpacing: -0.4,
+        fontWeight: FontWeight.w800,
+        color: tk.text.withValues(alpha: opacity),
       ),
+      child: Text(line.text.isEmpty ? '…' : line.text, textAlign: TextAlign.start),
     );
+    if (blur > 0) {
+      text = ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur, tileMode: TileMode.decal),
+        child: text,
+      );
+    }
 
     return KeyedSubtree(
       key: _lineKeys[index],
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: lyrics.synced && line.startMs != null ? () => _seekTo(line) : null,
-        child: AnimatedContainer(
-          duration: tk.fast,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          // Focus renders as a text-based background fill (mono convention).
-          decoration: FocusTheme.textFillFocusDecoration(context, isFocused: isFocusedLine, borderRadius: tk.radiusSm),
-          child: text,
+        child: AnimatedScale(
+          scale: isActive ? 1.0 : 0.97,
+          alignment: Alignment.centerLeft,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: tk.fast,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            // Focus renders as a text-based background fill (mono convention).
+            decoration: FocusTheme.textFillFocusDecoration(context, isFocused: isFocusedLine, borderRadius: tk.radiusSm),
+            child: text,
+          ),
         ),
       ),
     );

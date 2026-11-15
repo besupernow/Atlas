@@ -34,6 +34,9 @@ class MusicSearchPageState extends State<MusicSearchPage> {
   String _query = '';
   MusicSearchOutcome? _results;
   bool _searching = false;
+
+  /// Apple Music's two scopes: everything, or just what's on the server.
+  bool _libraryOnly = false;
   int _generation = 0;
 
   /// Put the cursor in the search field (the tab was picked again, or TV landed here).
@@ -74,7 +77,8 @@ class MusicSearchPageState extends State<MusicSearchPage> {
     final generation = ++_generation;
     setState(() => _searching = true);
     try {
-      final results = await MusicSearch(MusicDiscovery.of(context)).search(query);
+      final search = MusicSearch(MusicDiscovery.of(context));
+      final results = _libraryOnly ? await search.searchLibrary(query) : await search.search(query);
       if (!mounted || generation != _generation) return;
       setState(() {
         _results = results;
@@ -90,6 +94,7 @@ class MusicSearchPageState extends State<MusicSearchPage> {
     final results = _results;
     final focus = MusicShellFocus.maybeOf(context);
     final top = results?.top;
+    final topSong = results?.topSong;
     return MusicPage(
       title: MusicStrings.search,
       children: [
@@ -103,6 +108,21 @@ class MusicSearchPageState extends State<MusicSearchPage> {
             onNavigateLeft: focus?.focusRail,
           ),
         ),
+        Padding(
+          padding: MusicPage.padding(context).add(const EdgeInsets.only(bottom: 8)),
+          child: SegmentedButton<bool>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: false, label: Text(MusicStrings.everywhere)),
+              ButtonSegment(value: true, label: Text(MusicStrings.library)),
+            ],
+            selected: {_libraryOnly},
+            onSelectionChanged: (selection) {
+              setState(() => _libraryOnly = selection.first);
+              if (_query.length >= 2) unawaited(_search(_query));
+            },
+          ),
+        ),
         if (_searching)
           const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: LinearProgressIndicator(minHeight: 2)),
         if (results == null && !_searching)
@@ -110,7 +130,7 @@ class MusicSearchPageState extends State<MusicSearchPage> {
         else if (results != null && results.isEmpty && !_searching)
           const MusicPagePlaceholder(message: MusicStrings.noResults)
         else if (results != null) ...[
-          if (top != null) _TopResult(item: top),
+          if (top != null) _TopResult(item: top) else if (topSong != null) _TopSongResult(song: topSong),
           MusicFeedShelf(
             title: MusicStrings.artists,
             items: results.artists.where((item) => item.key != top?.key).toList(),
@@ -124,7 +144,10 @@ class MusicSearchPageState extends State<MusicSearchPage> {
             Padding(
               padding: MusicPage.padding(context),
               child: Column(
-                children: [for (final song in results.songs) _SongResult(song: song)],
+                children: [
+                  for (final song in results.songs)
+                    if (song.key != topSong?.key) _SongResult(song: song),
+                ],
               ),
             ),
           ],
@@ -334,3 +357,117 @@ class _SongResult extends StatelessWidget {
     );
   }
 }
+
+/// The top result when it's a song: big, with play (ours) or preview and request (not ours).
+class _TopSongResult extends StatelessWidget {
+  const _TopSongResult({required this.song});
+
+  final SearchSong song;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final server = song.server;
+    final external = song.external;
+    final MusicFeedItem item = server != null ? ServerFeedItem(server) : ExternalAlbumItem(external!.album);
+    void play() {
+      if (server != null) {
+        unawaited(MusicPreviewPlayer.instance.cancel().then((_) {
+          if (context.mounted) unawaited(playTrackWithAlbumContext(context, server));
+        }));
+      } else {
+        unawaited(openFeedItem(context, item));
+      }
+    }
+
+    final preview = external?.previewUrl;
+    return Padding(
+      padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 14)),
+      child: FocusableWrapper(
+        borderRadius: 22,
+        onSelect: play,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+        child: Material(
+          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            canRequestFocus: false,
+            onTap: play,
+            onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  MusicArt(item: item, size: 96, radius: 14),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          MusicStrings.topResult.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            letterSpacing: 1.4,
+                            fontWeight: FontWeight.w800,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          song.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                        ),
+                        Text(
+                          '${MusicStrings.songLabel} · ${song.artist}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (server != null)
+                              FilledButton.icon(
+                                onPressed: play,
+                                icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1.0),
+                                label: const Text(MusicStrings.play),
+                              )
+                            else ...[
+                              if (preview != null && external != null && MusicPreviews.supported)
+                                ListenableBuilder(
+                                  listenable: MusicPreviewPlayer.instance,
+                                  builder: (context, _) {
+                                    final playing = MusicPreviewPlayer.instance.isPlaying(external.previewKey);
+                                    return FilledButton.tonalIcon(
+                                      onPressed: () => unawaited(
+                                        MusicPreviewPlayer.instance.toggle(context, external.previewKey, [
+                                          PreviewClip(title: external.title, url: preview),
+                                        ]),
+                                      ),
+                                      icon: AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, fill: 1.0),
+                                      label: Text(playing ? MusicStrings.stop : MusicStrings.preview),
+                                    );
+                                  },
+                                ),
+                              if (external != null) RequestButton(album: external.album, compact: true),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

@@ -90,6 +90,52 @@ class _MusicHomePageState extends State<MusicHomePage> {
     return picks.take(9).toList();
   }
 
+  /// "Because You Listened to …": albums like the artist behind the [rank]th most recent play.
+  MusicFeedSpec _because(int rank) => MusicFeedSpec(
+    id: 'because-$rank',
+    load: (d) async {
+      final artists = await d.recentArtists();
+      if (artists.length <= rank) return null;
+      final artist = artists[rank];
+      return MusicFeedRow(
+        id: 'because-$rank',
+        title: MusicStrings.becauseYouListened(artist),
+        items: await d.becauseYouListened(artist),
+      );
+    },
+  );
+
+  /// "Hip-Hop Picks for You": the charts of the [rank]th genre this person leans toward.
+  MusicFeedSpec _genrePicks(int rank) => MusicFeedSpec(
+    id: 'genre-$rank',
+    load: (d) async {
+      final genres = await d.genreChannels();
+      if (genres.length <= rank) return null;
+      final genre = genres[rank];
+      return MusicFeedRow(
+        id: 'genre-$rank',
+        title: MusicStrings.genrePicks(genre.name),
+        subtitle: MusicStrings.genrePicksSubtitle,
+        items: await d.genreTop(genre),
+      );
+    },
+  );
+
+  /// "More Like …" for the [rank]th artist this person plays most.
+  MusicFeedSpec _moreLike(int rank) => MusicFeedSpec(
+    id: 'more-like-$rank',
+    load: (d) async {
+      final row = await d.moreLike(rank: rank);
+      if (row == null) return null;
+      return MusicFeedRow(
+        id: 'more-like-$rank',
+        title: MusicStrings.moreLike(row.artist),
+        subtitle: MusicStrings.moreLikeSubtitle,
+        items: row.items,
+      );
+    },
+  );
+
   late final List<MusicFeedSpec> _specs = [
     MusicFeedSpec(
       id: 'top-picks',
@@ -151,6 +197,8 @@ class _MusicHomePageState extends State<MusicHomePage> {
         items: (await _shared(d).recommendations).skip(3).toList(),
       ),
     ),
+    _because(0),
+    _genrePicks(0),
     MusicFeedSpec(
       id: 'new-for-you',
       load: (d) async => MusicFeedRow(
@@ -160,6 +208,8 @@ class _MusicHomePageState extends State<MusicHomePage> {
         items: await d.newForYou(),
       ),
     ),
+    _moreLike(0),
+    _because(1),
     MusicFeedSpec(
       id: 'stations',
       onItemTap: (item) {
@@ -172,19 +222,8 @@ class _MusicHomePageState extends State<MusicHomePage> {
         items: MusicDiscovery.server(await _shared(d).stations),
       ),
     ),
-    MusicFeedSpec(
-      id: 'more-like',
-      load: (d) async {
-        final row = await d.moreLike();
-        if (row == null) return null;
-        return MusicFeedRow(
-          id: 'more-like',
-          title: MusicStrings.moreLike(row.artist),
-          subtitle: MusicStrings.moreLikeSubtitle,
-          items: row.items,
-        );
-      },
-    ),
+    _moreLike(1),
+    _genrePicks(1),
     MusicFeedSpec(
       id: 'picked',
       load: (d) async => MusicFeedRow(
@@ -194,6 +233,16 @@ class _MusicHomePageState extends State<MusicHomePage> {
         items: await d.pickedForYou(await _shared(d).rawRecommendations),
       ),
     ),
+    MusicFeedSpec(
+      id: 'rediscover',
+      load: (d) async => MusicFeedRow(
+        id: 'rediscover',
+        title: MusicStrings.rediscover,
+        subtitle: MusicStrings.rediscoverSubtitle,
+        items: await d.rediscover(),
+      ),
+    ),
+    _because(2),
     MusicFeedSpec(
       id: 'recently-added',
       load: (d) async => MusicFeedRow(

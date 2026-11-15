@@ -115,14 +115,14 @@ abstract final class Deezer {
     );
   }
 
-  /// The editors' pick of new releases (this week and last).
-  static Future<List<DiscoverAlbum>> newReleases({int limit = 60}) async => [
-    for (final json in _data(await _get('/editorial/0/releases', {'limit': '$limit'}))) ?albumFrom(json),
+  /// The editors' pick of new releases (this week and last), overall or in one [genre].
+  static Future<List<DiscoverAlbum>> newReleases({int limit = 60, int genre = 0}) async => [
+    for (final json in _data(await _get('/editorial/$genre/releases', {'limit': '$limit'}))) ?albumFrom(json),
   ];
 
-  /// The most played albums right now.
-  static Future<List<DiscoverAlbum>> topAlbums({int limit = 50}) async => [
-    for (final json in _data(await _get('/chart/0/albums', {'limit': '$limit'}))) ?albumFrom(json),
+  /// The most played albums right now, overall or in one [genre].
+  static Future<List<DiscoverAlbum>> topAlbums({int limit = 50, int genre = 0}) async => [
+    for (final json in _data(await _get('/chart/$genre/albums', {'limit': '$limit'}))) ?albumFrom(json),
   ];
 
   /// The most played artists right now.
@@ -249,3 +249,53 @@ abstract final class Deezer {
       .replaceAll(RegExp(r'^the '), '')
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
+
+/// A Deezer genre (its id works for charts and editorial releases).
+class MusicGenreChannel {
+  const MusicGenreChannel(this.id, this.name, this.keywords);
+
+  final int id;
+  final String name;
+
+  /// Words in a library genre that mean this one.
+  final List<String> keywords;
+
+  static const all = [
+    MusicGenreChannel(132, 'Pop', ['pop']),
+    MusicGenreChannel(116, 'Hip-Hop', ['hip hop', 'hip-hop', 'hiphop', 'rap', 'trap', 'drill']),
+    MusicGenreChannel(165, 'R&B', ['r&b', 'rnb', 'r and b', 'rhythm']),
+    MusicGenreChannel(152, 'Rock', ['rock', 'punk', 'grunge']),
+    MusicGenreChannel(85, 'Alternative', ['alternative', 'indie', 'alt']),
+    MusicGenreChannel(113, 'Dance', ['dance', 'house', 'edm', 'disco']),
+    MusicGenreChannel(106, 'Electronic', ['electronic', 'electro', 'techno', 'trance', 'dubstep', 'synth']),
+    MusicGenreChannel(197, 'Latin', ['latin', 'reggaeton', 'salsa', 'bachata']),
+    MusicGenreChannel(16, 'K-Pop & Asian', ['k-pop', 'kpop', 'j-pop', 'jpop', 'anime', 'asian', 'korean', 'japanese']),
+    MusicGenreChannel(84, 'Country', ['country', 'americana']),
+    MusicGenreChannel(466, 'Folk', ['folk', 'acoustic', 'singer-songwriter', 'singer/songwriter']),
+    MusicGenreChannel(169, 'Soul & Funk', ['soul', 'funk', 'motown']),
+    MusicGenreChannel(464, 'Metal', ['metal', 'metalcore', 'hardcore']),
+    MusicGenreChannel(129, 'Jazz', ['jazz', 'swing', 'bebop']),
+    MusicGenreChannel(173, 'Soundtracks', ['soundtrack', 'score', 'film', 'musical', 'game']),
+    MusicGenreChannel(144, 'Reggae', ['reggae', 'dancehall', 'ska']),
+    MusicGenreChannel(98, 'Classical', ['classical', 'orchestral', 'opera', 'baroque']),
+    MusicGenreChannel(153, 'Blues', ['blues']),
+  ];
+
+  /// The genres this person leans toward, from how many albums in their library carry each
+  /// genre name, then the popular ones.
+  static List<MusicGenreChannel> rank(Map<String, int> libraryGenreCounts) {
+    final scores = <MusicGenreChannel, int>{};
+    for (final MapEntry(key: name, value: count) in libraryGenreCounts.entries) {
+      final lower = name.toLowerCase();
+      for (final channel in all) {
+        if (channel.keywords.any(lower.contains)) {
+          scores[channel] = (scores[channel] ?? 0) + count;
+          break;
+        }
+      }
+    }
+    final ranked = scores.keys.toList()..sort((a, b) => scores[b]!.compareTo(scores[a]!));
+    return [...ranked, for (final channel in all) if (!ranked.contains(channel)) channel];
+  }
+}
+

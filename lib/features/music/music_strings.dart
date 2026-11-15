@@ -190,4 +190,16 @@ abstract final class MusicStrings {
   static const topResult = 'Top Result';
   static const artistLabel = 'Artist';
   static const more = 'More';
+  static const everywhere = 'Everywhere';
+  static const songLabel = 'Song';
+
+  // Dynamic categories.
+  static String becauseYouListened(String artist) => 'Because You Listened to $artist';
+  static String genrePicks(String genre) => '$genre Picks for You';
+  static const genrePicksSubtitle = "What's big in a sound you play a lot";
+  static const rediscover = 'Rediscover';
+  static const rediscoverSubtitle = "From your server, not played in a while";
+  static String newInGenre(String genre) => 'New in $genre';
+  static String topInGenre(String genre) => 'Top $genre Albums';
+  static const newInGenreSubtitle = 'This week, picked by editors';
 }
