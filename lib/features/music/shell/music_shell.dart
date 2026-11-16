@@ -114,19 +114,6 @@ class _MusicShellState extends State<MusicShell> {
     );
   }
 
-  /// Opens [item] (an artist or an album) on the current tab, for Now Playing's links.
-  void _openFromOutside(MediaItem item) {
-    final navigator = _navigators[_tab]!.currentState;
-    if (navigator == null) return;
-    unawaited(
-      navigator.push(
-        MaterialPageRoute<void>(
-          builder: (_) => item.kind == MediaKind.artist ? MusicArtistPage(artist: item) : MusicReleasePage(album: item),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     if (MusicModeLinks.open == _openFromOutside) MusicModeLinks.open = null;
