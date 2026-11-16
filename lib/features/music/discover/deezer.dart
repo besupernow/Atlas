@@ -397,4 +397,3 @@ class MusicGenreChannel {
     return [...ranked, for (final channel in all) if (!ranked.contains(channel)) channel];
   }
 }
-

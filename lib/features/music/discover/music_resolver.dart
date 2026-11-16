@@ -28,59 +28,6 @@ abstract final class MusicResolver {
     });
   }
 
-  /// What to request for one song. Lidarr fetches whole releases, so: the song's own single
-  /// when it was released as one (by its ISRC), otherwise the album it's on ([album], or the
-  /// earliest original album MusicBrainz has it on).
-  static Future<DiscoverAlbum?> forSong({
-    required String title,
-    required String artist,
-    String? isrc,
-    int? deezerTrackId,
-    DiscoverAlbum? album,
-  }) async {
-    var code = isrc;
-    try {
-      code ??= deezerTrackId == null ? null : await Deezer.isrcOf(deezerTrackId);
-      code ??= await Deezer.findIsrc(SearchText.primaryArtist(artist), SearchText.cleanTitle(title));
-    } catch (error) {
-      appLogger.w('Music: finding the ISRC of $title failed', error: error);
-    }
-    if (code != null) {
-      try {
-        final releases = await MusicBrainz.releasesForIsrc(code);
-        final want = SearchText.squash(SearchText.cleanTitle(title));
-        final singles = [
-          for (final release in releases)
-            if (release.primaryType?.toLowerCase() == 'single' &&
-                release.isOriginal &&
-                SearchText.squash(SearchText.cleanTitle(release.releaseGroupTitle)) == want)
-              release,
-        ]..sort((a, b) => (a.date ?? '9999').compareTo(b.date ?? '9999'));
-        if (singles.isNotEmpty) return _asAlbum(singles.first, artist, 'Single');
-        if (album == null) {
-          final albums = [
-            for (final release in releases)
-              if (release.primaryType?.toLowerCase() == 'album' && release.isOriginal && release.official) release,
-          ]..sort((a, b) => (a.date ?? '9999').compareTo(b.date ?? '9999'));
-          if (albums.isNotEmpty) return _asAlbum(albums.first, artist, 'Album');
-        }
-      } catch (error) {
-        appLogger.w('Music: looking up $code on MusicBrainz failed', error: error);
-      }
-    }
-    return album == null ? null : releaseGroup(album);
-  }
-
-  static DiscoverAlbum _asAlbum(MbRelease release, String artist, String type) => DiscoverAlbum(
-    mbid: release.releaseGroupMbid,
-    title: release.releaseGroupTitle,
-    artistName: release.artistName ?? artist,
-    coverUrl: DiscoverAlbum.coverArtArchiveUrl(release.releaseGroupMbid),
-    releaseDate: release.date,
-    type: type,
-    ids: MusicIds(releaseGroupMbid: release.releaseGroupMbid),
-  );
-
   static Future<DiscoverAlbum?> _resolve(DiscoverAlbum album) async {
     final steps = <(String, Future<String?> Function())>[
       ('known id', () async => album.ids.releaseGroupMbid),
@@ -193,8 +140,8 @@ abstract final class MusicResolver {
     final type = album.type?.toLowerCase();
     int rank(MbRelease release) =>
         (release.isOriginal ? 0 : 4) +
-        (release.official ? 0 : 2) +
-        (type != null && release.primaryType?.toLowerCase() == type ? 0 : 1);
+            (release.official ? 0 : 2) +
+            (type != null && release.primaryType?.toLowerCase() == type ? 0 : 1);
     candidates.sort((a, b) {
       final byRank = rank(a).compareTo(rank(b));
       if (byRank != 0) return byRank;

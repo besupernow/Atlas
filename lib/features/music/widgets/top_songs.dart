@@ -19,8 +19,8 @@ import 'music_page.dart';
 /// album (ours if we have it, the request sheet if we don't).
 class TopSongsShelf extends StatelessWidget {
   TopSongsShelf({super.key, required List<ChartTrack> tracks, this.onNavigateToSidebar, this.title, this.subtitle})
-    // Only songs that can be previewed.
-    : tracks = [for (final track in tracks) if (track.previewUrl != null) track];
+  // Only songs that can be previewed.
+      : tracks = [for (final track in tracks) if (track.previewUrl != null) track];
 
   final List<ChartTrack> tracks;
 

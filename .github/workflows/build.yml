@@ -37,6 +37,7 @@ env:
   FLUTTER_VERSION: "3.47.1"
   # No Sentry, donations or upstream update check in the family build.
   DART_DEFINES: --dart-define=ENABLE_UPDATE_CHECK=true --dart-define=GIT_COMMIT=${{ github.sha }} --dart-define=SUPPORTER_MODE=unlocked
+  MUSIC_KEYS: --dart-define=LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }} --dart-define=TIDAL_CLIENT_ID=${{ secrets.TIDAL_CLIENT_ID }} --dart-define=TIDAL_CLIENT_SECRET=${{ secrets.TIDAL_CLIENT_SECRET }}
   LINUX_APT_PACKAGES: >
     clang cmake meson ninja-build pkg-config nasm libgtk-3-dev libevdev-dev liblzma-dev
     libstdc++-12-dev libasound2-dev libass-dev libfreetype-dev libfontconfig-dev libfribidi-dev
@@ -83,7 +84,7 @@ jobs:
           PROPS
 
       - name: Build APKs
-        run: flutter build apk --release --split-per-abi ${{ env.DART_DEFINES }}
+        run: flutter build apk --release --split-per-abi ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
 
       - name: Name the files
         run: |
@@ -113,7 +114,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build iOS (unsigned)
-        run: flutter build ios --release --no-codesign ${{ env.DART_DEFINES }}
+        run: flutter build ios --release --no-codesign ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
       - name: Package IPA
         run: |
           APP=$(find build/ios/iphoneos -maxdepth 1 -name "*.app" | head -1)
@@ -136,7 +137,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build macOS
-        run: flutter build macos --release ${{ env.DART_DEFINES }}
+        run: flutter build macos --release ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
       - name: Zip app
         run: |
           APP=$(find build/macos/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
@@ -165,7 +166,7 @@ jobs:
           .\windows\tool\install-patched-engine.ps1
       - name: Build Windows
         shell: pwsh
-        run: flutter build windows --release ${{ env.DART_DEFINES }}
+        run: flutter build windows --release ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
       - name: Zip portable build
         shell: pwsh
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath atlas-windows-x64.zip
@@ -192,7 +193,7 @@ jobs:
         run: python3 scripts/fetch_linux_libmpv.py --dest libmpv-prefix
       - run: flutter pub get
       - name: Build Linux
-        run: flutter build linux --release ${{ env.DART_DEFINES }}
+        run: flutter build linux --release ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
         env:
           PKG_CONFIG_PATH: ${{ github.workspace }}/libmpv-prefix/lib/pkgconfig:${{ github.workspace }}/libmpv-prefix/lib/x86_64-linux-gnu/pkgconfig
       - name: Bundle libmpv, GStreamer and libraries
@@ -256,7 +257,7 @@ jobs:
           PY
       - run: flutter pub get
       - name: Build web
-        run: flutter build web --release --base-href /web/ ${{ env.DART_DEFINES }}
+        run: flutter build web --release --base-href /web/ ${{ env.DART_DEFINES }} ${{ env.MUSIC_KEYS }}
       - name: Zip site
         run: |
           cd build/web
