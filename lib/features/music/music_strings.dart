@@ -80,6 +80,7 @@ abstract final class MusicStrings {
   static String requestNoMatch(String title) =>
       "$title isn't on MusicBrainz yet, and Lidarr only gets what MusicBrainz lists. Try again once it's been added.";
   static const feat = 'feat.';
+  static String noArtistProfile(String name) => "$name doesn't have an artist profile to show.";
   static String released(String date) => 'Released $date';
   static const musicBrainzBusy = "MusicBrainz is busy right now, so Lidarr's id for it couldn't be looked up. Try again in a minute.";
   static const requestSent = "Requested. It'll show up in your music when it's ready.";

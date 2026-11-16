@@ -14,6 +14,7 @@ import '../music_strings.dart';
 import '../widgets/art_backdrop.dart';
 import '../widgets/music_page.dart';
 import '../widgets/release_hero.dart';
+import '../widgets/release_tracks.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_feed.dart';
@@ -234,7 +235,7 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
                 onPressed: () => unawaited(previewAlbum(context, album)),
                 icon: AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, fill: 1.0),
                 label: Text(playing ? MusicStrings.stop : MusicStrings.preview),
-                style: ReleaseButtons.secondary,
+                style: ReleaseButtons.secondary(context),
               );
             },
           ),
@@ -259,13 +260,14 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
               if (details == null)
                 const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
               else if (details.tracks.isNotEmpty) ...[
-                Text(MusicStrings.tracks, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
                 FutureBuilder<List<PreviewClip>>(
                   future: _clips,
                   builder: (context, snapshot) {
                     final clips = snapshot.data ?? const <PreviewClip>[];
-                    return Column(
+                    return GlassPanel(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        child: Column(
                       children: [
                         for (final (index, track) in details.tracks.indexed)
                           _TrackPreviewRow(
@@ -276,6 +278,8 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
                             clipIndex: clips.isEmpty ? null : _clipIndex(clips, track, index),
                           ),
                       ],
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -349,7 +353,7 @@ class _TrackPreviewRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             onTap: canPreview ? toggle : null,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
               child: Row(
                 children: [
                   SizedBox(
@@ -428,6 +432,10 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
   List<MusicFeedItem>? _albums;
   List<MusicFeedItem>? _singles;
   List<MusicFeedItem> _similar = const [];
+  List<ChartTrack> _songs = const [];
+
+  /// The artist's picture, from Deezer when we came in with just a name.
+  String? _image;
 
   @override
   void initState() {
@@ -437,18 +445,32 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
 
   Future<void> _load() async {
     final discovery = MusicDiscovery.of(context);
-    final results = await Future.wait([
-      quietly(discovery.discographyOf(widget.artist), const <MusicFeedItem>[], 'discography'),
-      quietly(discovery.similarTo(widget.artist), const <MusicFeedItem>[], 'similar artists'),
+    var artist = widget.artist;
+    _image = artist.backdropUrl ?? artist.imageUrl;
+    if (artist.deezerId == null || _image == null) {
+      final found = await quietly(Deezer.findArtist(artist.name), null, 'artist on Deezer');
+      if (found != null) {
+        artist = found;
+        if (mounted) setState(() => _image ??= found.backdropUrl ?? found.imageUrl);
+      }
+    }
+    final results = await Future.wait<Object?>([
+      quietly(discovery.discographyOf(artist), const <MusicFeedItem>[], 'discography'),
+      quietly(discovery.similarTo(artist), const <MusicFeedItem>[], 'similar artists'),
+      quietly(Deezer.topTracksOf(artist, limit: 8), const <ChartTrack>[], 'top songs'),
     ]);
     if (!mounted) return;
-    final all = results[0];
+    final all = results[0] as List<MusicFeedItem>;
     bool isSingle(MusicFeedItem item) =>
         item is ExternalAlbumItem && (item.album.type ?? '').toLowerCase() == 'single';
     setState(() {
       _albums = [for (final item in all) if (!isSingle(item)) item];
       _singles = [for (final item in all) if (isSingle(item)) item];
-      _similar = results[1];
+      _similar = results[1] as List<MusicFeedItem>;
+      _songs = [
+        for (final track in results[2] as List<ChartTrack>)
+          if (track.previewUrl != null) track,
+      ];
     });
   }
 
@@ -458,28 +480,25 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
     final artist = widget.artist;
     final albums = _albums;
     final size = MediaQuery.sizeOf(context);
+    final image = _image;
     return _Backdrop(
-      imageUrl: artist.backdropUrl ?? artist.imageUrl,
+      imageUrl: image,
       child: Stack(
         children: [
           ListView(
             padding: EdgeInsets.only(bottom: 40 + MusicPage.bottomRoom(context)),
             children: [
+              // With a picture, it fills the top and fades out; without one, just the name.
               SizedBox(
-                height: size.width >= 700 ? 320 : 300,
+                height: image == null ? 140 : (size.width >= 700 ? 320 : 300),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (artist.backdropUrl ?? artist.imageUrl case final image?)
-                      ShaderMask(
-                        shaderCallback: (rect) => const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.white, Colors.transparent],
-                          stops: [0.5, 1],
-                        ).createShader(rect),
-                        blendMode: BlendMode.dstIn,
-                        child: OptimizedMediaImage(
+                    if (image != null)
+                      FadingArt(
+                        height: size.width >= 700 ? 320 : 300,
+                        fadeFrom: 0.45,
+                        image: OptimizedMediaImage(
                           client: null,
                           imagePath: image,
                           imageType: ImageType.art,
@@ -490,17 +509,39 @@ class _ArtistDiscoveryViewState extends State<_ArtistDiscoveryView> {
                     Positioned(
                       left: 24,
                       right: 24,
-                      bottom: 12,
+                      bottom: 8,
                       child: Text(
                         artist.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1),
+                        style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -1),
                       ),
                     ),
                   ],
                 ),
               ),
+              if (_songs.isNotEmpty) ...[
+                Padding(
+                  padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16, bottom: 8)),
+                  child: Text(
+                    MusicStrings.topSongs,
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Padding(
+                  padding: MusicPage.padding(context),
+                  child: GlassPanel(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        children: [
+                          for (final (index, track) in _songs.indexed) SongTile(track: track, rank: index + 1),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               if (albums == null)
                 const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
               else ...[

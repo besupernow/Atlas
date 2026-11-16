@@ -14,7 +14,6 @@ import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../utils/provider_extensions.dart';
 import '../../../widgets/app_icon.dart';
-import '../../../widgets/music/track_row.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
@@ -25,6 +24,7 @@ import '../widgets/art_backdrop.dart';
 import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
 import '../widgets/release_hero.dart';
+import '../widgets/release_tracks.dart';
 
 /// Atlas: music mode's page for a release on the server: an album, an EP or a single. The cover
 /// sits sharp at the top and melts into a blur of its own colors that tints the whole page
@@ -40,6 +40,8 @@ class MusicReleasePage extends StatefulWidget {
 }
 
 class _MusicReleasePageState extends State<MusicReleasePage> {
+  /// What release pages last showed (songs, more by the artist), so going back is instant.
+  static final Map<String, (List<MediaItem>, List<MusicFeedItem>)> _cache = {};
   MediaServerClient? _client;
   List<MediaItem>? _tracks;
   List<MusicFeedItem> _moreByArtist = const [];
@@ -52,6 +54,10 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
   void initState() {
     super.initState();
     _client = context.tryGetMediaClientWithFallback(serverIdOrNull(_album.serverId));
+    if (_cache[_album.globalKey] case (final tracks, final more)) {
+      _tracks = tracks;
+      _moreByArtist = more;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_load());
     });
@@ -67,6 +73,7 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
       final tracks = await client.fetchAlbumTracks(_album.id);
       if (!mounted) return;
       setState(() => _tracks = tracks);
+      _cache[_album.globalKey] = (tracks, _moreByArtist);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
@@ -84,6 +91,7 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
               if (item.id != _album.id) ServerFeedItem(item),
         ];
       });
+      _cache[_album.globalKey] = (_tracks ?? const [], _moreByArtist);
     } catch (_) {
       // "More by" is a bonus; the page works without it.
     }
@@ -186,8 +194,10 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             onPressed: ready ? () => unawaited(_play(shuffle: true)) : null,
             icon: const AppIcon(Symbols.shuffle_rounded),
             label: const Text(MusicStrings.shuffle),
-            style: ReleaseButtons.secondary,
+            style: ReleaseButtons.secondary(context),
           ),
+      ],
+      iconActions: [
         IconButton.filledTonal(
           onPressed: () => unawaited(_toggleLove()),
           tooltip: _loved ? MusicStrings.unlove : MusicStrings.love,
@@ -209,6 +219,7 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
       appBar: isTV
           ? null
           : AppBar(
+              leading: const FrostedBackButton(),
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
               scrolledUnderElevation: 0,
@@ -226,17 +237,11 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             else if (tracks != null) ...[
               Padding(
                 padding: MusicPage.padding(context),
-                child: Column(
-                  children: [
-                    for (final (index, track) in tracks.indexed)
-                      TrackRow(
-                        item: track,
-                        isFirst: index == 0,
-                        isLast: index == tracks.length - 1,
-                        showTrackNumber: !_isSingle,
-                        onTap: () => unawaited(_play(from: track)),
-                      ),
-                  ],
+                child: ReleaseTrackList(
+                  tracks: tracks,
+                  albumArtist: _album.albumArtistTitle,
+                  showNumbers: !_isSingle,
+                  onPlay: (track) => unawaited(_play(from: track)),
                 ),
               ),
               if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
