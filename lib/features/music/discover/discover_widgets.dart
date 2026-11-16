@@ -1107,9 +1107,17 @@ class ArtistLinks extends StatefulWidget {
     this.style,
     this.maxLines = 1,
     this.textAlign,
+    this.accent = false,
+    this.onTap,
   });
 
   final ArtistCredit credit;
+
+  /// On detail pages (an album, a song) the names are links in the theme's accent color.
+  final bool accent;
+
+  /// Replaces opening the artist by name (Now Playing opens it in music mode its own way).
+  final ValueChanged<String>? onTap;
 
   /// Plain text before the names ("Song · ").
   final String? prefix;
@@ -1138,26 +1146,37 @@ class _ArtistLinksState extends State<ArtistLinks> {
     _recognizers.clear();
   }
 
-  TextSpan _link(String name) {
-    final recognizer = TapGestureRecognizer()..onTap = () => unawaited(openArtistByName(context, name));
+  TextSpan _link(String name, TextStyle? linkStyle) {
+    final custom = widget.onTap;
+    final recognizer = TapGestureRecognizer()
+      ..onTap = () {
+        if (custom != null) {
+          custom(name);
+        } else {
+          unawaited(openArtistByName(context, name));
+        }
+      };
     _recognizers.add(recognizer);
-    return TextSpan(text: name, recognizer: recognizer);
+    return TextSpan(text: name, recognizer: recognizer, style: linkStyle, mouseCursor: SystemMouseCursors.click);
   }
 
   @override
   Widget build(BuildContext context) {
     _disposeRecognizers();
     final credit = widget.credit;
+    final linkStyle = widget.accent
+        ? TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700)
+        : null;
     final spans = <InlineSpan>[
       if (widget.prefix case final prefix? when prefix.isNotEmpty) TextSpan(text: prefix),
     ];
     for (final (index, name) in credit.main.indexed) {
       if (index > 0) spans.add(const TextSpan(text: ', '));
-      spans.add(_link(name));
+      spans.add(_link(name, linkStyle));
     }
     for (final (index, name) in credit.featured.indexed) {
       spans.add(TextSpan(text: index == 0 ? ' ${MusicStrings.feat} ' : ', '));
-      spans.add(_link(name));
+      spans.add(_link(name, linkStyle));
     }
     if (widget.suffix case final suffix? when suffix.isNotEmpty) {
       spans.add(TextSpan(text: spans.isEmpty ? suffix : ' · $suffix'));

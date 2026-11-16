@@ -161,9 +161,15 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
         if (group.kind == kind)
           for (final item in group.items) item,
     ];
+    // Anything the server has (under any section) isn't shown again from outside.
+    final ours = {
+      for (final group in _discography)
+        for (final item in group.items) SearchText.squash(SearchText.cleanTitle(item.title ?? '')),
+    };
     final outside = [
       for (final item in _outsideReleases)
-        if (_kindOf(item.album) == kind) item,
+        if (_kindOf(item.album) == kind && !ours.contains(SearchText.squash(SearchText.cleanTitle(item.album.title))))
+          item,
     ];
     final items = <(String, MusicFeedItem)>[
       for (final item in server) ('${item.albumYear ?? item.year ?? ''}', ServerFeedItem(item)),

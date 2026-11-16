@@ -9,6 +9,7 @@ import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_models.dart';
 import 'listenbrainz.dart';
+import 'music_search_index.dart';
 
 /// Atlas: puts the outside world and the server together. Albums from ListenBrainz and
 /// Allseerr become cards for the server's own copy when we have it, and stay "not on the
@@ -75,14 +76,24 @@ class MusicDiscovery {
       .replaceAll(RegExp(r'^the '), '')
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
-  static String albumKey(String artist, String title) => '${_normal(artist)}|${_normal(title)}';
+  static String albumKey(String artist, String title) =>
+      '${_normal(SearchText.primaryArtist(artist))}|${_normal(SearchText.cleanTitle(title))}';
+
+  /// The server's copy of [album] in [index]: same artist and title, or the same title by an
+  /// artist whose name contains the other's ("bbno$" and "bbno$ & Y2K").
+  static MediaItem? _match(Map<String, MediaItem> index, DiscoverAlbum album, DiscoverStatus status) {
+    final exact = index[albumKey(album.artistName, album.title)];
+    if (exact != null) return exact;
+    final byTitle = index[albumKey('', album.title)];
+    if (byTitle == null) return null;
+    if (status.onServer) return byTitle;
+    final ours = _normal(SearchText.primaryArtist(byTitle.albumArtistTitle ?? ''));
+    final theirs = _normal(SearchText.primaryArtist(album.artistName));
+    return ours.isNotEmpty && theirs.isNotEmpty && (ours.contains(theirs) || theirs.contains(ours)) ? byTitle : null;
+  }
 
   /// The server's copy of [album], if it has one.
-  Future<MediaItem?> serverCopy(DiscoverAlbum album) async {
-    final index = await _serverAlbums();
-    return index[albumKey(album.artistName, album.title)] ??
-        (album.status.onServer ? index[albumKey('', album.title)] : null);
-  }
+  Future<MediaItem?> serverCopy(DiscoverAlbum album) async => _match(await _serverAlbums(), album, album.status);
 
   /// Cards for [albums]: the server's copy where there is one, otherwise the album itself with
   /// what Allseerr knows about it.
@@ -100,8 +111,7 @@ class MusicDiscovery {
       if (items.length >= limit) break;
       if (!seen.add(album.mbid)) continue;
       final status = StatusOverrides.instance.statusOf(album.mbid) ?? known[album.mbid] ?? album.status;
-      final copy =
-          index[albumKey(album.artistName, album.title)] ?? (status.onServer ? index[albumKey('', album.title)] : null);
+      final copy = _match(index, album, status);
       if (copy != null) {
         if (!externalOnly) items.add(ServerFeedItem(copy, reason: album.reason));
       } else if (!serverOnly) {
