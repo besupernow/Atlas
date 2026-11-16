@@ -43,6 +43,9 @@ import '../../widgets/overlay_sheet.dart';
 import 'queue_sheet.dart';
 import '../../app/app_mode.dart';
 import '../../app/music_detail_scope.dart';
+import '../../features/music/discover/discover_feed.dart';
+import '../../features/music/discover/discover_models.dart';
+import '../../features/music/discover/discover_widgets.dart';
 import '../../features/music/music_strings.dart';
 import '../../utils/error_message_utils.dart';
 
@@ -233,6 +236,24 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     if (await _openInMusicMode(client, albumId)) return;
     final album = await client.fetchItem(albumId).catchError((Object _) => null);
     if (album != null && mounted) await navigateToAlbum(context, album);
+  }
+
+  /// Atlas: a name in the artist line. The album artist opens by id; anyone else credited
+  /// (a feature) is looked up by name: their page in music mode when they're on the server,
+  /// otherwise their discovery sheet over Now Playing.
+  Future<void> _openArtistNamed(MediaItem track, String name) async {
+    final albumArtist = ArtistCredit.parse(track.albumArtistTitle ?? '').main;
+    if (albumArtist.isNotEmpty && albumArtist.first == name) return _openArtist(track);
+    final found = await MusicDiscovery.of(context).resolveArtists([DiscoverArtist(mbid: 'name:$name', name: name)]);
+    if (!mounted || found.isEmpty) return;
+    final item = found.first;
+    final open = MusicModeLinks.open;
+    if (item is ServerFeedItem && open != null && AppModeController.instance.isMusic) {
+      _pop();
+      open(item.item);
+      return;
+    }
+    await openFeedItem(context, item);
   }
 
   /// In music mode, close Now Playing and open the page on the current music tab (where the
@@ -471,14 +492,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   ),
                 ),
                 if (artist != null && artist.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => unawaited(_openArtist(track)),
-                    child: Text(
-                      artist,
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
-                    ),
+                  ArtistLinks(
+                    credit: ArtistCredit.parse(artist, title: track.title),
+                    accent: true,
+                    onTap: (name) => unawaited(_openArtistNamed(track, name)),
+                    style: textTheme.bodyMedium?.copyWith(color: tk.textMuted),
                   ),
               ],
             ),
@@ -771,27 +789,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             color: tk.text,
           ),
         ),
-        if (artist != null && artist.isNotEmpty)
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => unawaited(_openArtist(track)),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  artist,
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  textAlign: centered ? TextAlign.center : TextAlign.start,
-                  style: (large ? textTheme.titleLarge : textTheme.titleMedium)?.copyWith(
-                    color: accent,
-                    fontWeight: .w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (large && album != null && album.isNotEmpty)
+        // The album, then everyone on the song, each a link in the accent color.
+        if (album != null && album.isNotEmpty)
           MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
@@ -802,9 +801,24 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   album,
                   maxLines: 1,
                   overflow: .ellipsis,
-                  style: textTheme.bodyLarge?.copyWith(color: tk.textMuted),
+                  textAlign: centered ? TextAlign.center : TextAlign.start,
+                  style: (large ? textTheme.titleMedium : textTheme.bodyLarge)?.copyWith(
+                    color: accent,
+                    fontWeight: .w700,
+                  ),
                 ),
               ),
+            ),
+          ),
+        if (artist != null && artist.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: ArtistLinks(
+              credit: ArtistCredit.parse(artist, title: track.title),
+              accent: true,
+              textAlign: centered ? TextAlign.center : TextAlign.start,
+              onTap: (name) => unawaited(_openArtistNamed(track, name)),
+              style: (large ? textTheme.titleLarge : textTheme.titleMedium)?.copyWith(fontWeight: .w600),
             ),
           ),
       ],

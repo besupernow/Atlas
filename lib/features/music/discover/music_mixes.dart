@@ -6,19 +6,27 @@ import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../data/music_catalog.dart';
 import '../music_strings.dart';
+import '../theme/music_theme.dart';
 
 /// Atlas: a mix made from the server for this person, like Apple Music's "Made for You" mixes.
 /// Built fresh on every Home load from what they favorite, play and haven't heard yet.
 /// (AudioMuse-AI will add mood mixes like Chill and Get Up later.)
 class MusicMix {
-  const MusicMix({required this.id, required this.title, required this.colors, required this.tracks});
+  const MusicMix({required this.id, required this.title, required this.hueShift, required this.tracks});
 
   final String id;
 
   /// Two lines on the art: "New Music" / "Mix".
   final ({String top, String bottom}) title;
-  final List<Color> colors;
+  /// How far from the theme's accent this mix's colors turn (each mix its own shade of it).
+  final double hueShift;
   final List<MediaItem> tracks;
+
+  /// The cover gradient, made from the theme's [accent].
+  List<Color> colorsFor(Color accent) => MusicColors.gradient(accent, shift: hueShift);
+
+  /// The darker band under the cover.
+  Color bandColorFor(Color accent) => MusicColors.band(colorsFor(accent));
 
   String get fullTitle => '${title.top} ${title.bottom}';
 
@@ -32,9 +40,6 @@ class MusicMix {
     }
     return MusicStrings.andMore(names);
   }
-
-  /// Art for the card's lower band.
-  Color get bandColor => Color.lerp(colors.last, const Color(0xFF000000), 0.25)!;
 }
 
 abstract final class MusicMixes {
@@ -63,25 +68,25 @@ abstract final class MusicMixes {
       MusicMix(
         id: 'new-music',
         title: (top: MusicStrings.mixNewMusic, bottom: MusicStrings.mix),
-        colors: const [Color(0xFFFF2D55), Color(0xFFFF7A59)],
+        hueShift: 0,
         tracks: mixOf(recent),
       ),
       MusicMix(
         id: 'favorites',
         title: (top: MusicStrings.mixFavorites, bottom: MusicStrings.mix),
-        colors: const [Color(0xFFFF5FA2), Color(0xFFFFB347)],
+        hueShift: 24,
         tracks: mixOf([...favorites, ...mostPlayed.take(30)]),
       ),
       MusicMix(
         id: 'discovery',
         title: (top: MusicStrings.mixDiscovery, bottom: MusicStrings.mix),
-        colors: const [Color(0xFF5E5CE6), Color(0xFF32ADE6)],
+        hueShift: -30,
         tracks: mixOf(random200.where((track) => (track.viewCount ?? 0) == 0)),
       ),
       MusicMix(
         id: 'replay',
         title: (top: MusicStrings.mixReplay, bottom: MusicStrings.mix),
-        colors: const [Color(0xFF30B158), Color(0xFF3FC8E4)],
+        hueShift: 50,
         tracks: mixOf(mostPlayed, shuffle: false),
       ),
     ];

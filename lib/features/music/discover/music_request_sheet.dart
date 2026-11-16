@@ -13,6 +13,7 @@ import '../../../widgets/optimized_media_image.dart';
 import '../music_strings.dart';
 import '../widgets/art_backdrop.dart';
 import '../widgets/music_page.dart';
+import '../widgets/release_hero.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_feed.dart';
@@ -144,10 +145,10 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
       if (seerr == null)
         Future.value()
       else
-      // Its release group (from its codes, for albums from Deezer or Last.fm), then what
-      // Allseerr knows about it.
+        // Its release group (from its codes, for albums from Deezer or Last.fm), then what
+        // Allseerr knows about it.
         quietly(
-              () async {
+          () async {
             final found = await MusicResolver.releaseGroup(album);
             return found == null ? null : await seerr.album(found);
           }(),
@@ -206,73 +207,38 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
     final theme = Theme.of(context);
     final album = _album;
     final details = _details;
-    final wide = MediaQuery.sizeOf(context).width >= 700;
-    final artSize = wide ? 280.0 : 240.0;
-    final meta = [album.type, album.year, ...?details?.genres.take(2)].whereType<String>().where((s) => s.isNotEmpty);
-
-    final header = Column(
-      crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          album.title,
-          textAlign: wide ? TextAlign.start : TextAlign.center,
-          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.4),
-        ),
-        const SizedBox(height: 4),
-        // The artist's name opens the artist.
-        InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: album.artistName.isEmpty
-              ? null
-              : () => unawaited(
-            showArtistDiscoverySheet(
-              context,
-              DiscoverArtist(mbid: album.artistMbid ?? 'name:${album.artistName}', name: album.artistName),
-            ),
+    final hero = ReleaseHero(
+      art: OptimizedMediaImage(
+        client: null,
+        imagePath: album.coverUrl,
+        imageType: ImageType.square,
+        fit: BoxFit.cover,
+        fallbackIcon: Symbols.album_rounded,
+      ),
+      eyebrow: [album.type ?? MusicStrings.albumLabel, ?album.year].join(' · '),
+      title: album.title,
+      credit: album.credit,
+      details: [
+        ...?details?.genres.take(2),
+        if (details != null && details.tracks.isNotEmpty) MusicStrings.songCount(details.tracks.length),
+      ].join(' · '),
+      badge: NotOnServerBadge(status: album.status, mbid: album.mbid, size: 32),
+      actions: [
+        if (MusicPreviews.supported)
+          ListenableBuilder(
+            listenable: MusicPreviewPlayer.instance,
+            builder: (context, _) {
+              final playing = MusicPreviewPlayer.instance.playingKey == album.mbid;
+              return FilledButton.tonalIcon(
+                autofocus: PlatformDetector.isTV(),
+                onPressed: () => unawaited(previewAlbum(context, album)),
+                icon: AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, fill: 1.0),
+                label: Text(playing ? MusicStrings.stop : MusicStrings.preview),
+                style: ReleaseButtons.secondary,
+              );
+            },
           ),
-          child: Text(
-            album.artistName,
-            textAlign: wide ? TextAlign.start : TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
-          ),
-        ),
-        if (meta.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            meta.join(' · '),
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          alignment: wide ? WrapAlignment.start : WrapAlignment.center,
-          children: [
-            if (MusicPreviews.supported)
-              ListenableBuilder(
-                listenable: MusicPreviewPlayer.instance,
-                builder: (context, _) {
-                  final playing = MusicPreviewPlayer.instance.playingKey == album.mbid;
-                  return FilledButton.tonalIcon(
-                    autofocus: PlatformDetector.isTV(),
-                    onPressed: () => unawaited(previewAlbum(context, album)),
-                    icon: AppIcon(playing ? Symbols.stop_rounded : Symbols.play_arrow_rounded, fill: 1.0),
-                    label: Text(playing ? MusicStrings.stop : MusicStrings.preview),
-                  );
-                },
-              ),
-            RequestButton(album: album, onOpenServerCopy: _serverCopy == null ? null : _openServerCopy),
-          ],
-        ),
-      ],
-    );
-
-    final cover = Stack(
-      children: [
-        MusicArt(item: ExternalAlbumItem(album), size: artSize, radius: 20),
-        Positioned(top: 12, right: 12, child: NotOnServerBadge(status: album.status, mbid: album.mbid, size: 32)),
+        RequestButton(album: album, onOpenServerCopy: _serverCopy == null ? null : _openServerCopy),
       ],
     );
 
@@ -282,81 +248,49 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
         children: [
           ListView(
             // Room at the bottom so the mini player never covers the last songs.
-            padding: EdgeInsets.fromLTRB(wide ? 48 : 0, wide ? 56 : 0, wide ? 48 : 0, 40 + MusicPage.bottomRoom(context)),
+            padding: EdgeInsets.only(bottom: 40 + MusicPage.bottomRoom(context)),
             children: [
-              if (wide)
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [cover, const SizedBox(width: 32), Expanded(child: header)])
-              else ...[
-                // The cover edge to edge, a little taller than wide, melting slowly into its own
-                // colors (like the release page).
-                SizedBox(
-                  width: double.infinity,
-                  child: Stack(
-                    children: [
-                      FadingArt(
-                        height: MediaQuery.sizeOf(context).width * 1.08,
-                        fadeFrom: 0.38,
-                        image: OptimizedMediaImage(
-                          client: null,
-                          imagePath: album.coverUrl,
-                          imageType: ImageType.square,
-                          fit: BoxFit.cover,
-                          fallbackIcon: Symbols.album_rounded,
-                        ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: NotOnServerBadge(status: album.status, mbid: album.mbid, size: 32),
-                      ),
-                    ],
-                  ),
-                ),
-                Transform.translate(
-                  offset: const Offset(0, -72),
-                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: header),
-                ),
-              ],
+              hero,
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: wide ? 0 : 20),
+                padding: MusicPage.padding(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (wide) const SizedBox(height: 28),
-                    if (details == null)
-                      const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-                    else if (details.tracks.isNotEmpty) ...[
-                      Text(MusicStrings.tracks, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 8),
-                      FutureBuilder<List<PreviewClip>>(
-                        future: _clips,
-                        builder: (context, snapshot) {
-                          final clips = snapshot.data ?? const <PreviewClip>[];
-                          return Column(
-                            children: [
-                              for (final (index, track) in details.tracks.indexed)
-                                _TrackPreviewRow(
-                                  track: track,
-                                  albumKey: album.mbid,
-                                  clips: clips,
-                                  clipIndex: clips.isEmpty ? null : _clipIndex(clips, track, index),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                    if (details?.about case final about? when about.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(album.artistName, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 8),
-                      Text(
-                        about,
-                        maxLines: 8,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.45),
-                      ),
-                    ],
+              if (details == null)
+                const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              else if (details.tracks.isNotEmpty) ...[
+                Text(MusicStrings.tracks, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                FutureBuilder<List<PreviewClip>>(
+                  future: _clips,
+                  builder: (context, snapshot) {
+                    final clips = snapshot.data ?? const <PreviewClip>[];
+                    return Column(
+                      children: [
+                        for (final (index, track) in details.tracks.indexed)
+                          _TrackPreviewRow(
+                            track: track,
+                            albumArtist: album.artistName,
+                            albumKey: album.mbid,
+                            clips: clips,
+                            clipIndex: clips.isEmpty ? null : _clipIndex(clips, track, index),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+              if (details?.about case final about? when about.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text(album.artistName, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(
+                  about,
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.45),
+                ),
+              ],
                   ],
                 ),
               ),
@@ -370,9 +304,18 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
 }
 
 class _TrackPreviewRow extends StatelessWidget {
-  const _TrackPreviewRow({required this.track, required this.albumKey, required this.clips, required this.clipIndex});
+  const _TrackPreviewRow({
+    required this.track,
+    required this.albumArtist,
+    required this.albumKey,
+    required this.clips,
+    required this.clipIndex,
+  });
 
   final DiscoverTrack track;
+
+  /// Songs credited to someone else (or with features) show their own artists.
+  final String albumArtist;
   final String albumKey;
   final List<PreviewClip> clips;
   final int? clipIndex;
@@ -414,9 +357,9 @@ class _TrackPreviewRow extends StatelessWidget {
                     child: playing
                         ? AppIcon(Symbols.graphic_eq_rounded, color: theme.colorScheme.primary)
                         : Text(
-                      track.number,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
+                            track.number,
+                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          ),
                   ),
                   Expanded(
                     child: Column(
@@ -431,6 +374,12 @@ class _TrackPreviewRow extends StatelessWidget {
                             fontWeight: playing ? FontWeight.w600 : null,
                           ),
                         ),
+                        if (!playing && track.artist != null && track.artist != albumArtist)
+                          ArtistLinks(
+                            credit: ArtistCredit.parse(track.artist!, title: track.title),
+                            accent: true,
+                            style: theme.textTheme.bodySmall,
+                          ),
                         if (playing)
                           Padding(
                             padding: const EdgeInsets.only(top: 4, right: 12),

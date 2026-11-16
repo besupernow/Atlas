@@ -1,29 +1,36 @@
 import 'package:flutter/material.dart';
 
-/// Atlas: music mode's look. Same surfaces, type and shapes as the selected app theme (so light,
-/// dark and the user's theme carry over), with music's own accent in place of the theme's.
+/// Atlas: music mode's look. The selected app theme as it is (surfaces, type, shapes and the
+/// accent the person picked), with progress and sliders following that accent.
 abstract final class MusicTheme {
-  /// A warm pink-red, in the spirit of Apple Music.
-  static const accentLight = Color(0xFFE5293F);
-  static const accentDark = Color(0xFFFF4D67);
-
   static ThemeData of(ThemeData base) {
-    final dark = base.brightness == Brightness.dark;
-    final accent = dark ? accentDark : accentLight;
-    final scheme = base.colorScheme.copyWith(
-      primary: accent,
-      onPrimary: Colors.white,
-      secondary: accent,
-      onSecondary: Colors.white,
-      primaryContainer: Color.alphaBlend(accent.withValues(alpha: dark ? 0.28 : 0.16), base.colorScheme.surface),
-      onPrimaryContainer: dark ? Colors.white : const Color(0xFF3A0711),
-      secondaryContainer: Color.alphaBlend(accent.withValues(alpha: dark ? 0.22 : 0.12), base.colorScheme.surface),
-      onSecondaryContainer: dark ? Colors.white : const Color(0xFF3A0711),
-    );
+    final accent = base.colorScheme.primary;
     return base.copyWith(
-      colorScheme: scheme,
       progressIndicatorTheme: base.progressIndicatorTheme.copyWith(color: accent),
       sliderTheme: base.sliderTheme.copyWith(activeTrackColor: accent, thumbColor: accent),
     );
   }
+}
+
+/// Colors for music's own artwork (mix covers, genre and station tiles), all made from the
+/// theme's accent so a different accent recolors the whole of music mode.
+abstract final class MusicColors {
+  /// A two-stop gradient in the accent's family, turned [shift] degrees around the color wheel
+  /// (small shifts keep it recognisably the accent).
+  static List<Color> gradient(Color accent, {double shift = 0}) {
+    final base = HSLColor.fromColor(accent);
+    final saturation = base.saturation.clamp(0.45, 0.85);
+    final start = HSLColor.fromAHSL(1, (base.hue + shift) % 360, saturation, 0.52);
+    final end = HSLColor.fromAHSL(1, (base.hue + shift + 28) % 360, saturation, 0.34);
+    return [start.toColor(), end.toColor()];
+  }
+
+  /// A steady gradient per name (a genre, a station), in the accent's family.
+  static List<Color> forName(Color accent, String name) {
+    final hash = name.toLowerCase().codeUnits.fold<int>(7, (hash, unit) => (hash * 31 + unit) & 0x7fffffff);
+    return gradient(accent, shift: (hash % 100) - 50.0);
+  }
+
+  /// The darker band under a card's art.
+  static Color band(List<Color> colors) => Color.lerp(colors.last, Colors.black, 0.25)!;
 }

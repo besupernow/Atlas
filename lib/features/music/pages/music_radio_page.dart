@@ -12,6 +12,7 @@ import '../../../widgets/app_icon.dart';
 import '../data/music_catalog.dart';
 import '../data/music_sources.dart';
 import '../music_strings.dart';
+import '../theme/music_theme.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/music_page.dart';
 import '../widgets/music_shelves.dart';
@@ -163,7 +164,7 @@ class _MusicRadioPageState extends State<MusicRadioPage> {
                     child: _StationCard(
                       title: genre.title,
                       icon: Symbols.graphic_eq_rounded,
-                      colors: _genreColors(genre.title),
+                      colors: MusicColors.forName(theme.colorScheme.primary, genre.title),
                       width: isTV ? 240 : 180,
                       onTap: () => unawaited(_playGenre(genre)),
                     ),
@@ -177,15 +178,6 @@ class _MusicRadioPageState extends State<MusicRadioPage> {
     );
   }
 
-  /// A steady pair of colors per genre name, so each genre always looks the same.
-  static List<Color> _genreColors(String name) {
-    final hue = (name.toLowerCase().codeUnits.fold<int>(7, (hash, unit) => (hash * 31 + unit) & 0x7fffffff) % 360)
-        .toDouble();
-    return [
-      HSLColor.fromAHSL(1, hue, 0.55, 0.45).toColor(),
-      HSLColor.fromAHSL(1, (hue + 40) % 360, 0.6, 0.28).toColor(),
-    ];
-  }
 }
 
 class _StationCard extends StatelessWidget {

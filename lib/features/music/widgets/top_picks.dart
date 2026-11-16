@@ -75,7 +75,11 @@ class MixArt extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: mix.colors),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: mix.colorsFor(Theme.of(context).colorScheme.primary),
+        ),
       ),
       child: Stack(
         children: [
@@ -330,7 +334,7 @@ class _TopPickCard extends StatelessWidget {
       ),
     );
     final Widget bandWidget = switch (pick) {
-      MixPick(:final mix) => bandWith(mix.bandColor),
+      MixPick(:final mix) => bandWith(mix.bandColorFor(theme.colorScheme.primary)),
       ItemPick(:final item) => colored(item),
       StationPick(:final artist) => colored(ServerFeedItem(artist)),
     };

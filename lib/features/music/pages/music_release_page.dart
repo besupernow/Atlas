@@ -24,11 +24,12 @@ import '../music_strings.dart';
 import '../widgets/art_backdrop.dart';
 import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
+import '../widgets/release_hero.dart';
 
 /// Atlas: music mode's page for a release on the server: an album, an EP or a single. The cover
-/// sits sharp at the top and melts into a blur of its own colors that tints the whole page;
-/// then the title, Play / Shuffle / Love, the songs, the date and length, and more by the artist.
-/// A single gets its own label and layout instead of looking like a one-song album.
+/// sits sharp at the top and melts into a blur of its own colors that tints the whole page
+/// ([ReleaseHero]); then the songs, the release date, and more by the artist. A single gets its
+/// own label instead of looking like a one-song album.
 class MusicReleasePage extends StatefulWidget {
   const MusicReleasePage({super.key, required this.album});
 
@@ -135,21 +136,26 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
     unawaited(openArtistById(context, client, id));
   }
 
-  String _footer(List<MediaItem> tracks) {
+  /// "12 songs · 41 min".
+  String _summary(List<MediaItem> tracks) {
     final totalMs = tracks.fold<int>(0, (sum, track) => sum + (track.durationMs ?? 0));
     final minutes = (totalMs / 60000).round();
-    return [
-      ?_album.originallyAvailableAt,
-      MusicStrings.songCount(tracks.length),
-      if (minutes > 0) MusicStrings.minutes(minutes),
-    ].join(' · ');
+    return [MusicStrings.songCount(tracks.length), if (minutes > 0) MusicStrings.minutes(minutes)].join(' · ');
+  }
+
+  /// The album artist opens by id (exact); anyone else credited by name.
+  void _openArtistNamed(String name) {
+    final primary = ArtistCredit.parse(_album.albumArtistTitle ?? '').main;
+    if (primary.isNotEmpty && primary.first == name) {
+      _openArtist();
+    } else {
+      unawaited(openArtistByName(context, name));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = MediaQuery.sizeOf(context);
-    final wide = size.width >= 700;
     final isTV = PlatformDetector.isTV();
     final tracks = _tracks;
     final art = OptimizedMediaImage(
@@ -159,104 +165,44 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
       fit: BoxFit.cover,
       fallbackIcon: Symbols.album_rounded,
     );
-    final meta = [_kindLabel, if (_album.albumYear != null) '${_album.albumYear}'].join(' · ').toUpperCase();
-
-    final titleBlock = Column(
-      crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          meta,
-          style: theme.textTheme.labelMedium?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w800),
+    final ready = tracks != null && tracks.isNotEmpty;
+    final header = ReleaseHero(
+      art: art,
+      eyebrow: [_kindLabel, if (_album.albumYear != null) '${_album.albumYear}'].join(' · '),
+      title: _album.title ?? '',
+      credit: ArtistCredit.parse(_album.albumArtistTitle ?? ''),
+      onArtist: _openArtistNamed,
+      details: tracks == null ? null : _summary(tracks),
+      actions: [
+        FilledButton.icon(
+          autofocus: isTV,
+          onPressed: ready ? () => unawaited(_play()) : null,
+          icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1.0),
+          label: const Text(MusicStrings.play),
+          style: ReleaseButtons.primary,
         ),
-        const SizedBox(height: 6),
-        Text(
-          _album.title ?? '',
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          textAlign: wide ? TextAlign.start : TextAlign.center,
-          style: (wide || isTV ? theme.textTheme.displaySmall : theme.textTheme.headlineMedium)?.copyWith(
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1,
-            height: 1.05,
+        if (!_isSingle)
+          FilledButton.tonalIcon(
+            onPressed: ready ? () => unawaited(_play(shuffle: true)) : null,
+            icon: const AppIcon(Symbols.shuffle_rounded),
+            label: const Text(MusicStrings.shuffle),
+            style: ReleaseButtons.secondary,
+          ),
+        IconButton.filledTonal(
+          onPressed: () => unawaited(_toggleLove()),
+          tooltip: _loved ? MusicStrings.unlove : MusicStrings.love,
+          icon: AppIcon(
+            Symbols.favorite_rounded,
+            fill: _loved ? 1.0 : 0.0,
+            color: _loved ? theme.colorScheme.primary : null,
           ),
         ),
-        if (_album.albumArtistTitle case final artist? when artist.isNotEmpty)
-          TextButton(
-            onPressed: _openArtist,
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
-            child: Text(
-              artist,
-              style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
-            ),
-          ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          alignment: wide ? WrapAlignment.start : WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            FilledButton.icon(
-              autofocus: isTV,
-              onPressed: tracks == null || tracks.isEmpty ? null : () => unawaited(_play()),
-              icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1.0),
-              label: const Text(MusicStrings.play),
-              style: FilledButton.styleFrom(minimumSize: const Size(130, 48)),
-            ),
-            if (!_isSingle)
-              FilledButton.tonalIcon(
-                onPressed: tracks == null || tracks.isEmpty ? null : () => unawaited(_play(shuffle: true)),
-                icon: const AppIcon(Symbols.shuffle_rounded),
-                label: const Text(MusicStrings.shuffle),
-                style: FilledButton.styleFrom(minimumSize: const Size(130, 48)),
-              ),
-            IconButton.filledTonal(
-              onPressed: () => unawaited(_toggleLove()),
-              tooltip: _loved ? MusicStrings.unlove : MusicStrings.love,
-              icon: AppIcon(Symbols.favorite_rounded, fill: _loved ? 1.0 : 0.0),
-            ),
-            IconButton.filledTonal(
-              onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_album))),
-              icon: const AppIcon(Symbols.more_horiz_rounded),
-            ),
-          ],
+        IconButton.filledTonal(
+          onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_album))),
+          icon: const AppIcon(Symbols.more_horiz_rounded),
         ),
       ],
     );
-
-    final header = wide
-        ? Padding(
-            padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 72, bottom: 12)),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  width: 300,
-                  height: 300,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 40, offset: const Offset(0, 18)),
-                    ],
-                  ),
-                  child: art,
-                ),
-                const SizedBox(width: 32),
-                Expanded(child: titleBlock),
-              ],
-            ),
-          )
-        : Column(
-            children: [
-              FadingArt(image: art, height: size.width, fadeFrom: 0.6),
-              Transform.translate(
-                offset: const Offset(0, -56),
-                child: Padding(padding: MusicPage.padding(context), child: titleBlock),
-              ),
-            ],
-          );
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -293,13 +239,14 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
                   ],
                 ),
               ),
-              Padding(
-                padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 14)),
-                child: Text(
-                  _footer(tracks),
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
+                Padding(
+                  padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16)),
+                  child: Text(
+                    MusicStrings.released(released),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 ),
-              ),
             ],
             MusicFeedShelf(
               title: MusicStrings.moreBy(_album.albumArtistTitle ?? ''),
