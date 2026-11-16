@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -8,13 +9,16 @@ import 'package:provider/provider.dart';
 import '../../../profiles/active_profile_provider.dart';
 import '../../../services/base_shared_preferences_service.dart';
 import '../../../services/settings_service.dart';
+import '../../../utils/app_logger.dart';
+import '../data/music_server.dart';
 import 'discover_models.dart';
 
-/// Atlas: each person's ListenBrainz account, by username, per profile. Reading
-/// recommendations and stats needs only the name (they're public); scrobbling (later) will add
-/// the token through the sidecar.
+/// Atlas: each person's ListenBrainz username comes from their Jellyfin account on the Atlas
+/// server (an admin sets it there, see [ListenBrainzAccounts]), so nobody signs in to anything
+/// in the app. The last name the server gave is kept per profile so pages have it right away;
+/// [refresh] asks the server again.
 abstract final class ListenBrainzAccount {
-  static StringPref _pref(String profileId) => StringPref('atlas_listenbrainz_user_$profileId');
+  static StringPref _pref(String profileId) => StringPref('atlas_listenbrainz_from_server_$profileId');
 
   static String? _profileId(BuildContext context) {
     try {
@@ -32,14 +36,38 @@ abstract final class ListenBrainzAccount {
     return name.isEmpty ? null : name;
   }
 
-  static Future<void> setUsername(BuildContext context, String? username) async {
+  static final Map<String, DateTime> _checkedAt = {};
+  static final Map<String, Future<void>> _inFlight = {};
+
+  /// Ask the server for this profile's username (at most every few minutes unless [force]).
+  /// Pages listening to [changes] reload when it changes.
+  static Future<void> refresh(BuildContext context, {bool force = false}) {
     final profile = _profileId(context);
-    if (profile == null) return;
-    await SettingsService.instance.write(_pref(profile), username?.trim() ?? '');
-    changes.value++;
+    final client = MusicServer.jellyfin(context);
+    if (profile == null || client == null) return Future.value();
+    final last = _checkedAt[profile];
+    if (!force && last != null && DateTime.now().difference(last) < const Duration(minutes: 5)) {
+      return Future.value();
+    }
+    return _inFlight.putIfAbsent(profile, () async {
+      try {
+        final name = await client.atlasListenBrainzUserName();
+        _checkedAt[profile] = DateTime.now();
+        final pref = _pref(profile);
+        if (SettingsService.instance.read(pref).trim() != (name ?? '')) {
+          await SettingsService.instance.write(pref, name ?? '');
+          changes.value++;
+        }
+      } catch (error) {
+        // Offline: keep the name we had.
+        appLogger.w('ListenBrainz: reading the username from the server failed', error: error);
+      } finally {
+        unawaited(_inFlight.remove(profile));
+      }
+    });
   }
 
-  /// Bumped when someone connects or disconnects, so pages reload.
+  /// Bumped when the username changes, so pages reload.
   static final changes = ValueNotifier<int>(0);
 
   /// Whether [username] exists on ListenBrainz.

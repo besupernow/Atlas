@@ -78,6 +78,11 @@ class MusicSearchPageState extends State<MusicSearchPage> {
     setState(() => _searching = true);
     try {
       final search = MusicSearch(MusicDiscovery.of(context));
+      // What earlier searches already know shows right away; the full answer replaces it.
+      if (!_libraryOnly) {
+        final instant = search.instant(query);
+        if (!instant.isEmpty) setState(() => _results = instant);
+      }
       final results = _libraryOnly ? await search.searchLibrary(query) : await search.search(query);
       if (!mounted || generation != _generation) return;
       setState(() {

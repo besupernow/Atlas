@@ -77,6 +77,8 @@ abstract final class MusicStrings {
   static const tracks = 'Tracks';
   static const noPreview = 'No preview for this one';
   static const requestFailed = "Couldn't request it. Try again in a bit.";
+  static String requestNoMatch(String title) =>
+      "Couldn't find $title on MusicBrainz, so Lidarr can't get it yet.";
   static const requestSent = "Requested. It'll show up in your music when it's ready.";
   static const requestUnavailable = "Requests need Allseerr, and it isn't connected right now.";
   static const discography = 'Discography';
@@ -84,18 +86,21 @@ abstract final class MusicStrings {
   static const singles = 'Singles';
   static const openOnServer = 'Open on the Server';
 
-  // ListenBrainz.
+  // ListenBrainz (each user's account is set by an admin on the server).
   static const listenBrainz = 'ListenBrainz';
-  static const connectTitle = 'Make Home yours';
-  static const connectBody =
-      "Connect your ListenBrainz account and Home fills up with music picked for you, on the server or not yet. Your plays already go there if you scrobble.";
-  static const connect = 'Connect ListenBrainz';
   static const usernameHint = 'ListenBrainz username';
-  static const save = 'Connect';
+  static const save = 'Save';
   static const cancel = 'Cancel';
-  static const disconnect = 'Disconnect';
+  static const remove = 'Remove';
   static const userNotFound = "That ListenBrainz user doesn't exist.";
-  static const connectedAs = 'Connected as';
+  static const listenBrainzAccounts = 'ListenBrainz Accounts';
+  static const listenBrainzAccountsSubtitle = "Pick whose ListenBrainz account goes with each person's Atlas account";
+  static const listenBrainzAccountsHint = 'Each person gets recommendations from their own account';
+  static const listenBrainzNotSet = 'Not set';
+  static const listenBrainzNoServer = 'Music settings need the Atlas server, and it isn\'t connected right now.';
+  static const listenBrainzServerOld =
+      "Couldn't load the accounts. The server may need the Atlas update that stores ListenBrainz names.";
+  static const listenBrainzSaveFailed = "Couldn't save it on the server. Try again in a bit.";
 
   // Library.
   static const libraryEmpty = 'Favorite albums, artists and songs, and the playlists you make, live here.';
@@ -132,8 +137,6 @@ abstract final class MusicStrings {
   static const settingsMusic = 'Music';
   static const musicPlayback = 'Music Playback';
   static const musicPlaybackSubtitle = 'Streaming quality and picking up where you left off';
-  static const listenBrainzSubtitle = 'Not connected. Connect for recommendations picked for you';
-  static String connectedAsName(String name) => 'ListenBrainz: $name';
 
   // New and discovery (round 3).
   static String likeArtist(String artist) => 'Like $artist';

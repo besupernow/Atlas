@@ -259,6 +259,9 @@ mixin _JellyfinClientInternals on MediaServerCacheMixin {
   String get _queueFields => _withDialectRowFields(_baseQueueFields);
 }
 
+/// Atlas: one user's music settings as an admin sees them (jellyfin-atlas's /Atlas/Music/Users).
+typedef AtlasMusicUser = ({String userId, String name, String? listenBrainzUserName});
+
 /// [MediaServerClient] over a MediaBrowser-family server — Jellyfin or Emby.
 ///
 /// Constructs from a [JellyfinConnection] and a [MediaServerHttpClient] (the
@@ -531,6 +534,48 @@ class JellyfinClient
         'SupportsMediaControl': false,
         'SupportsSync': false,
       },
+    );
+    throwIfHttpError(response);
+  }
+
+  // ---------- Atlas music settings (jellyfin-atlas's /Atlas/Music) ----------
+
+  /// The signed-in user's ListenBrainz username, set by an admin on the server. Null when none
+  /// is set or the server isn't an Atlas build; throws only when the server can't be reached.
+  Future<String?> atlasListenBrainzUserName() async {
+    final response = await _http.get('/Atlas/Music/Me');
+    if (response.statusCode == 404) return null;
+    throwIfHttpError(response);
+    final data = response.data;
+    final name = data is Map<String, dynamic> ? data['ListenBrainzUserName'] : null;
+    return name is String && name.trim().isNotEmpty ? name.trim() : null;
+  }
+
+  /// Every user and their ListenBrainz username (admins only).
+  Future<List<AtlasMusicUser>> atlasMusicUsers() async {
+    final response = await _http.get('/Atlas/Music/Users');
+    throwIfHttpError(response);
+    final data = response.data;
+    if (data is! List) return const [];
+    return [
+      for (final entry in data)
+        if (entry is Map<String, dynamic> && entry['UserId'] is String)
+          (
+            userId: entry['UserId'] as String,
+            name: entry['Name'] as String? ?? '',
+            listenBrainzUserName: switch (entry['ListenBrainzUserName']) {
+              final String name when name.trim().isNotEmpty => name.trim(),
+              _ => null,
+            },
+          ),
+    ];
+  }
+
+  /// Set (or with null, clear) [userId]'s ListenBrainz username (admins only).
+  Future<void> setAtlasListenBrainzUserName(String userId, String? userName) async {
+    final response = await _http.post(
+      '/Atlas/Music/Users/$userId',
+      body: {'ListenBrainzUserName': userName?.trim() ?? ''},
     );
     throwIfHttpError(response);
   }

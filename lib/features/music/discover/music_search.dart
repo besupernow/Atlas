@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'dart:math';
-
-import 'package:http/http.dart' as http;
 
 import '../../../media/media_item.dart';
 import '../data/music_catalog.dart';
@@ -9,6 +6,9 @@ import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_feed.dart';
 import 'discover_models.dart';
+import 'lastfm.dart';
+import 'music_search_index.dart';
+import 'musicbrainz.dart';
 
 /// A song in search results: ours (playable) or from outside (preview, request its release).
 class SearchSong {
@@ -23,7 +23,7 @@ class SearchSong {
   String get artist => server?.trackArtistTitle ?? server?.albumArtistTitle ?? external?.artistName ?? '';
   String? get albumTitle => server?.albumTitle ?? external?.album.title;
 
-  String get key => '${Deezer.normal(artist)}|${Deezer.normal(title)}';
+  String get key => SearchText.songKey(artist, title);
 }
 
 class MusicSearchOutcome {
@@ -47,39 +47,65 @@ class MusicSearchOutcome {
   bool get isEmpty => top == null && topSong == null && artists.isEmpty && albums.isEmpty && songs.isEmpty;
 }
 
-/// Atlas: music search across the server and the world, ordered the way Apple Music orders it.
+/// Atlas: music search across the server and the world.
 ///
-/// Songs and albums come in the iTunes Store's own order (Apple's relevance and popularity, the
-/// same ranking the Apple Music app uses), with Deezer filling gaps. Artists come from Deezer,
-/// where every artist has a fan count: candidates are scored on how close the name is AND how
-/// popular they are, so "siza" finds SZA and "AJR" finds the band (also tried: spellings one
-/// letter off). The top result is the artist when the query is clearly their name, otherwise
-/// the song most people mean. Anything already on the server shows as ours.
+/// Three sources, each good at something: Deezer (artwork, previews, play counts as "rank",
+/// fan counts), Last.fm (how many people listen, what's charting right now) and MusicBrainz (the
+/// ids and codes everything else is tied together with, and what Allseerr requests are made
+/// with). Their results are linked into one set of songs, albums and artists, by ISRC and
+/// MusicBrainz id where the sources share them and by artist, title and length where they
+/// don't, then ranked on the device ([MusicSearchIndex]): typo-tolerant text matching, with
+/// popularity and trending deciding between close matches. So "siza" finds SZA, and "AJR" finds
+/// the band, with their songs filling the results.
+///
+/// Every album that comes out of here carries its codes ([MusicIds]), which is how a request
+/// later finds exactly the right MusicBrainz release group.
 class MusicSearch {
   MusicSearch(this.discovery);
 
   final MusicDiscovery discovery;
 
-  static const _headers = {'User-Agent': 'Atlas/1.0', 'Accept': 'application/json'};
-  static final Map<String, Future<Object?>> _cache = {};
+  // Shared for the session: later searches get instant results from earlier ones.
+  static final _songs = MusicSearchIndex<ChartTrack>();
+  static final _albums = MusicSearchIndex<DiscoverAlbum>();
+  static final _artists = MusicSearchIndex<DiscoverArtist>();
+
+  /// Results from what earlier searches already brought in, without the network. Shown while
+  /// [search] is still out asking.
+  MusicSearchOutcome instant(String rawQuery) {
+    final query = rawQuery.trim();
+    if (query.isEmpty || _songs.length + _artists.length == 0) return const MusicSearchOutcome();
+    final songs = _songs.search(query, minRelevance: 0.6, limit: 20);
+    final artists = _artists.search(query, minRelevance: 0.6, limit: 10);
+    final albums = _albums.search(query, minRelevance: 0.6, limit: 15);
+    final meant = _artistIsMeant(artists, songs);
+    return MusicSearchOutcome(
+      top: meant ? ExternalArtistItem(artists.first.value) : null,
+      topSong: !meant && songs.isNotEmpty ? SearchSong.external(songs.first.value, songs.first.score) : null,
+      artists: [for (final hit in artists) ExternalArtistItem(hit.value)],
+      albums: [for (final hit in albums) ExternalAlbumItem(hit.value)],
+      songs: [for (final hit in songs) SearchSong.external(hit.value, hit.score)],
+    );
+  }
 
   /// Only what's on the server (the Library tab).
   Future<MusicSearchOutcome> searchLibrary(String rawQuery) async {
     final query = rawQuery.trim();
     if (query.isEmpty) return const MusicSearchOutcome();
-    final q = Deezer.normal(query);
     final found = await discovery.catalog.search(query);
-    double score(String name) => _text(q, Deezer.normal(name));
-    final artists = [...found.artists]..sort((a, b) => score(b.title ?? '').compareTo(score(a.title ?? '')));
-    final albums = [...found.albums]..sort(
-      (a, b) => max(score(b.title ?? ''), score(b.albumArtistTitle ?? '') * 0.9)
-          .compareTo(max(score(a.title ?? ''), score(a.albumArtistTitle ?? '') * 0.9)),
-    );
+    double score(List<(String, double)> fields) => MusicSearchIndex.relevance(query, fields);
+    double artistScore(MediaItem artist) => score([(artist.title ?? '', 1)]);
+    double albumScore(MediaItem album) => score([(album.title ?? '', 1), (album.albumArtistTitle ?? '', 0.9)]);
+    final artists = [...found.artists]..sort((a, b) => artistScore(b).compareTo(artistScore(a)));
+    final albums = [...found.albums]..sort((a, b) => albumScore(b).compareTo(albumScore(a)));
     final songs = [
       for (final track in found.songs)
-        SearchSong.server(track, max(score(track.title ?? ''), score(track.trackArtistTitle ?? '') * 0.9)),
+        SearchSong.server(
+          track,
+          score([(track.title ?? '', 1), (track.trackArtistTitle ?? '', 0.9), (track.albumTitle ?? '', 0.6)]),
+        ),
     ]..sort((a, b) => b.score.compareTo(a.score));
-    final topArtist = artists.isNotEmpty && score(artists.first.title ?? '') >= 0.9 ? artists.first : null;
+    final topArtist = artists.isNotEmpty && artistScore(artists.first) >= 0.9 ? artists.first : null;
     return MusicSearchOutcome(
       top: topArtist != null ? ServerFeedItem(topArtist) : null,
       topSong: topArtist == null && songs.isNotEmpty ? songs.first : null,
@@ -93,280 +119,194 @@ class MusicSearch {
   Future<MusicSearchOutcome> search(String rawQuery) async {
     final query = rawQuery.trim();
     if (query.isEmpty) return const MusicSearchOutcome();
-    final q = Deezer.normal(query);
 
-    final variants = _variants(q, query);
+    final variants = _variants(SearchText.squash(query), query);
     final results = await Future.wait<Object?>([
-      quietly(_itunesSongs(query), null, 'iTunes song search'),
-      quietly(_itunesAlbums(query), null, 'iTunes album search'),
-      quietly(_deezerTracks(query), const <_Scored<ChartTrack>>[], 'song search'),
+      quietly(_deezerTracks(query), const <_DeezerTrack>[], 'Deezer song search'),
+      quietly(_deezerAlbums(query), const <DiscoverAlbum>[], 'Deezer album search'),
+      quietly(LastFm.searchTracks(query), const <LastFmHit>[], 'Last.fm song search'),
+      quietly(LastFm.searchArtists(query), const <LastFmHit>[], 'Last.fm artist search'),
+      quietly(LastFm.searchAlbums(query), const <LastFmHit>[], 'Last.fm album search'),
+      quietly(MusicBrainz.searchRecordings(query), const <MbRecording>[], 'MusicBrainz search'),
+      quietly(_Trending.load(), _Trending.empty, 'charts'),
       quietly(discovery.catalog.search(query), null, 'library search'),
       for (final variant in variants)
-        quietly(_deezerArtists(variant), const <_Scored<DiscoverArtist>>[], 'artist search'),
+        quietly(_deezerArtists(variant), const <_DeezerArtist>[], 'Deezer artist search'),
     ]);
-    final itunesSongs = results[0] as List<ChartTrack>?;
-    final itunesAlbums = results[1] as List<DiscoverAlbum>?;
-    final deezerTracks = results[2] as List<_Scored<ChartTrack>>;
-    final library = results[3] as MusicSearchResults?;
-    final artistLists = [for (final result in results.skip(4)) result as List<_Scored<DiscoverArtist>>];
+    final deezerTracks = results[0] as List<_DeezerTrack>;
+    final deezerAlbums = results[1] as List<DiscoverAlbum>;
+    final lastFmTracks = results[2] as List<LastFmHit>;
+    final lastFmArtists = results[3] as List<LastFmHit>;
+    final lastFmAlbums = results[4] as List<LastFmHit>;
+    final recordings = results[5] as List<MbRecording>;
+    final trending = results[6] as _Trending;
+    final library = results[7] as MusicSearchResults?;
+    final deezerArtists = [for (final result in results.skip(8)) ...result as List<_DeezerArtist>];
 
-    // ---- Artists: one per name, the most popular one with that name (AJR, not "A.J.R.").
-    final byName = <String, _Scored<DiscoverArtist>>{};
-    for (final list in artistLists) {
-      for (final candidate in list) {
-        final name = Deezer.normal(candidate.value.name);
-        final existing = byName[name];
-        if (existing == null || candidate.popularity > existing.popularity) byName[name] = candidate;
-      }
-    }
-    // Artists the top songs are by count as a vote for them (Apple's view of who's meant).
-    final songArtists = <String>[
-      for (final song in itunesSongs ?? const <ChartTrack>[]) Deezer.normal(song.artistName),
-    ];
-    final rankedArtists = byName.entries.map((entry) {
-      final first = songArtists.indexWhere((artist) => artist == entry.key || artist.startsWith(entry.key));
-      final presence = first < 0 ? 0.0 : 0.15 * (1 - first / max(songArtists.length, 1));
-      return _Scored(entry.value.value, _text(q, entry.key) * 0.5 + entry.value.popularity * 0.35 + presence, entry.value.popularity);
-    }).toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
-    final topArtist = rankedArtists.isEmpty ? null : rankedArtists.first;
-    final artistIsMeant = topArtist != null &&
-        _text(q, Deezer.normal(topArtist.value.name)) >= 0.75 &&
-        topArtist.popularity >= 0.45 &&
-        topArtist.score >= 0.75;
+    // ---- Link everything into one set of songs, albums and artists, then index it.
+    final linker = _Linker(trending)
+      ..addDeezerTracks(deezerTracks)
+      ..addRecordings(recordings)
+      ..addLastFmTracks(lastFmTracks)
+      ..addDeezerAlbums(deezerAlbums)
+      ..addLastFmAlbums(lastFmAlbums)
+      ..addDeezerArtists(deezerArtists)
+      ..addLastFmArtists(lastFmArtists)
+      ..addRecordingArtists(recordings);
+    linker.indexInto(songs: _songs, albums: _albums, artists: _artists);
+
+    final artistHits = _artists.search(query, limit: 14);
+    final songHits = _songs.search(query, limit: 50);
+    final meant = _artistIsMeant(artistHits, songHits);
+    final meantArtist = meant ? artistHits.first.value : null;
 
     // When the query is an artist, fill the results with their music too.
-    List<ChartTrack> artistSongs = const [];
-    List<DiscoverAlbum> artistAlbums = const [];
-    final meant = artistIsMeant ? topArtist?.value : null;
-    if (meant != null) {
+    if (meantArtist != null) {
       final more = await Future.wait<Object?>([
-        quietly(_itunesSongs(meant.name), null, 'iTunes artist songs'),
-        quietly(Deezer.albumsBy(meant), const <DiscoverAlbum>[], 'artist albums'),
+        quietly(_deezerTracks('artist:"${meantArtist.name}"'), const <_DeezerTrack>[], 'artist songs'),
+        quietly(Deezer.albumsBy(meantArtist), const <DiscoverAlbum>[], 'artist albums'),
       ]);
-      artistSongs = [
-        for (final song in (more[0] as List<ChartTrack>?) ?? const <ChartTrack>[])
-          if (Deezer.normal(song.artistName).contains(Deezer.normal(meant.name))) song,
-      ];
-      artistAlbums = more[1] as List<DiscoverAlbum>;
+      final want = SearchText.squash(meantArtist.name);
+      final artistLinker = _Linker(trending)
+        ..addDeezerTracks([
+          for (final track in more[0] as List<_DeezerTrack>)
+            if (SearchText.squash(track.track.artistName).contains(want)) track,
+        ])
+        ..addDeezerAlbums(more[1] as List<DiscoverAlbum>);
+      artistLinker.indexInto(songs: _songs, albums: _albums, artists: _artists, artistBoost: meantArtist.name);
     }
 
-    // ---- Songs: Apple's order first, then Deezer's for anything Apple didn't have.
+    // ---- Songs, in the index's order; when an artist is meant, theirs first.
+    final songsRanked = [
+      ..._songs.search(query, limit: 50),
+      if (meantArtist != null) ..._songs.search(meantArtist.name, minRelevance: 0.55, limit: 30),
+    ];
     final songs = <SearchSong>[];
     final seen = <String>{};
-    void addSong(ChartTrack track, double score) {
-      final song = SearchSong.external(track, score);
+    for (final hit in songsRanked) {
+      final song = SearchSong.external(hit.value, hit.score);
       if (seen.add(song.key)) songs.add(song);
-    }
-
-    final apple = itunesSongs ?? const <ChartTrack>[];
-    for (final (index, track) in apple.indexed) {
-      addSong(track, 1.0 - index / max(apple.length, 1) * 0.5);
-    }
-    for (final (index, track) in artistSongs.indexed) {
-      addSong(track, 0.6 - index * 0.01);
-    }
-    for (final candidate in deezerTracks) {
-      final relevance = max(_text(q, Deezer.normal(candidate.value.title)), _text(q, Deezer.normal(candidate.value.artistName)) * 0.9);
-      addSong(candidate.value, (apple.isEmpty ? 0.6 : 0.35) * relevance + candidate.popularity * 0.3);
     }
     // Ours: take the place of the outside copy, or join on relevance.
     for (final track in library?.songs ?? const <MediaItem>[]) {
       final ours = SearchSong.server(track, 0);
       final existing = songs.indexWhere((song) => song.key == ours.key);
       if (existing >= 0) {
-        songs[existing] = SearchSong.server(track, songs[existing].score + 0.02);
+        songs[existing] = SearchSong.server(track, songs[existing].score);
       } else if (seen.add(ours.key)) {
-        final relevance = max(_text(q, Deezer.normal(track.title ?? '')), _text(q, Deezer.normal(track.trackArtistTitle ?? '')) * 0.9);
-        songs.add(SearchSong.server(track, 0.5 * relevance + 0.2));
+        final relevance = MusicSearchIndex.relevance(query, [
+          (track.title ?? '', 1),
+          (track.trackArtistTitle ?? '', 0.9),
+        ]);
+        if (relevance >= 0.5) songs.add(SearchSong.server(track, MusicSearchIndex.combine(relevance, 0.4, 0)));
       }
     }
     songs.sort((a, b) => b.score.compareTo(a.score));
+    if (meantArtist != null) {
+      // Theirs first ("AJR": mostly AJR, then anything else close), each group by score.
+      final want = SearchText.squash(meantArtist.name);
+      songs.sort((a, b) {
+        final ta = SearchText.squash(a.artist).contains(want) ? 0 : 1;
+        final tb = SearchText.squash(b.artist).contains(want) ? 0 : 1;
+        return ta != tb ? ta.compareTo(tb) : b.score.compareTo(a.score);
+      });
+    }
 
-    // ---- Albums: Apple's order, then the artist's own releases.
-    final albumList = <DiscoverAlbum>[
-      ...?itunesAlbums,
-      ...artistAlbums,
-      if (itunesAlbums == null)
-        for (final song in apple.take(10)) song.album,
+    // ---- Albums: the index's order, the meant artist's own after.
+    final albumHits = [
+      ..._albums.search(query, limit: 30),
+      if (meantArtist != null) ..._albums.search(meantArtist.name, minRelevance: 0.55, limit: 30),
     ];
+    final albumList = <DiscoverAlbum>[];
+    final albumKeys = <String>{};
+    for (final hit in albumHits) {
+      if (albumKeys.add(SearchText.albumKey(hit.value.artistName, hit.value.title))) albumList.add(hit.value);
+    }
     final albums = await discovery.resolve(albumList, limit: 30);
     final serverAlbums = [
       for (final album in library?.albums ?? const <MediaItem>[])
         if (!albums.any((card) => card is ServerFeedItem && card.item.id == album.id)) ServerFeedItem(album),
     ];
 
-    final artists = await discovery.resolveArtists([for (final candidate in rankedArtists.take(14)) candidate.value]);
+    final artists = await discovery.resolveArtists([for (final hit in artistHits) hit.value]);
     final serverArtists = [
       for (final artist in library?.artists ?? const <MediaItem>[])
         if (!artists.any((card) => card is ServerFeedItem && card.item.id == artist.id) &&
-            _text(q, Deezer.normal(artist.title ?? '')) >= 0.6)
+            MusicSearchIndex.relevance(query, [(artist.title ?? '', 1)]) >= 0.6)
           ServerFeedItem(artist),
     ];
 
     return MusicSearchOutcome(
-      top: artistIsMeant && artists.isNotEmpty ? artists.first : null,
-      topSong: !artistIsMeant && songs.isNotEmpty ? songs.first : null,
+      top: meant && artists.isNotEmpty ? artists.first : null,
+      topSong: !meant && songs.isNotEmpty ? songs.first : null,
       artists: [...artists, ...serverArtists],
       albums: [...albums, ...serverAlbums],
       songs: songs.take(40).toList(),
     );
   }
 
-  /// The query and, for short ones, spellings one letter off: "siza" also tries "sza".
-  static List<String> _variants(String normalized, String raw) {
+  /// Whether the query names an artist (Apple Music puts the artist on top then): the name
+  /// fits closely, lots of people play them, and no song fits the query better.
+  static bool _artistIsMeant(List<SearchHit<DiscoverArtist>> artists, List<SearchHit<ChartTrack>> songs) {
+    if (artists.isEmpty) return false;
+    final artist = artists.first;
+    if (artist.relevance < 0.78 || artist.popularity < 0.4) return false;
+    final song = songs.isEmpty ? null : songs.first;
+    return song == null || artist.relevance >= song.relevance || artist.score >= song.score;
+  }
+
+  /// The query and, for short ones, spellings one letter off: "siza" also asks for "sza".
+  static List<String> _variants(String squashed, String raw) {
     final variants = <String>[raw];
-    if (normalized.length >= 3 && normalized.length <= 8) {
+    if (squashed.length >= 3 && squashed.length <= 8) {
       const vowels = 'aeiouy';
-      for (var i = 1; i < normalized.length && variants.length < 3; i++) {
-        if (!vowels.contains(normalized[i])) continue;
-        final dropped = normalized.substring(0, i) + normalized.substring(i + 1);
+      for (var i = 1; i < squashed.length && variants.length < 3; i++) {
+        if (!vowels.contains(squashed[i])) continue;
+        final dropped = squashed.substring(0, i) + squashed.substring(i + 1);
         if (dropped.length >= 2 && !variants.contains(dropped)) variants.add(dropped);
       }
     }
     return variants;
   }
 
-  /// How well [name] matches [query] (both normalized), 0..1.
-  static double _text(String query, String name) {
-    if (query.isEmpty || name.isEmpty) return 0;
-    if (name == query) return 1;
-    if (name.startsWith(query)) return 0.9 - min(0.2, (name.length - query.length) * 0.01);
-    if (name.contains(query)) return 0.75;
-    final distance = _levenshtein(query, name);
-    final similarity = 1 - distance / max(query.length, name.length);
-    final prefix = name.length > query.length
-        ? 1 - _levenshtein(query, name.substring(0, query.length)) / query.length
-        : 0.0;
-    return max(similarity, prefix * 0.7).clamp(0.0, 1.0);
-  }
+  // ---- Deezer.
 
-  static int _levenshtein(String a, String b) {
-    if (a == b) return 0;
-    if (a.isEmpty) return b.length;
-    if (b.isEmpty) return a.length;
-    var previous = List<int>.generate(b.length + 1, (i) => i);
-    for (var i = 1; i <= a.length; i++) {
-      final current = List<int>.filled(b.length + 1, 0)..[0] = i;
-      for (var j = 1; j <= b.length; j++) {
-        final cost = a[i - 1] == b[j - 1] ? 0 : 1;
-        current[j] = min(min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost);
-      }
-      previous = current;
-    }
-    return previous[b.length];
-  }
-
-  // ---- Sources.
-
-  static Future<Object?> _json(Uri uri) => _cache.putIfAbsent(uri.toString(), () async {
-    try {
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) throw http.ClientException('${response.statusCode}', uri);
-      return jsonDecode(response.body);
-    } catch (_) {
-      _cache.remove(uri.toString());
-      rethrow;
-    }
-  });
-
-  static List<Map> _data(Object? json, [String key = 'data']) {
-    final data = json is Map ? json[key] : null;
-    return data is List ? data.whereType<Map>().toList() : const [];
-  }
-
-  static double _popularity(num? count, {double ceiling = 8}) =>
-      count == null || count <= 0 ? 0.0 : (log(count + 1) / ln10 / ceiling).clamp(0.0, 1.0);
-
-  static String? _art(Object? url) => url is String ? url.replaceFirst('100x100bb', '600x600bb') : null;
-
-  /// "Title - Single" / "Title - EP" → ("Title", "Single").
-  static (String, String?) _splitType(String title, Object? trackCount) {
-    for (final type in const ['Single', 'EP']) {
-      if (title.endsWith(' - $type')) return (title.substring(0, title.length - type.length - 3), type);
-    }
-    return (title, trackCount == 1 ? 'Single' : null);
-  }
-
-  static DiscoverAlbum? _itunesAlbum(Map entry) {
-    final id = entry['collectionId'];
-    final name = entry['collectionName'];
-    if (id is! num || name is! String) return null;
-    final (title, type) = _splitType(name, entry['trackCount']);
-    final date = entry['releaseDate'];
-    return DiscoverAlbum(
-      mbid: 'it:${id.toInt()}',
-      title: title,
-      artistName: entry['artistName'] as String? ?? '',
-      coverUrl: _art(entry['artworkUrl100']),
-      releaseDate: date is String && date.length >= 10 ? date.substring(0, 10) : null,
-      type: type ?? 'Album',
-    );
-  }
-
-  static Future<List<ChartTrack>> _itunesSongs(String query) async {
-    final json = await _json(
-      Uri.https('itunes.apple.com', '/search', {'term': query, 'entity': 'song', 'limit': '30'}),
-    );
-    final songs = <ChartTrack>[];
-    for (final entry in _data(json, 'results')) {
-      final album = _itunesAlbum(entry);
-      final id = entry['trackId'];
-      final title = entry['trackName'];
-      if (album == null || id is! num || title is! String) continue;
-      songs.add(
-        ChartTrack(
-          id: id.toInt(),
-          rank: songs.length + 1,
-          title: title,
-          artistName: entry['artistName'] as String? ?? album.artistName,
-          album: album,
-          previewUrl: entry['previewUrl'] as String?,
-          length: entry['trackTimeMillis'] is num ? Duration(milliseconds: (entry['trackTimeMillis'] as num).toInt()) : null,
-        ),
-      );
-    }
-    return songs;
-  }
-
-  static Future<List<DiscoverAlbum>> _itunesAlbums(String query) async {
-    final json = await _json(
-      Uri.https('itunes.apple.com', '/search', {'term': query, 'entity': 'album', 'limit': '20'}),
-    );
+  static Future<List<_DeezerArtist>> _deezerArtists(String query) async {
+    final json = await Deezer.search('artist', query, limit: 15);
     return [
-      for (final entry in _data(json, 'results')) ?_itunesAlbum(entry),
+      for (final entry in json)
+        if (Deezer.artistFrom(entry) case final artist?) _DeezerArtist(artist, (entry['nb_fan'] as num?)?.toInt() ?? 0),
     ];
   }
 
-  static Future<List<_Scored<DiscoverArtist>>> _deezerArtists(String query) async {
-    final json = await _json(Uri.https('api.deezer.com', '/search/artist', {'q': query, 'limit': '15'}));
-    return [
-      for (final entry in _data(json))
-        if (Deezer.artistFrom(entry) case final artist?) _Scored(artist, 0, _popularity(entry['nb_fan'] as num?)),
-    ];
+  static Future<List<DiscoverAlbum>> _deezerAlbums(String query) async {
+    final json = await Deezer.search('album', query, limit: 25);
+    return [for (final entry in json) ?Deezer.albumFrom(entry)];
   }
 
-  static Future<List<_Scored<ChartTrack>>> _deezerTracks(String query) async {
-    final json = await _json(Uri.https('api.deezer.com', '/search/track', {'q': query, 'limit': '30'}));
-    final tracks = <_Scored<ChartTrack>>[];
-    for (final entry in _data(json)) {
+  static Future<List<_DeezerTrack>> _deezerTracks(String query) async {
+    final json = await Deezer.search('track', query, limit: 40);
+    final tracks = <_DeezerTrack>[];
+    for (final entry in json) {
       final album = Deezer.albumFrom(entry['album'], artist: entry['artist']);
       final id = entry['id'];
       if (album == null || id is! num) continue;
       final preview = entry['preview'];
+      final isrc = entry['isrc'];
       tracks.add(
-        _Scored(
+        _DeezerTrack(
           ChartTrack(
             id: id.toInt(),
             rank: tracks.length + 1,
             title: (entry['title_short'] ?? entry['title'] ?? '') as String,
             artistName: album.artistName,
-            album: album,
+            album: album.copyWith(
+              ids: MusicIds(deezerTrackId: id.toInt(), isrc: isrc is String && isrc.isNotEmpty ? isrc : null),
+            ),
             previewUrl: preview is String && preview.isNotEmpty ? preview : null,
             length: entry['duration'] is num ? Duration(seconds: (entry['duration'] as num).toInt()) : null,
           ),
-          0,
-          _popularity(entry['rank'] as num?, ceiling: 6),
+          (entry['rank'] as num?)?.toInt() ?? 0,
         ),
       );
     }
@@ -374,10 +314,466 @@ class MusicSearch {
   }
 }
 
-class _Scored<T> {
-  const _Scored(this.value, this.score, this.popularity);
+class _DeezerTrack {
+  const _DeezerTrack(this.track, this.rank);
 
-  final T value;
-  final double score;
-  final double popularity;
+  final ChartTrack track;
+
+  /// Deezer's play-count score, up to about a million.
+  final int rank;
+}
+
+class _DeezerArtist {
+  const _DeezerArtist(this.artist, this.fans);
+
+  final DiscoverArtist artist;
+  final int fans;
+}
+
+// ---- Popularity, on one 0..1 scale whatever the source.
+
+abstract final class _Popularity {
+  static double _log(num value, double floor, double span) =>
+      value <= 0 ? 0.0 : ((log(value + 1) / ln10 - floor) / span).clamp(0.0, 1.0);
+
+  /// Deezer's track rank: 10k nothing, 100k middling, 1M a hit.
+  static double deezerRank(num rank) => _log(rank, 4, 2);
+
+  /// Last.fm listeners of a song: 1k nobody, 100k known, 3M a hit.
+  static double songListeners(num listeners) => _log(listeners, 3, 3.5);
+
+  /// Deezer fans of an artist: 100 nobody, 1M big, 10M+ huge.
+  static double fans(num fans) => _log(fans, 2, 5);
+
+  /// Last.fm listeners of an artist.
+  static double artistListeners(num listeners) => _log(listeners, 3, 3.8);
+
+  /// Both sources when we have both, otherwise whichever we have.
+  static double mix(double? a, double? b) => a != null && b != null ? (a + b) / 2 : (a ?? b ?? 0);
+}
+
+/// What's charting right now on Deezer and Last.fm, refreshed every half hour.
+class _Trending {
+  const _Trending(this.songs, this.artists);
+
+  /// Song key or artist key → 0..1 (1 is number one).
+  final Map<String, double> songs;
+  final Map<String, double> artists;
+
+  static const empty = _Trending({}, {});
+  static Future<_Trending>? _loaded;
+  static DateTime _at = DateTime.fromMillisecondsSinceEpoch(0);
+
+  static Future<_Trending> load() {
+    if (_loaded == null || DateTime.now().difference(_at) > const Duration(minutes: 30)) {
+      _at = DateTime.now();
+      _loaded = _fetch().catchError((Object _) {
+        _loaded = null;
+        return empty;
+      });
+    }
+    return _loaded!;
+  }
+
+  static Future<_Trending> _fetch() async {
+    final results = await Future.wait<Object?>([
+      quietly(Deezer.topTracks(limit: 100), const <ChartTrack>[], 'Deezer chart'),
+      quietly(Deezer.topArtists(limit: 100), const <DiscoverArtist>[], 'Deezer artist chart'),
+      quietly(LastFm.chartTracks(), const <LastFmHit>[], 'Last.fm chart'),
+      quietly(LastFm.chartArtists(), const <LastFmHit>[], 'Last.fm artist chart'),
+    ]);
+    final songs = <String, double>{};
+    final artists = <String, double>{};
+    void note(Map<String, double> into, String key, int index, int count) {
+      final value = 1 - index / max(count, 1);
+      into[key] = max(into[key] ?? 0, value);
+    }
+
+    final deezerSongs = results[0] as List<ChartTrack>;
+    for (final (index, track) in deezerSongs.indexed) {
+      note(songs, SearchText.songKey(track.artistName, track.title), index, deezerSongs.length);
+    }
+    final deezerArtists = results[1] as List<DiscoverArtist>;
+    for (final (index, artist) in deezerArtists.indexed) {
+      note(artists, SearchText.squash(artist.name), index, deezerArtists.length);
+    }
+    final lastFmSongs = results[2] as List<LastFmHit>;
+    for (final (index, hit) in lastFmSongs.indexed) {
+      note(songs, SearchText.songKey(hit.artistName, hit.name), index, lastFmSongs.length);
+    }
+    final lastFmArtists = results[3] as List<LastFmHit>;
+    for (final (index, hit) in lastFmArtists.indexed) {
+      note(artists, SearchText.squash(hit.name), index, lastFmArtists.length);
+    }
+    return _Trending(songs, artists);
+  }
+}
+
+// ---- Linking: the same song, album or artist from different sources becomes one.
+
+class _Song {
+  _Song(this.track, {this.deezerRank, this.listeners, this.recordingMbid});
+
+  ChartTrack track;
+  int? deezerRank;
+  int? listeners;
+  String? recordingMbid;
+  final Set<String> isrcs = {};
+
+  double get popularity => _Popularity.mix(
+    deezerRank == null ? null : _Popularity.deezerRank(deezerRank!),
+    listeners == null ? null : _Popularity.songListeners(listeners!),
+  );
+
+  String get key => SearchText.songKey(track.artistName, track.title);
+}
+
+class _Artist {
+  _Artist(this.artist, {this.fans, this.listeners});
+
+  DiscoverArtist artist;
+  int? fans;
+  int? listeners;
+
+  double get popularity => _Popularity.mix(
+    fans == null ? null : _Popularity.fans(fans!),
+    listeners == null ? null : _Popularity.artistListeners(listeners!),
+  );
+}
+
+class _Linker {
+  _Linker(this.trending);
+
+  final _Trending trending;
+
+  final List<_Song> _songs = [];
+  final Map<String, _Song> _byIsrc = {};
+  final Map<String, _Song> _byRecording = {};
+  final Map<String, List<_Song>> _byName = {};
+
+  /// Album key → album, the most informative copy kept.
+  final Map<String, DiscoverAlbum> _albums = {};
+
+  /// Artist key → artist.
+  final Map<String, _Artist> _artists = {};
+
+  /// Album key → the most popular song we saw on it (albums borrow their songs' popularity).
+  final Map<String, double> _albumPopularity = {};
+
+  // ---- Songs.
+
+  _Song? _find({Iterable<String> isrcs = const [], String? recording, required String name, Duration? length}) {
+    for (final isrc in isrcs) {
+      if (_byIsrc[isrc.toUpperCase()] case final song?) return song;
+    }
+    if (recording != null) {
+      if (_byRecording[recording] case final song?) return song;
+    }
+    for (final song in _byName[name] ?? const <_Song>[]) {
+      // Same artist and title, and not a different version (a live take, an extended mix).
+      final theirs = song.track.length;
+      if (length == null || theirs == null || (theirs - length).abs() <= const Duration(seconds: 15)) return song;
+    }
+    return null;
+  }
+
+  void _remember(_Song song) {
+    for (final isrc in song.isrcs) {
+      _byIsrc[isrc.toUpperCase()] = song;
+    }
+    if (song.recordingMbid case final id?) _byRecording[id] = song;
+    final list = _byName.putIfAbsent(song.key, () => []);
+    if (!list.contains(song)) list.add(song);
+  }
+
+  void addDeezerTracks(List<_DeezerTrack> tracks) {
+    for (final entry in tracks) {
+      final track = entry.track;
+      final isrc = track.album.ids.isrc;
+      final existing = _find(isrcs: [?isrc], name: SearchText.songKey(track.artistName, track.title), length: track.length);
+      if (existing != null) {
+        existing.deezerRank = max(existing.deezerRank ?? 0, entry.rank);
+        // Deezer's copy has the art and the preview.
+        if (existing.track.previewUrl == null) {
+          existing.track = _withAlbum(track, existing.track.album.ids);
+        }
+        if (isrc != null) existing.isrcs.add(isrc);
+        _remember(existing);
+        continue;
+      }
+      final song = _Song(track, deezerRank: entry.rank);
+      if (isrc != null) song.isrcs.add(isrc);
+      _songs.add(song);
+      _remember(song);
+    }
+  }
+
+  /// MusicBrainz recordings: they bring the ISRCs and the release group ids. A recording
+  /// that matches a Deezer song gives that song's album its release group; one that doesn't
+  /// becomes a song of its own (its album from MusicBrainz, art from the Cover Art Archive).
+  void addRecordings(List<MbRecording> recordings) {
+    for (final recording in recordings) {
+      if (recording.score < 60) continue;
+      final name = SearchText.songKey(recording.artistName, recording.title);
+      final existing = _find(isrcs: recording.isrcs, recording: recording.id, name: name, length: recording.length);
+      if (existing != null) {
+        existing
+          ..recordingMbid ??= recording.id
+          ..isrcs.addAll(recording.isrcs);
+        final album = existing.track.album;
+        final group = _groupFor(recording, album.title);
+        existing.track = _withAlbum(
+          existing.track,
+          MusicIds(
+            recordingMbid: recording.id,
+            isrc: recording.isrcs.isEmpty ? null : recording.isrcs.first,
+            releaseGroupMbid: group?.releaseGroupMbid,
+            releaseMbid: (group == null || group.id.isEmpty) ? null : group.id,
+          ),
+          mbid: group?.releaseGroupMbid,
+        );
+        _remember(existing);
+        continue;
+      }
+      final release = _groupFor(recording, null);
+      if (release == null) continue;
+      final album = DiscoverAlbum(
+        mbid: release.releaseGroupMbid,
+        title: release.releaseGroupTitle,
+        artistName: release.artistName ?? recording.artistName,
+        artistMbid: recording.artistMbid,
+        coverUrl: DiscoverAlbum.coverArtArchiveUrl(release.releaseGroupMbid),
+        releaseDate: release.date,
+        type: release.primaryType,
+        ids: MusicIds(
+          releaseGroupMbid: release.releaseGroupMbid,
+          releaseMbid: release.id.isEmpty ? null : release.id,
+          recordingMbid: recording.id,
+          isrc: recording.isrcs.isEmpty ? null : recording.isrcs.first,
+        ),
+      );
+      final song = _Song(
+        ChartTrack(
+          id: recording.id.hashCode,
+          rank: _songs.length + 1,
+          title: recording.title,
+          artistName: recording.artistName,
+          album: album,
+          length: recording.length,
+        ),
+        recordingMbid: recording.id,
+      )..isrcs.addAll(recording.isrcs);
+      _songs.add(song);
+      _remember(song);
+    }
+  }
+
+  /// The release group of [recording] titled [albumTitle] (when we know which album we mean),
+  /// otherwise its earliest original album, EP or single.
+  static MbRelease? _groupFor(MbRecording recording, String? albumTitle) {
+    if (recording.releases.isEmpty) return null;
+    if (albumTitle != null) {
+      final want = SearchText.squash(SearchText.cleanTitle(albumTitle));
+      for (final release in recording.releases) {
+        if (SearchText.squash(SearchText.cleanTitle(release.releaseGroupTitle)) == want) return release;
+      }
+      return null;
+    }
+    final originals = [
+      for (final release in recording.releases)
+        if (release.isOriginal && release.official) release,
+    ]..sort((a, b) => (a.date ?? '9999').compareTo(b.date ?? '9999'));
+    return originals.isEmpty ? null : originals.first;
+  }
+
+  static ChartTrack _withAlbum(ChartTrack track, MusicIds ids, {String? mbid}) => ChartTrack(
+    id: track.id,
+    rank: track.rank,
+    title: track.title,
+    artistName: track.artistName,
+    album: track.album.copyWith(mbid: MusicIds.isMbid(mbid) ? mbid : null, ids: ids),
+    previewUrl: track.previewUrl,
+    length: track.length,
+  );
+
+  /// Last.fm songs: listener counts for the songs we have (they have no album to show alone).
+  void addLastFmTracks(List<LastFmHit> hits) {
+    for (final hit in hits) {
+      final song = _find(recording: hit.mbid, name: SearchText.songKey(hit.artistName, hit.name));
+      if (song == null) continue;
+      song.listeners = max(song.listeners ?? 0, hit.listeners);
+      song.recordingMbid ??= hit.mbid;
+      _remember(song);
+    }
+  }
+
+  // ---- Albums.
+
+  void _putAlbum(DiscoverAlbum album) {
+    final key = SearchText.albumKey(album.artistName, album.title);
+    final existing = _albums[key];
+    if (existing == null) {
+      _albums[key] = album;
+      return;
+    }
+    // Keep Deezer's art and id, MusicBrainz's group id, everyone's codes.
+    _albums[key] = existing.copyWith(
+      mbid: existing.hasMbid ? null : (album.hasMbid ? album.mbid : null),
+      coverUrl: existing.deezerId == null && album.deezerId != null ? album.coverUrl : null,
+      deezerId: album.deezerId,
+      type: existing.type == null ? album.type : null,
+      artistMbid: album.artistMbid,
+      ids: album.ids,
+    );
+  }
+
+  void addDeezerAlbums(List<DiscoverAlbum> albums) {
+    for (final album in albums) {
+      _putAlbum(album);
+    }
+  }
+
+  /// Last.fm albums: their ids are MusicBrainz release ids (a request turns one into its group).
+  void addLastFmAlbums(List<LastFmHit> hits) {
+    for (final hit in hits) {
+      final key = SearchText.albumKey(hit.artistName, hit.name);
+      final existing = _albums[key];
+      if (existing != null) {
+        _albums[key] = existing.copyWith(ids: MusicIds(releaseMbid: hit.mbid));
+      } else if (hit.mbid != null || hit.imageUrl != null) {
+        _albums[key] = DiscoverAlbum(
+          mbid: 'lf:$key',
+          title: hit.name,
+          artistName: hit.artistName,
+          coverUrl: hit.imageUrl,
+          ids: MusicIds(releaseMbid: hit.mbid),
+        );
+      }
+    }
+  }
+
+  // ---- Artists.
+
+  void addDeezerArtists(List<_DeezerArtist> artists) {
+    for (final entry in artists) {
+      final key = SearchText.squash(entry.artist.name);
+      final existing = _artists[key];
+      // One per name: the most popular one with it (AJR, not "A.J.R.").
+      if (existing == null || (existing.fans ?? -1) < entry.fans) {
+        _artists[key] = _Artist(
+          existing?.artist.hasMbid ?? false
+              ? DiscoverArtist(
+                  mbid: existing!.artist.mbid,
+                  name: entry.artist.name,
+                  imageUrl: entry.artist.imageUrl,
+                  backdropUrl: entry.artist.backdropUrl,
+                  deezerId: entry.artist.deezerId,
+                )
+              : entry.artist,
+          fans: entry.fans,
+          listeners: existing?.listeners,
+        );
+      }
+    }
+  }
+
+  void addLastFmArtists(List<LastFmHit> hits) {
+    for (final hit in hits) {
+      final key = SearchText.squash(hit.name);
+      final existing = _artists[key];
+      if (existing != null) {
+        existing.listeners = max(existing.listeners ?? 0, hit.listeners);
+        if (!existing.artist.hasMbid && hit.mbid != null) existing.artist = _withMbid(existing.artist, hit.mbid!);
+      } else if (hit.listeners > 0) {
+        _artists[key] = _Artist(
+          DiscoverArtist(mbid: hit.mbid ?? 'name:${hit.name}', name: hit.name),
+          listeners: hit.listeners,
+        );
+      }
+    }
+  }
+
+  /// MusicBrainz ids for artists we already have, from the recordings' credits.
+  void addRecordingArtists(List<MbRecording> recordings) {
+    for (final recording in recordings) {
+      final mbid = recording.artistMbid;
+      if (mbid == null) continue;
+      final existing = _artists[SearchText.squash(SearchText.primaryArtist(recording.artistName))];
+      if (existing != null && !existing.artist.hasMbid) existing.artist = _withMbid(existing.artist, mbid);
+    }
+  }
+
+  static DiscoverArtist _withMbid(DiscoverArtist artist, String mbid) => DiscoverArtist(
+    mbid: mbid,
+    name: artist.name,
+    imageUrl: artist.imageUrl,
+    backdropUrl: artist.backdropUrl,
+    reason: artist.reason,
+    deezerId: artist.deezerId,
+  );
+
+  // ---- Into the index.
+
+  void indexInto({
+    required MusicSearchIndex<ChartTrack> songs,
+    required MusicSearchIndex<DiscoverAlbum> albums,
+    required MusicSearchIndex<DiscoverArtist> artists,
+    String? artistBoost,
+  }) {
+    double artistPopularity(String name) =>
+        _artists[SearchText.squash(SearchText.primaryArtist(name))]?.popularity ??
+        artists[_artistKey(name)]?.popularity ??
+        0;
+
+    for (final song in _songs) {
+      final track = song.track;
+      // A song nobody's counted borrows a little from its artist.
+      final popularity = max(song.popularity, artistPopularity(track.artistName) * 0.6);
+      final albumKey = SearchText.albumKey(track.album.artistName, track.album.title);
+      _albumPopularity[albumKey] = max(_albumPopularity[albumKey] ?? 0, popularity);
+      // The song's album is an album result too (singles especially).
+      _putAlbum(track.album);
+      songs.put(
+        SearchDoc(
+          key: 'song:${song.key}',
+          value: track,
+          fields: [(track.title, 1), (track.artistName, 0.9), (track.album.title, 0.55)],
+          popularity: popularity,
+          trending: trending.songs[song.key] ?? 0,
+        ),
+      );
+    }
+    for (final entry in _albums.entries) {
+      final album = entry.value;
+      final popularity = max(_albumPopularity[entry.key] ?? 0, artistPopularity(album.artistName) * 0.7);
+      albums.put(
+        SearchDoc(
+          key: 'album:${entry.key}',
+          value: album,
+          fields: [(album.title, 1), (album.artistName, 0.9)],
+          popularity: popularity,
+          trending: trending.artists[SearchText.squash(SearchText.primaryArtist(album.artistName))] ?? 0,
+        ),
+      );
+    }
+    for (final entry in _artists.entries) {
+      artists.put(
+        SearchDoc(
+          key: _artistKey(entry.value.artist.name),
+          value: entry.value.artist,
+          fields: [(entry.value.artist.name, 1)],
+          popularity: entry.value.popularity,
+          trending: trending.artists[entry.key] ?? 0,
+        ),
+      );
+    }
+    if (artistBoost != null) {
+      // Searching the artist's own name finds their catalogue right after.
+      final key = _artistKey(artistBoost);
+      final doc = artists[key];
+      if (doc != null) doc.popularity = max(doc.popularity, 0.5);
+    }
+  }
+
+  static String _artistKey(String name) => 'artist:${SearchText.squash(name)}';
 }

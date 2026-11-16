@@ -19,6 +19,7 @@ import 'discover_feed.dart';
 import 'discover_models.dart';
 import 'discover_widgets.dart';
 import 'music_previews.dart';
+import 'music_resolver.dart';
 
 /// Phones get a tall sheet; tablets, desktop and TV a full-screen page.
 Future<void> _present(BuildContext context, Widget Function(BuildContext host) builder) async {
@@ -142,10 +143,17 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
       quietly(Deezer.details(album), null, 'Deezer album'),
       if (seerr == null)
         Future.value()
-      else if (album.hasMbid)
-        quietly(seerr.album(album), null, 'album details')
       else
-        quietly(seerr.match(album), null, 'MusicBrainz match'),
+        // Its release group (from its codes, for albums from Deezer or Last.fm), then what
+        // Allseerr knows about it.
+        quietly(
+          () async {
+            final found = await MusicResolver.releaseGroup(album);
+            return found == null ? null : await seerr.album(found);
+          }(),
+          null,
+          'album details',
+        ),
       quietly(discovery.serverCopy(album), null, 'server copy'),
     ]);
     if (!mounted) return;
