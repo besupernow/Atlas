@@ -88,7 +88,9 @@ abstract final class MusicResolver {
       ('barcode', () => _fromBarcode(album)),
       ('ISRC', () => _fromIsrc(album)),
       ('title', () => _fromTitle(album)),
+      ('artist releases', () => _fromArtistReleases(album)),
     ];
+    Object? failure;
     for (final (name, step) in steps) {
       try {
         final group = await step();
@@ -97,9 +99,12 @@ abstract final class MusicResolver {
           return album.copyWith(mbid: group, ids: MusicIds(releaseGroupMbid: group));
         }
       } catch (error) {
+        if (error is MusicBrainzBusy) failure ??= error;
         appLogger.w('Music: resolving ${album.title} by $name failed', error: error);
       }
     }
+    // A step that failed (MusicBrainz busy or unreachable) isn't the same as "not there".
+    if (failure != null) throw MusicBrainzBusy(Uri.https('musicbrainz.org'));
     appLogger.w('Music: nothing ties ${album.artistName} - ${album.title} (${album.mbid}) to MusicBrainz');
     return null;
   }
@@ -151,6 +156,30 @@ abstract final class MusicResolver {
     ];
     return _pick(matching, album, requireTitle: true)?.releaseGroupMbid;
   }
+
+  /// Last: every release group of the artist on MusicBrainz, matched by title with a slip or
+  /// two allowed ("Bang!" vs "BANG", "Pt. 2" vs "Part 2" don't count against it).
+  static Future<String?> _fromArtistReleases(DiscoverAlbum album) async {
+    final artist = MusicIds.isMbid(album.artistMbid)
+        ? album.artistMbid
+        : await MusicBrainz.artistId(SearchText.primaryArtist(album.artistName));
+    if (artist == null) return null;
+    final groups = await MusicBrainz.releaseGroupsOf(artist);
+    final exact = _pick(groups, album, requireTitle: true);
+    if (exact != null) return exact.releaseGroupMbid;
+    final want = _loose(album.title);
+    if (want.length < 3) return null;
+    final allowed = want.length < 8 ? 1 : 2;
+    final close = [
+      for (final group in groups)
+        if (SearchText.distance(_loose(group.releaseGroupTitle), want) <= allowed) group,
+    ];
+    return _pick(close, album, requireTitle: false)?.releaseGroupMbid;
+  }
+
+  static String _loose(String title) => SearchText.squash(
+    SearchText.cleanTitle(title).replaceAll(RegExp(r'\bpart\b', caseSensitive: false), 'pt').replaceAll(RegExp(r'\bvol(ume)?\b', caseSensitive: false), 'vol'),
+  );
 
   /// The release group titled like [album]: the artist's own (not a compilation), the same
   /// kind (single, EP, album) when we know it, the earliest.

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -22,6 +23,7 @@ import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
 import 'allseerr_music.dart';
 import 'deezer.dart';
+import 'discover_feed.dart';
 import 'discover_models.dart';
 import 'music_previews.dart';
 import 'music_search_index.dart';
@@ -322,6 +324,20 @@ class MusicFeedCard extends StatelessWidget {
     ExternalArtistItem(:final artist) => (artist.name, artist.reason),
   };
 
+  /// Albums and songs without a reason line show their artists as links (and the year).
+  (ArtistCredit, String?)? get _credit => switch (item) {
+    ServerFeedItem(:final item, reason: null) when item.kind == MediaKind.album && item.albumArtistTitle != null => (
+      ArtistCredit.parse(item.albumArtistTitle!),
+      item.albumYear?.toString(),
+    ),
+    ServerFeedItem(:final item, reason: null) when item.kind == MediaKind.track && item.trackArtistTitle != null => (
+      ArtistCredit.parse(item.trackArtistTitle!),
+      null,
+    ),
+    ExternalAlbumItem(:final album) when album.reason == null && album.artistName.isNotEmpty => (album.credit, album.year),
+    _ => null,
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -374,7 +390,14 @@ class MusicFeedCard extends StatelessWidget {
                 textAlign: round ? TextAlign.center : TextAlign.start,
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
-              if (subtitle != null && subtitle.isNotEmpty)
+              if (_credit case final (credit, year)?)
+                ArtistLinks(
+                  credit: credit,
+                  suffix: year,
+                  textAlign: round ? TextAlign.center : TextAlign.start,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                )
+              else if (subtitle != null && subtitle.isNotEmpty)
                 Text(
                   subtitle,
                   maxLines: 1,
@@ -1005,64 +1028,26 @@ class _RequestButtonState extends State<RequestButton> {
   }
 }
 
-/// Request just one song (its single when there is one, otherwise its album; Lidarr gets
-/// whole releases). A small button for song rows: add, then busy, then done.
-class SongRequestButton extends StatefulWidget {
-  const SongRequestButton({
-    super.key,
-    required this.title,
-    required this.artist,
-    this.isrc,
-    this.deezerTrackId,
-    this.album,
-  });
+/// The request button for a song or album row, as an icon: + to request the album (Lidarr
+/// fetches whole releases), then where it stands (requested, downloading, here). On the server
+/// already, it's a check.
+class AlbumRequestIcon extends StatefulWidget {
+  const AlbumRequestIcon({super.key, required this.album});
 
-  final String title;
-  final String artist;
-  final String? isrc;
-  final int? deezerTrackId;
-
-  /// The album the song is on, when we know it (the fallback when it was never a single).
-  final DiscoverAlbum? album;
+  final DiscoverAlbum album;
 
   @override
-  State<SongRequestButton> createState() => _SongRequestButtonState();
+  State<AlbumRequestIcon> createState() => _AlbumRequestIconState();
 }
 
-class _SongRequestButtonState extends State<SongRequestButton> {
+class _AlbumRequestIconState extends State<AlbumRequestIcon> {
   bool _busy = false;
-  bool _done = false;
 
   Future<void> _request() async {
-    if (_busy || _done) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final seerr = AllseerrMusic.of(context);
-    if (seerr == null) {
-      messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestUnavailable)));
-      return;
-    }
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      final target = await seerr.requestSong(
-        title: widget.title,
-        artist: widget.artist,
-        isrc: widget.isrc,
-        deezerTrackId: widget.deezerTrackId,
-        album: widget.album,
-      );
-      final single = target.type?.toLowerCase() == 'single' ||
-          SearchText.squash(SearchText.cleanTitle(target.title)) == SearchText.squash(SearchText.cleanTitle(widget.title));
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            single ? MusicStrings.requestedSingle(widget.title) : MusicStrings.requestedAlbumFor(widget.title, target.title),
-          ),
-        ),
-      );
-      if (mounted) setState(() => _done = true);
-    } catch (error) {
-      appLogger.w('Music request for the song ${widget.artist} - ${widget.title} failed', error: error);
-      messenger?.showSnackBar(SnackBar(content: Text(MusicRequestException.describe(error))));
+      await requestAlbum(context, widget.album);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1071,16 +1056,118 @@ class _SongRequestButtonState extends State<SongRequestButton> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return IconButton(
-      tooltip: MusicStrings.requestSong,
-      onPressed: _busy || _done ? null : () => unawaited(_request()),
-      icon: _busy
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-          : AppIcon(
-              _done ? Symbols.check_circle_rounded : Symbols.add_circle_rounded,
-              color: _done ? scheme.onSurfaceVariant : scheme.primary,
-              fill: _done ? 1.0 : 0.0,
-            ),
+    return ListenableBuilder(
+      listenable: StatusOverrides.instance,
+      builder: (context, _) {
+        final status = StatusOverrides.instance.statusOf(widget.album.mbid) ?? widget.album.status;
+        if (_busy) {
+          return const SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          );
+        }
+        final (icon, tooltip, enabled) = switch (status) {
+          DiscoverStatus.available || DiscoverStatus.partial => (Symbols.check_circle_rounded, MusicStrings.onServer, false),
+          DiscoverStatus.downloading => (Symbols.downloading_rounded, MusicStrings.downloading, false),
+          DiscoverStatus.requested => (Symbols.schedule_rounded, MusicStrings.requested, false),
+          DiscoverStatus.notRequested => (Symbols.add_circle_rounded, MusicStrings.request, true),
+        };
+        return IconButton(
+          tooltip: tooltip,
+          onPressed: enabled ? () => unawaited(_request()) : null,
+          icon: AppIcon(icon, color: enabled ? scheme.primary : scheme.onSurfaceVariant, fill: enabled ? 0.0 : 1.0),
+        );
+      },
+    );
+  }
+}
+
+/// Open an artist by name: their page when they're on the server, otherwise their discovery
+/// sheet (popular songs, releases, request).
+Future<void> openArtistByName(BuildContext context, String name) async {
+  final discovery = MusicDiscovery.of(context);
+  final found = await quietly(
+    discovery.resolveArtists([DiscoverArtist(mbid: 'name:$name', name: name)]),
+    const <MusicFeedItem>[],
+    'artist lookup',
+  );
+  if (!context.mounted) return;
+  await openFeedItem(context, found.isEmpty ? ExternalArtistItem(DiscoverArtist(mbid: 'name:$name', name: name)) : found.first);
+}
+
+/// Artist names in a line of text, each one opening that artist ("A, B feat. C"), with an
+/// optional plain [suffix] (" · 2024").
+class ArtistLinks extends StatefulWidget {
+  const ArtistLinks({
+    super.key,
+    required this.credit,
+    this.prefix,
+    this.suffix,
+    this.style,
+    this.maxLines = 1,
+    this.textAlign,
+  });
+
+  final ArtistCredit credit;
+
+  /// Plain text before the names ("Song · ").
+  final String? prefix;
+  final String? suffix;
+  final TextStyle? style;
+  final int maxLines;
+  final TextAlign? textAlign;
+
+  @override
+  State<ArtistLinks> createState() => _ArtistLinksState();
+}
+
+class _ArtistLinksState extends State<ArtistLinks> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  TextSpan _link(String name) {
+    final recognizer = TapGestureRecognizer()..onTap = () => unawaited(openArtistByName(context, name));
+    _recognizers.add(recognizer);
+    return TextSpan(text: name, recognizer: recognizer);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _disposeRecognizers();
+    final credit = widget.credit;
+    final spans = <InlineSpan>[
+      if (widget.prefix case final prefix? when prefix.isNotEmpty) TextSpan(text: prefix),
+    ];
+    for (final (index, name) in credit.main.indexed) {
+      if (index > 0) spans.add(const TextSpan(text: ', '));
+      spans.add(_link(name));
+    }
+    for (final (index, name) in credit.featured.indexed) {
+      spans.add(TextSpan(text: index == 0 ? ' ${MusicStrings.feat} ' : ', '));
+      spans.add(_link(name));
+    }
+    if (widget.suffix case final suffix? when suffix.isNotEmpty) {
+      spans.add(TextSpan(text: spans.isEmpty ? suffix : ' · $suffix'));
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: widget.maxLines,
+      overflow: TextOverflow.ellipsis,
+      textAlign: widget.textAlign,
+      style: widget.style,
     );
   }
 }

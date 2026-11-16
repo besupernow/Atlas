@@ -9,6 +9,7 @@ import '../../../utils/app_logger.dart';
 import '../music_strings.dart';
 import 'discover_models.dart';
 import 'music_resolver.dart';
+import 'musicbrainz.dart';
 
 /// Atlas: music discovery and requests through Allseerr (our Seerr, which already talks to
 /// ListenBrainz, MusicBrainz, the Cover Art Archive and Lidarr). The same session the app uses
@@ -109,7 +110,12 @@ class AllseerrMusic {
   /// ([MusicResolver]). Throws a [MusicRequestException] with something worth showing when it
   /// can't go through.
   Future<DiscoverStatus> request(DiscoverAlbum album) async {
-    final target = await MusicResolver.releaseGroup(album);
+    final DiscoverAlbum? target;
+    try {
+      target = await MusicResolver.releaseGroup(album);
+    } on MusicBrainzBusy catch (error) {
+      throw MusicRequestException(MusicStrings.musicBrainzBusy, cause: error);
+    }
     if (target == null) throw MusicRequestException(MusicStrings.requestNoMatch(album.title));
     DiscoverStatus status;
     try {

@@ -14,6 +14,7 @@ class ChartTrack {
     required this.album,
     this.previewUrl,
     this.length,
+    this.featuring = const [],
   });
 
   final int id;
@@ -23,6 +24,12 @@ class ChartTrack {
   final DiscoverAlbum album;
   final String? previewUrl;
   final Duration? length;
+
+  /// Featured artists ("feat." in the title, or a source's artist list).
+  final List<String> featuring;
+
+  /// Everyone on the song, for clickable names.
+  List<String> get artists => [artistName, ...featuring];
 
   /// Key for the preview player.
   String get previewKey => 'dz-track:$id';
@@ -146,6 +153,7 @@ abstract final class Deezer {
           album: album,
           previewUrl: _string(json['preview']),
           length: json['duration'] is num ? Duration(seconds: (json['duration'] as num).toInt()) : null,
+          featuring: featuredIn(_string(json['title'])),
         ),
       );
     }
@@ -220,6 +228,7 @@ abstract final class Deezer {
           album: album.copyWith(ids: MusicIds(deezerTrackId: trackId.toInt(), isrc: _string(json['isrc']))),
           previewUrl: _string(json['preview']),
           length: json['duration'] is num ? Duration(seconds: (json['duration'] as num).toInt()) : null,
+          featuring: featuredIn(_string(json['title'])),
         ),
       );
     }
@@ -286,20 +295,27 @@ abstract final class Deezer {
     return info is Map ? _string(info['isrc']) : null;
   }
 
-  /// A song's ISRC found by artist and title (exact title, artist contained).
-  static Future<String?> findIsrc(String artist, String title) async {
-    final query = 'artist:"${artist.replaceAll('"', '')}" track:"${title.replaceAll('"', '')}"';
-    final wantTitle = normal(title);
-    final wantArtist = normal(artist);
-    for (final json in _data(await _get('/search/track', {'q': query, 'limit': '10'}))) {
-      final gotTitle = normal(_string(json['title_short']) ?? _string(json['title']) ?? '');
-      final artistJson = json['artist'];
-      final gotArtist = normal(artistJson is Map ? _string(artistJson['name']) ?? '' : '');
-      if (gotTitle != wantTitle || !(gotArtist.contains(wantArtist) || wantArtist.contains(gotArtist))) continue;
-      final id = json['id'];
-      if (id is num) return isrcOf(id.toInt());
-    }
-    return null;
+  /// Deezer's copy of the recording with this ISRC (preview, album, play-count rank as [rank]).
+  static Future<ChartTrack?> trackByIsrc(String isrc) async {
+    final json = await _get('/track/isrc:${Uri.encodeComponent(isrc.toUpperCase())}');
+    if (json is! Map || json['id'] is! num) return null;
+    final album = albumFrom(json['album'], artist: json['artist']);
+    if (album == null) return null;
+    final id = (json['id'] as num).toInt();
+    return ChartTrack(
+      id: id,
+      rank: (json['rank'] as num?)?.toInt() ?? 0,
+      title: _string(json['title_short']) ?? _string(json['title']) ?? '',
+      artistName: album.artistName,
+      album: album.copyWith(ids: MusicIds(deezerTrackId: id, isrc: isrc)),
+      previewUrl: _string(json['preview']),
+      length: json['duration'] is num ? Duration(seconds: (json['duration'] as num).toInt()) : null,
+      featuring: [
+        for (final contributor in (json['contributors'] as List?) ?? const [])
+          if (contributor is Map && contributor['name'] is String && contributor['name'] != album.artistName)
+            contributor['name'] as String,
+      ],
+    );
   }
 
   /// ISRCs of a Deezer album's first few tracks.
@@ -311,6 +327,18 @@ abstract final class Deezer {
       if (isrc != null) isrcs.add(isrc);
     }
     return isrcs;
+  }
+
+  static final _feat = RegExp(r'[(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+([^)\]]+)[)\]]', caseSensitive: false);
+
+  /// The featured artists named in a full title ("Song (feat. A & B)" → A, B).
+  static List<String> featuredIn(String? title) {
+    if (title == null) return const [];
+    return [
+      for (final match in _feat.allMatches(title))
+        for (final name in (match.group(1) ?? '').split(RegExp(r'\s*(?:,|&)\s*')))
+          if (name.trim().isNotEmpty) name.trim(),
+    ];
   }
 
   static String normal(String value) => value

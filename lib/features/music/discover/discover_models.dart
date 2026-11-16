@@ -91,7 +91,14 @@ class DiscoverAlbum {
     this.reason,
     this.deezerId,
     this.ids = MusicIds.none,
+    this.featuring = const [],
   });
+
+  /// Other credited artists ("A & B", or a source's artist list), for clickable names.
+  final List<String> featuring;
+
+  /// Everyone credited, for clickable names.
+  ArtistCredit get credit => ArtistCredit.parse(artistName, featuring: featuring);
 
   /// The MusicBrainz release group id, or a stand-in (`dz:<deezer id>`, `lf:…`, `mb:…`) for an
   /// album from Deezer or Last.fm that isn't tied to MusicBrainz yet (see [hasMbid]; requests
@@ -142,6 +149,7 @@ class DiscoverAlbum {
     reason: reason ?? this.reason,
     deezerId: deezerId ?? this.deezerId,
     ids: ids == null ? this.ids : this.ids.merge(ids),
+    featuring: featuring,
   );
 
   /// From an Allseerr `AlbumResult`.
@@ -288,4 +296,53 @@ final class ExternalArtistItem extends MusicFeedItem {
 
   @override
   String get key => 'artist:${artist.mbid}';
+}
+
+/// Who's on a song or album: the main artist(s) and anyone featured.
+class ArtistCredit {
+  const ArtistCredit(this.main, [this.featured = const []]);
+
+  final List<String> main;
+  final List<String> featured;
+
+  List<String> get all => [...main, ...featured];
+  bool get isEmpty => main.isEmpty && featured.isEmpty;
+
+  static final _featInTitle = RegExp(r'[(\[]\s*(?:feat\.?|ft\.?|featuring|with)\s+([^)\]]+)[)\]]', caseSensitive: false);
+  static final _featInName = RegExp(r'\s+(?:feat\.?|ft\.?|featuring)\s+', caseSensitive: false);
+
+  /// From a credit like "Drake feat. Future" and a title like "Song (feat. X & Y)". Main credits
+  /// aren't split on "&" or "and" (Simon & Garfunkel), featured lists are.
+  static ArtistCredit parse(String credit, {String? title, List<String> featuring = const []}) {
+    final parts = credit.split(_featInName);
+    final main = _joinedNames(parts.first);
+    final featured = <String>[
+      for (final part in parts.skip(1)) ..._list(part),
+      for (final name in featuring) name.trim(),
+      if (title != null)
+        for (final match in _featInTitle.allMatches(title)) ..._list(match.group(1) ?? ''),
+    ];
+    final seen = {for (final name in main) name.toLowerCase()};
+    return ArtistCredit(main, [
+      for (final name in featured)
+        if (name.isNotEmpty && seen.add(name.toLowerCase())) name,
+    ]);
+  }
+
+  /// Jellyfin joins a track's artists with ", "; keep "Tyler, The Creator" whole.
+  static List<String> _joinedNames(String value) {
+    final pieces = value.split(', ');
+    final names = <String>[];
+    for (final piece in pieces) {
+      if (names.isNotEmpty && piece.startsWith('The ')) {
+        names[names.length - 1] = '${names.last}, $piece';
+      } else if (piece.trim().isNotEmpty) {
+        names.add(piece.trim());
+      }
+    }
+    return names.isEmpty ? [value.trim()] : names;
+  }
+
+  static List<String> _list(String value) =>
+      value.split(RegExp(r'\s*(?:,|&|\band\b)\s*')).map((name) => name.trim()).where((name) => name.isNotEmpty).toList();
 }

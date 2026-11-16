@@ -6,7 +6,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../focus/focusable_wrapper.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
-import '../discover/allseerr_music.dart';
 import '../discover/deezer.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
@@ -158,10 +157,8 @@ class _TopSongRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                           ),
-                          Text(
-                            track.artistName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          ArtistLinks(
+                            credit: ArtistCredit([track.artistName], track.featuring),
                             style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                           ),
                         ],
@@ -198,14 +195,7 @@ class _TopSongRow extends StatelessWidget {
                           );
                         },
                       ),
-                    if (!(StatusOverrides.instance.statusOf(track.album.mbid) ?? track.album.status).onServer)
-                      SongRequestButton(
-                        title: track.title,
-                        artist: track.artistName,
-                        isrc: track.album.ids.isrc,
-                        deezerTrackId: track.album.ids.deezerTrackId ?? track.id,
-                        album: track.album,
-                      ),
+                    AlbumRequestIcon(album: track.album),
                   ],
                 ),
               ),
