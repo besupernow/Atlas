@@ -337,6 +337,8 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
                         for (final (index, track) in details.tracks.indexed)
                           _TrackPreviewRow(
                             track: track,
+                            album: album,
+                            onServer: _serverCopy != null,
                             albumKey: album.mbid,
                             clips: clips,
                             clipIndex: clips.isEmpty ? null : _clipIndex(clips, track, index),
@@ -370,9 +372,22 @@ class _AlbumRequestViewState extends State<_AlbumRequestView> {
 }
 
 class _TrackPreviewRow extends StatelessWidget {
-  const _TrackPreviewRow({required this.track, required this.albumKey, required this.clips, required this.clipIndex});
+  const _TrackPreviewRow({
+    required this.track,
+    required this.album,
+    required this.onServer,
+    required this.albumKey,
+    required this.clips,
+    required this.clipIndex,
+  });
 
   final DiscoverTrack track;
+
+  /// The album the song is on (asked for instead when the song was never a single).
+  final DiscoverAlbum album;
+
+  /// Already here: nothing to request.
+  final bool onServer;
   final String albumKey;
   final List<PreviewClip> clips;
   final int? clipIndex;
@@ -455,6 +470,14 @@ class _TrackPreviewRow extends StatelessWidget {
                       fill: 1.0,
                     ),
                   ],
+                  if (!onServer && !album.status.onServer)
+                    SongRequestButton(
+                      title: track.title,
+                      artist: track.artist ?? album.artistName,
+                      isrc: track.isrc,
+                      deezerTrackId: track.deezerId,
+                      album: album,
+                    ),
                 ],
               ),
             ),

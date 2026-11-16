@@ -18,15 +18,23 @@ import '../../../widgets/collapsible_text.dart';
 import '../../../widgets/music/music_actions.dart';
 import '../../../widgets/music/track_row.dart';
 import '../../../widgets/optimized_media_image.dart';
+import '../discover/allseerr_music.dart';
+import '../discover/deezer.dart';
+import '../discover/discover_feed.dart';
+import '../discover/discover_models.dart';
+import '../discover/discover_widgets.dart';
+import '../discover/music_search_index.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/art_backdrop.dart';
 import '../widgets/music_page.dart';
 import '../widgets/music_shelves.dart';
+import '../widgets/top_songs.dart';
 
 /// Atlas: an Apple Music style artist page: full-bleed artwork fading into the page with the
 /// name over it, Play / Shuffle / Station, the five songs played most, the discography split
-/// into Albums, Singles & EPs, Live and Compilations, similar artists, then the bio.
+/// into Albums, Singles & EPs, Live and Compilations, similar artists, then what isn't on the
+/// server yet (their popular songs and releases, to preview and request), then the bio.
 class MusicArtistPage extends StatefulWidget {
   const MusicArtistPage({super.key, required this.artist});
 
@@ -47,6 +55,13 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
   List<ArtistDiscographyGroup> _discography = const [];
   List<MediaItem> _similar = const [];
   bool _failed = false;
+
+  // From outside the server: popular songs we don't have, releases we don't have, and similar
+  // artists when the server has none.
+  List<ChartTrack> _outsideSongs = const [];
+  List<MusicFeedItem> _outsideAlbums = const [];
+  List<MusicFeedItem> _outsideSingles = const [];
+  List<MusicFeedItem> _outsideSimilar = const [];
 
   MediaItem get _artist => widget.artist;
 
@@ -95,6 +110,35 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
       _topSongs = _pickTopSongs(all);
       _similar = {for (final artist in related) artist.id: artist}.values.take(15).toList();
       _failed = groups.isEmpty && all.isEmpty;
+    });
+    unawaited(_loadOutside(all));
+  }
+
+  /// What the rest of the world has by this artist (Deezer, through discovery): their popular
+  /// songs and releases that aren't on the server yet, each with a preview and a request button.
+  Future<void> _loadOutside(List<MediaItem> ours) async {
+    final discovery = MusicDiscovery.of(context);
+    final name = _artist.displayTitle;
+    final artist = await quietly(Deezer.findArtist(name), null, 'artist on Deezer');
+    if (artist == null || !mounted) return;
+    final results = await Future.wait<Object?>([
+      quietly(Deezer.topTracksOf(artist), const <ChartTrack>[], 'artist top songs'),
+      quietly(discovery.discographyOf(artist), const <MusicFeedItem>[], 'artist releases'),
+      if (_similar.isEmpty) quietly(discovery.similarTo(artist), const <MusicFeedItem>[], 'similar artists'),
+    ]);
+    if (!mounted) return;
+    final have = {for (final track in ours) SearchText.squash(SearchText.cleanTitle(track.title ?? ''))};
+    final songs = [
+      for (final track in results[0] as List<ChartTrack>)
+        if (track.previewUrl != null && !have.contains(SearchText.squash(SearchText.cleanTitle(track.title)))) track,
+    ];
+    final releases = [for (final item in results[1] as List<MusicFeedItem>) if (item is ExternalAlbumItem) item];
+    bool isAlbum(ExternalAlbumItem item) => (item.album.type ?? 'Album').toLowerCase() == 'album';
+    setState(() {
+      _outsideSongs = songs.take(12).toList();
+      _outsideAlbums = [for (final item in releases) if (isAlbum(item)) item];
+      _outsideSingles = [for (final item in releases) if (!isAlbum(item)) item];
+      if (results.length > 2) _outsideSimilar = results[2] as List<MusicFeedItem>;
     });
   }
 
@@ -259,6 +303,34 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                   ),
                 ],
               ),
+              // Not on the server yet: preview it, request it.
+              if (_outsideSongs.isNotEmpty)
+                TopSongsShelf(
+                  tracks: _outsideSongs,
+                  title: MusicStrings.morePopularSongs,
+                  subtitle: MusicStrings.notInLibrarySubtitle,
+                  onNavigateToSidebar: focus?.focusRail,
+                ),
+              if (_outsideAlbums.isNotEmpty)
+                MusicFeedShelf(
+                  title: MusicStrings.moreAlbums,
+                  subtitle: MusicStrings.notInLibrarySubtitle,
+                  items: _outsideAlbums,
+                  onNavigateToSidebar: focus?.focusRail,
+                ),
+              if (_outsideSingles.isNotEmpty)
+                MusicFeedShelf(
+                  title: MusicStrings.moreSinglesAndEps,
+                  subtitle: MusicStrings.notInLibrarySubtitle,
+                  items: _outsideSingles,
+                  onNavigateToSidebar: focus?.focusRail,
+                ),
+              if (_similar.isEmpty && _outsideSimilar.isNotEmpty)
+                MusicFeedShelf(
+                  title: MusicStrings.similarArtists,
+                  items: _outsideSimilar,
+                  onNavigateToSidebar: focus?.focusRail,
+                ),
               if (summary != null && summary.isNotEmpty) ...[
                 const MusicSectionTitle(MusicStrings.about),
                 Padding(

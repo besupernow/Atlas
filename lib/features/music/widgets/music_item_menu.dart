@@ -282,7 +282,7 @@ class _MenuSheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              MusicArt(item: item, size: 64, radius: 10, shadow: false),
+              MusicArt(item: item, size: 64, radius: 10),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

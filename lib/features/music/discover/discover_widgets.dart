@@ -24,6 +24,7 @@ import 'allseerr_music.dart';
 import 'deezer.dart';
 import 'discover_models.dart';
 import 'music_previews.dart';
+import 'music_search_index.dart';
 import 'music_request_sheet.dart';
 
 /// Open whatever a card stands for: the album or artist page for things on the server, the
@@ -82,12 +83,11 @@ Future<void> playServerAlbum(BuildContext context, MediaItem album, {bool shuffl
 
 /// Square (or round, for artists) artwork from the server or from the web, with a soft shadow.
 class MusicArt extends StatelessWidget {
-  const MusicArt({super.key, required this.item, required this.size, this.radius = 14, this.shadow = true});
+  const MusicArt({super.key, required this.item, required this.size, this.radius = 14});
 
   final MusicFeedItem item;
   final double size;
   final double radius;
-  final bool shadow;
 
   bool get _round => switch (item) {
     ServerFeedItem(:final item) => item.kind == MediaKind.artist,
@@ -114,20 +114,13 @@ class MusicArt extends StatelessWidget {
         fallback = Symbols.artist_rounded;
     }
     final shape = _round ? BorderRadius.circular(size) : BorderRadius.circular(radius);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: shape,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        // A hairline edge so dark covers don't melt into a dark page.
-        border: shadow ? Border.all(color: Colors.white.withValues(alpha: 0.07)) : null,
-        boxShadow: shadow
-            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 18, offset: const Offset(0, 8))]
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: shape,
+    // Just the art, clipped: no frame, no drop shadow (on a colored page those read as a dark
+    // border around every cover).
+    return ClipRRect(
+      borderRadius: shape,
+      child: SizedBox(
+        width: size,
+        height: size,
         child: OptimizedMediaImage(
           client: client,
           imagePath: path,
@@ -857,10 +850,10 @@ class _HeroCard extends StatelessWidget {
                   if (wide)
                     ImageFiltered(
                       imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50, tileMode: TileMode.decal),
-                      child: Transform.scale(scale: 1.5, child: MusicArt(item: item, size: 600, radius: 0, shadow: false)),
+                      child: Transform.scale(scale: 1.5, child: MusicArt(item: item, size: 600, radius: 0)),
                     )
                   else
-                    MusicArt(item: item, size: constraints.maxWidth, radius: 0, shadow: false),
+                    MusicArt(item: item, size: constraints.maxWidth, radius: 0),
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -1008,6 +1001,86 @@ class _RequestButtonState extends State<RequestButton> {
           label: const Text(MusicStrings.request),
         );
       },
+    );
+  }
+}
+
+/// Request just one song (its single when there is one, otherwise its album; Lidarr gets
+/// whole releases). A small button for song rows: add, then busy, then done.
+class SongRequestButton extends StatefulWidget {
+  const SongRequestButton({
+    super.key,
+    required this.title,
+    required this.artist,
+    this.isrc,
+    this.deezerTrackId,
+    this.album,
+  });
+
+  final String title;
+  final String artist;
+  final String? isrc;
+  final int? deezerTrackId;
+
+  /// The album the song is on, when we know it (the fallback when it was never a single).
+  final DiscoverAlbum? album;
+
+  @override
+  State<SongRequestButton> createState() => _SongRequestButtonState();
+}
+
+class _SongRequestButtonState extends State<SongRequestButton> {
+  bool _busy = false;
+  bool _done = false;
+
+  Future<void> _request() async {
+    if (_busy || _done) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final seerr = AllseerrMusic.of(context);
+    if (seerr == null) {
+      messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestUnavailable)));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final target = await seerr.requestSong(
+        title: widget.title,
+        artist: widget.artist,
+        isrc: widget.isrc,
+        deezerTrackId: widget.deezerTrackId,
+        album: widget.album,
+      );
+      final single = target.type?.toLowerCase() == 'single' ||
+          SearchText.squash(SearchText.cleanTitle(target.title)) == SearchText.squash(SearchText.cleanTitle(widget.title));
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            single ? MusicStrings.requestedSingle(widget.title) : MusicStrings.requestedAlbumFor(widget.title, target.title),
+          ),
+        ),
+      );
+      if (mounted) setState(() => _done = true);
+    } catch (error) {
+      appLogger.w('Music request for the song ${widget.artist} - ${widget.title} failed', error: error);
+      messenger?.showSnackBar(SnackBar(content: Text(MusicRequestException.describe(error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: MusicStrings.requestSong,
+      onPressed: _busy || _done ? null : () => unawaited(_request()),
+      icon: _busy
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : AppIcon(
+              _done ? Symbols.check_circle_rounded : Symbols.add_circle_rounded,
+              color: _done ? scheme.onSurfaceVariant : scheme.primary,
+              fill: _done ? 1.0 : 0.0,
+            ),
     );
   }
 }

@@ -132,6 +132,27 @@ class AllseerrMusic {
     return status;
   }
 
+  /// Ask for one song: its single when there is one, otherwise the album it's on (Lidarr gets
+  /// whole releases). Returns what was asked for.
+  Future<DiscoverAlbum> requestSong({
+    required String title,
+    required String artist,
+    String? isrc,
+    int? deezerTrackId,
+    DiscoverAlbum? album,
+  }) async {
+    final target = await MusicResolver.forSong(
+      title: title,
+      artist: artist,
+      isrc: isrc,
+      deezerTrackId: deezerTrackId,
+      album: album,
+    );
+    if (target == null) throw MusicRequestException(MusicStrings.requestNoMatch(title));
+    await request(target);
+    return target;
+  }
+
   /// Every album Allseerr knows the household has or asked for, by release group id. Used to
   /// mark albums from ListenBrainz as on the server or on their way.
   Future<Map<String, DiscoverStatus>> knownAlbums() async {

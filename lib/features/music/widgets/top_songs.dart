@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../focus/focusable_wrapper.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
+import '../discover/allseerr_music.dart';
 import '../discover/deezer.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
@@ -18,9 +19,15 @@ import 'music_page.dart';
 /// song with its cover, its place on the chart, and a preview button. Tapping a song opens its
 /// album (ours if we have it, the request sheet if we don't).
 class TopSongsShelf extends StatelessWidget {
-  const TopSongsShelf({super.key, required this.tracks, this.onNavigateToSidebar});
+  TopSongsShelf({super.key, required List<ChartTrack> tracks, this.onNavigateToSidebar, this.title, this.subtitle})
+    // Only songs that can be previewed.
+    : tracks = [for (final track in tracks) if (track.previewUrl != null) track];
 
   final List<ChartTrack> tracks;
+
+  /// Defaults to "Top Songs".
+  final String? title;
+  final String? subtitle;
   final VoidCallback? onNavigateToSidebar;
 
   static const _rows = 4;
@@ -40,9 +47,9 @@ class TopSongsShelf extends StatelessWidget {
         children: [
           Padding(
             padding: padding,
-            child: const MusicSectionHeader(
-              title: MusicStrings.topSongs,
-              subtitle: MusicStrings.topSongsSubtitle,
+            child: MusicSectionHeader(
+              title: title ?? MusicStrings.topSongs,
+              subtitle: title == null ? (subtitle ?? MusicStrings.topSongsSubtitle) : subtitle,
             ),
           ),
           const SizedBox(height: 10),
@@ -120,7 +127,7 @@ class _TopSongRow extends StatelessWidget {
               child: SizedBox(
                 width: 50,
                 height: 50,
-                child: MusicArt(item: ExternalAlbumItem(track.album), size: 50, radius: 8, shadow: false),
+                child: MusicArt(item: ExternalAlbumItem(track.album), size: 50, radius: 8),
               ),
             ),
             SizedBox(
@@ -190,6 +197,14 @@ class _TopSongRow extends StatelessWidget {
                             ),
                           );
                         },
+                      ),
+                    if (!(StatusOverrides.instance.statusOf(track.album.mbid) ?? track.album.status).onServer)
+                      SongRequestButton(
+                        title: track.title,
+                        artist: track.artistName,
+                        isrc: track.album.ids.isrc,
+                        deezerTrackId: track.album.ids.deezerTrackId ?? track.id,
+                        album: track.album,
                       ),
                   ],
                 ),

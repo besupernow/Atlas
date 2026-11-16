@@ -20,6 +20,7 @@ import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/atlas_native_tab_bar.dart';
 import '../../../widgets/music/mini_player.dart';
+import '../discover/music_previews.dart';
 import '../music_strings.dart';
 import '../pages/music_artist_page.dart';
 import '../pages/music_home_page.dart';
@@ -127,6 +128,10 @@ class _MusicShellState extends State<MusicShell> {
 
   /// Arriving in music mode on TV: focus starts on the current tab in the rail.
   void _onModeChanged() {
+    // Previews belong to music mode's pages.
+    if (!AppModeController.instance.isMusic && MusicPreviewPlayer.instance.active) {
+      unawaited(MusicPreviewPlayer.instance.stop());
+    }
     if (!AppModeController.instance.isMusic || !PlatformDetector.isTV()) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusRail();
@@ -149,6 +154,8 @@ class _MusicShellState extends State<MusicShell> {
     setState(() {
       _tab = tab;
       _built.add(tab);
+      // A preview belongs to the page it was started on; another tab is another page.
+      if (MusicPreviewPlayer.instance.active) unawaited(MusicPreviewPlayer.instance.stop());
     });
   }
 
