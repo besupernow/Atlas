@@ -390,7 +390,7 @@ class MusicFeedCard extends StatelessWidget {
                 textAlign: round ? TextAlign.center : TextAlign.start,
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
-              if (_credit case final (credit, year)?)
+              if (_credit case (final credit, final year)?)
                 ArtistLinks(
                   credit: credit,
                   suffix: year,
