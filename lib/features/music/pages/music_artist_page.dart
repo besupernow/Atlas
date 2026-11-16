@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../focus/focusable_action_bar.dart';
+import '../../../focus/focusable_wrapper.dart';
 import '../../../media/artist_discography.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
@@ -23,13 +24,13 @@ import '../discover/deezer.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
+import '../discover/music_previews.dart';
 import '../discover/music_search_index.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/art_backdrop.dart';
+import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
-import '../widgets/music_shelves.dart';
-import '../widgets/top_songs.dart';
 
 /// Atlas: an Apple Music style artist page: full-bleed artwork fading into the page with the
 /// name over it, Play / Shuffle / Station, the five songs played most, the discography split
@@ -46,7 +47,6 @@ class MusicArtistPage extends StatefulWidget {
 
 class _MusicArtistPageState extends State<MusicArtistPage> {
   final _actionsKey = GlobalKey<FocusableActionBarState>();
-  final _shelvesKey = GlobalKey<MusicShelvesState>();
   final _firstSongFocus = FocusNode(debugLabel: 'music.artist.topSong');
 
   MediaServerClient? _client;
@@ -56,11 +56,11 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
   List<MediaItem> _similar = const [];
   bool _failed = false;
 
-  // From outside the server: popular songs we don't have, releases we don't have, and similar
-  // artists when the server has none.
-  List<ChartTrack> _outsideSongs = const [];
-  List<MusicFeedItem> _outsideAlbums = const [];
-  List<MusicFeedItem> _outsideSingles = const [];
+  // The artist's real top songs (Deezer's chart of them), each ours when the server has it.
+  List<_ArtistSong> _popular = const [];
+
+  // What isn't on the server: releases and similar artists, mixed into the sections below.
+  List<ExternalAlbumItem> _outsideReleases = const [];
   List<MusicFeedItem> _outsideSimilar = const [];
 
   MediaItem get _artist => widget.artist;
@@ -114,33 +114,70 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
     unawaited(_loadOutside(all));
   }
 
-  /// What the rest of the world has by this artist (Deezer, through discovery): their popular
-  /// songs and releases that aren't on the server yet, each with a preview and a request button.
+  /// What the rest of the world has by this artist (Deezer, through discovery): their actual
+  /// top songs (ours where the server has them) and the releases and similar artists the server
+  /// doesn't have, which join the sections with a request button.
   Future<void> _loadOutside(List<MediaItem> ours) async {
     final discovery = MusicDiscovery.of(context);
     final name = _artist.displayTitle;
     final artist = await quietly(Deezer.findArtist(name), null, 'artist on Deezer');
     if (artist == null || !mounted) return;
     final results = await Future.wait<Object?>([
-      quietly(Deezer.topTracksOf(artist), const <ChartTrack>[], 'artist top songs'),
+      quietly(Deezer.topTracksOf(artist, limit: 10), const <ChartTrack>[], 'artist top songs'),
       quietly(discovery.discographyOf(artist), const <MusicFeedItem>[], 'artist releases'),
-      if (_similar.isEmpty) quietly(discovery.similarTo(artist), const <MusicFeedItem>[], 'similar artists'),
+      quietly(discovery.similarTo(artist), const <MusicFeedItem>[], 'similar artists'),
     ]);
     if (!mounted) return;
-    final have = {for (final track in ours) SearchText.squash(SearchText.cleanTitle(track.title ?? ''))};
-    final songs = [
+    final byTitle = <String, MediaItem>{};
+    for (final track in ours) {
+      byTitle.putIfAbsent(SearchText.squash(SearchText.cleanTitle(track.title ?? '')), () => track);
+    }
+    final popular = <_ArtistSong>[
       for (final track in results[0] as List<ChartTrack>)
-        if (track.previewUrl != null && !have.contains(SearchText.squash(SearchText.cleanTitle(track.title)))) track,
+        if (byTitle[SearchText.squash(SearchText.cleanTitle(track.title))] case final server?)
+          _ArtistSong(track, server)
+        // Songs from outside only show when they can be previewed.
+        else if (track.previewUrl != null)
+          _ArtistSong(track, null),
     ];
-    final releases = [for (final item in results[1] as List<MusicFeedItem>) if (item is ExternalAlbumItem) item];
-    bool isAlbum(ExternalAlbumItem item) => (item.album.type ?? 'Album').toLowerCase() == 'album';
+    final similarNames = {for (final artist in _similar) SearchText.squash(artist.title ?? '')};
     setState(() {
-      _outsideSongs = songs.take(12).toList();
-      _outsideAlbums = [for (final item in releases) if (isAlbum(item)) item];
-      _outsideSingles = [for (final item in releases) if (!isAlbum(item)) item];
-      if (results.length > 2) _outsideSimilar = results[2] as List<MusicFeedItem>;
+      _popular = popular;
+      _outsideReleases = [
+        for (final item in results[1] as List<MusicFeedItem>)
+          if (item is ExternalAlbumItem) item,
+      ];
+      _outsideSimilar = [
+        for (final item in results[2] as List<MusicFeedItem>)
+          if (item is! ExternalArtistItem || !similarNames.contains(SearchText.squash(item.artist.name))) item,
+      ];
     });
   }
+
+  /// The server's releases of [kind] with the outside ones of the same kind, newest first.
+  List<MusicFeedItem> _section(DiscographyGroupKind kind) {
+    final server = [
+      for (final group in _discography)
+        if (group.kind == kind)
+          for (final item in group.items) item,
+    ];
+    final outside = [
+      for (final item in _outsideReleases)
+        if (_kindOf(item.album) == kind) item,
+    ];
+    final items = <(String, MusicFeedItem)>[
+      for (final item in server) ('${item.albumYear ?? item.year ?? ''}', ServerFeedItem(item)),
+      for (final item in outside) (item.album.releaseDate ?? item.album.year ?? '', item),
+    ]..sort((a, b) => b.$1.compareTo(a.$1));
+    return [for (final (_, item) in items) item];
+  }
+
+  static DiscographyGroupKind _kindOf(DiscoverAlbum album) => switch (album.type?.toLowerCase()) {
+    'single' || 'ep' => DiscographyGroupKind.singlesAndEps,
+    'compilation' => DiscographyGroupKind.compilations,
+    'live' => DiscographyGroupKind.live,
+    _ => DiscographyGroupKind.albums,
+  };
 
   /// Most played first; with nothing played yet, the newest album's opening tracks.
   static List<MediaItem> _pickTopSongs(List<MediaItem> tracks) {
@@ -174,10 +211,11 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
   }
 
   void _playTopSong(MediaItem track) {
+    final ours = _popular.isEmpty ? _topSongs : [for (final song in _popular) ?song.server];
     unawaited(
       playTracks(
         context,
-        tracks: _topSongs,
+        tracks: ours,
         startTrack: track,
         playContext: MusicPlayContext(title: _artist.displayTitle, kind: MusicPlayContextKind.artist),
       ),
@@ -191,20 +229,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
     DiscographyGroupKind.compilations => MusicStrings.compilations,
   };
 
-  IconData _groupIcon(DiscographyGroupKind kind) => switch (kind) {
-    DiscographyGroupKind.albums => Symbols.album_rounded,
-    DiscographyGroupKind.singlesAndEps => Symbols.music_note_rounded,
-    DiscographyGroupKind.live => Symbols.mic_external_on_rounded,
-    DiscographyGroupKind.compilations => Symbols.library_music_rounded,
-  };
-
-  void _focusBelowActions() {
-    if (_topSongs.isNotEmpty) {
-      _firstSongFocus.requestFocus();
-    } else {
-      _shelvesKey.currentState?.focusFirst();
-    }
-  }
+  void _focusBelowActions() => _firstSongFocus.requestFocus();
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +282,27 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           else if (_failed)
             const MusicPagePlaceholder(message: MusicStrings.loadFailed)
           else ...[
-              if (_topSongs.isNotEmpty) ...[
+              // Top Songs: their real chart, ours where we have it (play), the rest previews
+              // with a request button. Before the outside chart loads, the server's own.
+              if (_popular.isNotEmpty) ...[
+                const MusicSectionTitle(MusicStrings.topSongs),
+                Padding(
+                  padding: MusicPage.padding(context),
+                  child: Column(
+                    children: [
+                      for (final (index, song) in _popular.indexed)
+                        _TopSongTile(
+                          song: song,
+                          rank: index + 1,
+                          focusNode: index == 0 ? _firstSongFocus : null,
+                          onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
+                          onNavigateLeft: focus?.focusRail,
+                          onPlay: _playTopSong,
+                        ),
+                    ],
+                  ),
+                ),
+              ] else if (_topSongs.isNotEmpty) ...[
                 const MusicSectionTitle(MusicStrings.topSongs),
                 Padding(
                   padding: MusicPage.padding(context),
@@ -277,58 +322,18 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                   ),
                 ),
               ],
-              MusicShelves(
-                key: _shelvesKey,
-                onNavigateUp: () {
-                  if (_topSongs.isNotEmpty) {
-                    _firstSongFocus.requestFocus();
-                  } else {
-                    _actionsKey.currentState?.requestFocusOnFirst();
-                  }
-                },
-                onNavigateToSidebar: focus?.focusRail,
-                shelves: [
-                  for (final group in _discography)
-                    MusicShelf(
-                      id: 'artist-${group.kind.name}',
-                      title: _groupTitle(group.kind),
-                      icon: _groupIcon(group.kind),
-                      items: group.items,
-                    ),
-                  MusicShelf(
-                    id: 'artist-similar',
-                    title: MusicStrings.similarArtists,
-                    icon: Symbols.groups_rounded,
-                    items: _similar,
+              // Releases: the server's and the rest together, the rest with a request button.
+              for (final kind in DiscographyGroupKind.values)
+                if (_section(kind) case final items when items.isNotEmpty)
+                  MusicFeedShelf(
+                    title: _groupTitle(kind),
+                    items: items,
+                    onNavigateToSidebar: focus?.focusRail,
                   ),
-                ],
-              ),
-              // Not on the server yet: preview it, request it.
-              if (_outsideSongs.isNotEmpty)
-                TopSongsShelf(
-                  tracks: _outsideSongs,
-                  title: MusicStrings.morePopularSongs,
-                  subtitle: MusicStrings.notInLibrarySubtitle,
-                  onNavigateToSidebar: focus?.focusRail,
-                ),
-              if (_outsideAlbums.isNotEmpty)
-                MusicFeedShelf(
-                  title: MusicStrings.moreAlbums,
-                  subtitle: MusicStrings.notInLibrarySubtitle,
-                  items: _outsideAlbums,
-                  onNavigateToSidebar: focus?.focusRail,
-                ),
-              if (_outsideSingles.isNotEmpty)
-                MusicFeedShelf(
-                  title: MusicStrings.moreSinglesAndEps,
-                  subtitle: MusicStrings.notInLibrarySubtitle,
-                  items: _outsideSingles,
-                  onNavigateToSidebar: focus?.focusRail,
-                ),
-              if (_similar.isEmpty && _outsideSimilar.isNotEmpty)
+              if ([..._similar.map(ServerFeedItem.new), ..._outsideSimilar] case final similar when similar.isNotEmpty)
                 MusicFeedShelf(
                   title: MusicStrings.similarArtists,
-                  items: _outsideSimilar,
+                  items: similar,
                   onNavigateToSidebar: focus?.focusRail,
                 ),
               if (summary != null && summary.isNotEmpty) ...[
@@ -407,6 +412,120 @@ class _ArtistHero extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One of the artist's top songs: ours (play it) or from outside (preview it, request its album).
+class _ArtistSong {
+  const _ArtistSong(this.track, this.server);
+
+  final ChartTrack track;
+  final MediaItem? server;
+}
+
+class _TopSongTile extends StatelessWidget {
+  const _TopSongTile({
+    required this.song,
+    required this.rank,
+    required this.onPlay,
+    this.focusNode,
+    this.onNavigateUp,
+    this.onNavigateLeft,
+  });
+
+  final _ArtistSong song;
+  final int rank;
+  final ValueChanged<MediaItem> onPlay;
+  final FocusNode? focusNode;
+  final VoidCallback? onNavigateUp;
+  final VoidCallback? onNavigateLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final track = song.track;
+    final server = song.server;
+    final MusicFeedItem item = server != null ? ServerFeedItem(server) : ExternalAlbumItem(track.album);
+    final preview = track.previewUrl;
+
+    void tap() {
+      if (server != null) {
+        onPlay(server);
+      } else if (preview != null) {
+        unawaited(MusicPreviewPlayer.instance.toggle(context, track.previewKey, [PreviewClip(title: track.title, url: preview)]));
+      }
+    }
+
+    return FocusableWrapper(
+      focusNode: focusNode,
+      borderRadius: 12,
+      onSelect: tap,
+      onNavigateUp: onNavigateUp,
+      onNavigateLeft: onNavigateLeft,
+      onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+      child: InkWell(
+        canRequestFocus: false,
+        borderRadius: BorderRadius.circular(12),
+        onTap: tap,
+        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
+        onSecondaryTapUp: (details) => unawaited(MusicItemMenu.show(context, item, position: details.globalPosition)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              MusicArt(item: item, size: 48, radius: 8),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: MusicPreviewPlayer.instance,
+                  builder: (context, _) {
+                    final playing = server == null && MusicPreviewPlayer.instance.isPlaying(track.previewKey);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: playing ? scheme.primary : null,
+                          ),
+                        ),
+                        if (playing)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 2, right: 12),
+                            child: LinearProgressIndicator(
+                              value: MusicPreviewPlayer.instance.loading ? null : MusicPreviewPlayer.instance.progress,
+                              minHeight: 2,
+                            ),
+                          )
+                        else
+                          ArtistLinks(
+                            credit: ArtistCredit([track.artistName], track.featuring),
+                            suffix: server?.albumTitle ?? track.album.title,
+                            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              // Not on the server: the request button says so.
+              if (server == null) AlbumRequestIcon(album: track.album),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -67,13 +67,16 @@ class FadingArt extends StatelessWidget {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         // An ease-out curve in five steps: no visible edge where the picture ends.
-        stops: [0, start, start + span * 0.3, start + span * 0.55, start + span * 0.8, 1],
+        // Fully clear a little before the bottom: when the page scrolls to a fraction of a pixel
+        // the mask's last row can land on the art's edge and show as a line.
+        stops: [0, start, start + span * 0.28, start + span * 0.5, start + span * 0.72, start + span * 0.92, 1],
         colors: [
           Colors.white,
           Colors.white,
           Colors.white.withValues(alpha: 0.82),
           Colors.white.withValues(alpha: 0.5),
           Colors.white.withValues(alpha: 0.18),
+          Colors.white.withValues(alpha: 0),
           Colors.white.withValues(alpha: 0),
         ],
       ).createShader(rect),

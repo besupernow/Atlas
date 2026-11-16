@@ -272,10 +272,7 @@ class _SongResult extends StatelessWidget {
     }
 
     final preview = external?.previewUrl;
-    final subtitle = [
-      song.artist,
-      if (server == null) external?.album.title else server.albumTitle,
-    ].whereType<String>().where((part) => part.isNotEmpty).join(' · ');
+    final albumTitle = server == null ? external?.album.title : server.albumTitle;
 
     return FocusableWrapper(
       borderRadius: 12,
@@ -309,10 +306,9 @@ class _SongResult extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    ArtistLinks(
+                      credit: song.credit,
+                      suffix: albumTitle,
                       style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
                   ],
@@ -425,10 +421,9 @@ class _TopSongResult extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
                         ),
-                        Text(
-                          '${MusicStrings.songLabel} · ${song.artist}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        ArtistLinks(
+                          credit: song.credit,
+                          prefix: '${MusicStrings.songLabel} · ',
                           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                         const SizedBox(height: 10),

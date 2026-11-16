@@ -5,6 +5,12 @@ import 'package:http/http.dart' as http;
 
 import 'music_keys.dart';
 
+/// MusicBrainz is too busy right now (rate limited, or not answering). Not the same as "it
+/// isn't there": try again in a bit.
+class MusicBrainzBusy extends http.ClientException {
+  MusicBrainzBusy(Uri uri) : super('MusicBrainz is busy', uri);
+}
+
 /// A recording (a song) from MusicBrainz's search, with the releases it's on.
 class MbRecording {
   const MbRecording({
@@ -81,14 +87,28 @@ abstract final class MusicBrainz {
     final uri = Uri.https(_base, '/ws/2$path', {...query, 'fmt': 'json'});
     return _cache.putIfAbsent(uri.toString(), () async {
       try {
-        return await _throttled(() async {
-          final response = await http
-              .get(uri, headers: {'User-Agent': MusicKeys.musicBrainzUserAgent, 'Accept': 'application/json'})
-              .timeout(const Duration(seconds: 15));
-          if (response.statusCode == 404) return null;
-          if (response.statusCode != 200) throw http.ClientException('MusicBrainz ${response.statusCode}', uri);
-          return jsonDecode(utf8.decode(response.bodyBytes));
-        });
+        // MusicBrainz turns away bursts with 503 (the house shares one allowance with Allseerr,
+        // which talks to it too), so a busy answer is waited out and tried again, not a miss.
+        for (var attempt = 1; ; attempt++) {
+          try {
+            return await _throttled(() async {
+              final response = await http
+                  .get(uri, headers: {'User-Agent': MusicKeys.musicBrainzUserAgent, 'Accept': 'application/json'})
+                  .timeout(const Duration(seconds: 15));
+              if (response.statusCode == 404) return null;
+              if (response.statusCode == 503 || response.statusCode == 429) throw MusicBrainzBusy(uri);
+              if (response.statusCode != 200) throw http.ClientException('MusicBrainz ${response.statusCode}', uri);
+              return jsonDecode(utf8.decode(response.bodyBytes));
+            });
+          } on MusicBrainzBusy {
+            if (attempt >= 4) rethrow;
+          } on TimeoutException {
+            if (attempt >= 3) throw MusicBrainzBusy(uri);
+          } on http.ClientException catch (error) {
+            if (error is MusicBrainzBusy || attempt >= 3 || error.message.startsWith('MusicBrainz ')) rethrow;
+          }
+          await Future<void>.delayed(Duration(milliseconds: 1500 * attempt));
+        }
       } catch (_) {
         _cache.remove(uri.toString());
         rethrow;
@@ -202,6 +222,54 @@ abstract final class MusicBrainz {
               artistName: _artistCredit(group['artist-credit']).$1,
             ),
     ];
+  }
+
+  /// The MusicBrainz id of the artist named exactly [name] (the best scored one).
+  static Future<String?> artistId(String name) async {
+    final json = await _get('/artist', {'query': 'artist:${phrase(name)}', 'limit': '5'});
+    final list = json is Map ? json['artists'] : null;
+    if (list is! List) return null;
+    final want = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+    for (final artist in list) {
+      if (artist is! Map || artist['id'] is! String) continue;
+      final got = '${artist['name'] ?? ''}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+      if (got == want && ((artist['score'] as num?) ?? 0) >= 90) return artist['id'] as String;
+    }
+    return null;
+  }
+
+  /// Every album, EP and single release group of an artist (up to 300).
+  static Future<List<MbRelease>> releaseGroupsOf(String artistMbid) async {
+    final groups = <MbRelease>[];
+    for (var offset = 0; offset < 300; offset += 100) {
+      final json = await _get('/release-group', {
+        'artist': artistMbid,
+        'type': 'album|ep|single',
+        'limit': '100',
+        'offset': '$offset',
+      });
+      final list = json is Map ? json['release-groups'] : null;
+      if (list is! List || list.isEmpty) break;
+      for (final group in list) {
+        if (group is! Map || group['id'] is! String || group['title'] is! String) continue;
+        groups.add(
+          MbRelease(
+            id: '',
+            title: group['title'] as String,
+            releaseGroupMbid: group['id'] as String,
+            releaseGroupTitle: group['title'] as String,
+            primaryType: group['primary-type'] as String?,
+            secondaryTypes: [
+              for (final type in (group['secondary-types'] as List?) ?? const []) ?(type is String ? type : null),
+            ],
+            date: group['first-release-date'] as String?,
+          ),
+        );
+      }
+      final total = (json as Map)['release-group-count'];
+      if (total is num && groups.length >= total) break;
+    }
+    return groups;
   }
 
   // ---- Parsing.

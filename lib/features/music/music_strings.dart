@@ -78,15 +78,9 @@ abstract final class MusicStrings {
   static const noPreview = 'No preview for this one';
   static const requestFailed = "Couldn't request it. Try again in a bit.";
   static String requestNoMatch(String title) =>
-      "Couldn't find $title on MusicBrainz, so Lidarr can't get it yet.";
-  static const requestSong = 'Request Song';
-  static const morePopularSongs = 'More Popular Songs';
-  static const moreAlbums = 'More Albums';
-  static const moreSinglesAndEps = 'More Singles & EPs';
-  static const notInLibrarySubtitle = 'Not in your library yet';
-  static String requestedSingle(String title) => 'Requested the single "$title".';
-  static String requestedAlbumFor(String song, String album) =>
-      'Lidarr gets whole releases, so "$song" comes with "$album". Requested.';
+      "$title isn't on MusicBrainz yet, and Lidarr only gets what MusicBrainz lists. Try again once it's been added.";
+  static const feat = 'feat.';
+  static const musicBrainzBusy = "MusicBrainz is busy right now, so Lidarr's id for it couldn't be looked up. Try again in a minute.";
   static const requestSent = "Requested. It'll show up in your music when it's ready.";
   static const requestUnavailable = "Requests need Allseerr, and it isn't connected right now.";
   static const discography = 'Discography';

@@ -9,6 +9,7 @@ import 'discover_models.dart';
 import 'lastfm.dart';
 import 'music_search_index.dart';
 import 'musicbrainz.dart';
+import 'tidal.dart';
 
 /// A song in search results: ours (playable) or from outside (preview, request its release).
 class SearchSong {
@@ -24,6 +25,13 @@ class SearchSong {
   String? get albumTitle => server?.albumTitle ?? external?.album.title;
 
   String get key => SearchText.songKey(artist, title);
+
+  /// Everyone on the song, for clickable names.
+  ArtistCredit get credit {
+    final track = external;
+    if (track != null) return ArtistCredit([track.artistName], track.featuring);
+    return ArtistCredit.parse(artist);
+  }
 }
 
 class MusicSearchOutcome {
@@ -131,6 +139,7 @@ class MusicSearch {
       quietly(MusicBrainz.searchRecordings(query), const <MbRecording>[], 'MusicBrainz search'),
       quietly(_Trending.load(), _Trending.empty, 'charts'),
       quietly(discovery.catalog.search(query), null, 'library search'),
+      quietly(Tidal.search(query), TidalSearchResults.empty, 'TIDAL search'),
       for (final variant in variants)
         quietly(_deezerArtists(variant), const <_DeezerArtist>[], 'Deezer artist search'),
     ]);
@@ -142,11 +151,13 @@ class MusicSearch {
     final recordings = results[5] as List<MbRecording>;
     final trending = results[6] as _Trending;
     final library = results[7] as MusicSearchResults?;
-    final deezerArtists = [for (final result in results.skip(8)) ...result as List<_DeezerArtist>];
+    final tidal = results[8] as TidalSearchResults;
+    final deezerArtists = [for (final result in results.skip(9)) ...result as List<_DeezerArtist>];
 
     // ---- Link everything into one set of songs, albums and artists, then index it.
     final linker = _Linker(trending)
       ..addDeezerTracks(deezerTracks)
+      ..addTidal(tidal)
       ..addRecordings(recordings)
       ..addLastFmTracks(lastFmTracks)
       ..addDeezerAlbums(deezerAlbums)
@@ -154,6 +165,8 @@ class MusicSearch {
       ..addDeezerArtists(deezerArtists)
       ..addLastFmArtists(lastFmArtists)
       ..addRecordingArtists(recordings);
+    // TIDAL's songs have no previews: Deezer has the same recording by ISRC.
+    await linker.addPreviews();
     linker.indexInto(songs: _songs, albums: _albums, artists: _artists);
 
     final artistHits = _artists.search(query, limit: 14);
@@ -308,6 +321,7 @@ class MusicSearch {
             ),
             previewUrl: preview is String && preview.isNotEmpty ? preview : null,
             length: entry['duration'] is num ? Duration(seconds: (entry['duration'] as num).toInt()) : null,
+            featuring: Deezer.featuredIn(entry['title'] as String?),
           ),
           (entry['rank'] as num?)?.toInt() ?? 0,
         ),
@@ -352,7 +366,10 @@ abstract final class _Popularity {
   static double artistListeners(num listeners) => _log(listeners, 3, 3.8);
 
   /// Both sources when we have both, otherwise whichever we have.
-  static double mix(double? a, double? b) => a != null && b != null ? (a + b) / 2 : (a ?? b ?? 0);
+  static double mix(double? a, double? b, [double? c]) {
+    final values = [?a, ?b, ?c];
+    return values.isEmpty ? 0 : values.reduce((x, y) => x + y) / values.length;
+  }
 }
 
 /// What's charting right now on Deezer and Last.fm, refreshed every half hour.
@@ -415,32 +432,38 @@ class _Trending {
 // ---- Linking: the same song, album or artist from different sources becomes one.
 
 class _Song {
-  _Song(this.track, {this.deezerRank, this.listeners, this.recordingMbid});
+  _Song(this.track, {this.deezerRank, this.listeners, this.recordingMbid, this.tidal});
 
   ChartTrack track;
   int? deezerRank;
   int? listeners;
   String? recordingMbid;
+
+  /// TIDAL's popularity, already 0..1.
+  double? tidal;
   final Set<String> isrcs = {};
 
   double get popularity => _Popularity.mix(
     deezerRank == null ? null : _Popularity.deezerRank(deezerRank!),
     listeners == null ? null : _Popularity.songListeners(listeners!),
+    tidal,
   );
 
   String get key => SearchText.songKey(track.artistName, track.title);
 }
 
 class _Artist {
-  _Artist(this.artist, {this.fans, this.listeners});
+  _Artist(this.artist, {this.fans, this.listeners, this.tidal});
 
   DiscoverArtist artist;
   int? fans;
   int? listeners;
+  double? tidal;
 
   double get popularity => _Popularity.mix(
     fans == null ? null : _Popularity.fans(fans!),
     listeners == null ? null : _Popularity.artistListeners(listeners!),
+    tidal,
   );
 }
 
@@ -509,6 +532,119 @@ class _Linker {
       _songs.add(song);
       _remember(song);
     }
+  }
+
+  // ---- TIDAL: popularity, full credits, ISRCs and barcodes.
+
+  static ChartTrack _copy(ChartTrack track, {int? id, String? previewUrl, DiscoverAlbum? album, List<String>? featuring}) =>
+      ChartTrack(
+        id: id ?? track.id,
+        rank: track.rank,
+        title: track.title,
+        artistName: track.artistName,
+        album: album ?? track.album,
+        previewUrl: previewUrl ?? track.previewUrl,
+        length: track.length,
+        featuring: featuring ?? track.featuring,
+      );
+
+  static DiscoverAlbum _tidalAlbum(TidalAlbum album, {String? isrc}) => DiscoverAlbum(
+    mbid: 'td:${album.id}',
+    title: album.title,
+    artistName: album.artists.isEmpty ? '' : album.artists.first,
+    featuring: album.artists.skip(1).toList(),
+    coverUrl: album.coverUrl,
+    releaseDate: album.releaseDate,
+    type: album.type,
+    ids: MusicIds(upc: album.barcode, isrc: isrc),
+  );
+
+  void addTidal(TidalSearchResults results) {
+    for (final tidal in results.tracks) {
+      final artist = tidal.artists.isNotEmpty ? tidal.artists.first : (tidal.album?.artists.firstOrNull ?? '');
+      if (artist.isEmpty) continue;
+      final featuring = tidal.artists.skip(1).toList();
+      final existing = _find(isrcs: [?tidal.isrc], name: SearchText.songKey(artist, tidal.title), length: tidal.length);
+      if (existing != null) {
+        existing.tidal = tidal.popularity;
+        if (tidal.isrc case final isrc?) existing.isrcs.add(isrc);
+        final album = existing.track.album;
+        final sameAlbum = tidal.album != null &&
+            SearchText.squash(SearchText.cleanTitle(tidal.album!.title)) == SearchText.squash(SearchText.cleanTitle(album.title));
+        existing.track = _copy(
+          existing.track,
+          // The barcode only belongs to this album if it's the same release.
+          album: album.copyWith(ids: MusicIds(isrc: tidal.isrc, upc: sameAlbum ? tidal.album!.barcode : null)),
+          featuring: existing.track.featuring.isEmpty ? featuring : null,
+        );
+        _remember(existing);
+        continue;
+      }
+      final tidalAlbum = tidal.album;
+      if (tidalAlbum == null) continue;
+      final song = _Song(
+        ChartTrack(
+          id: tidal.id.hashCode,
+          rank: _songs.length + 1,
+          title: tidal.title,
+          artistName: artist,
+          album: _tidalAlbum(tidalAlbum, isrc: tidal.isrc),
+          length: tidal.length,
+          featuring: featuring,
+        ),
+        tidal: tidal.popularity,
+      );
+      if (tidal.isrc case final isrc?) song.isrcs.add(isrc);
+      _songs.add(song);
+      _remember(song);
+    }
+    for (final album in results.albums) {
+      final discover = _tidalAlbum(album);
+      _putAlbum(discover);
+      final key = SearchText.albumKey(discover.artistName, discover.title);
+      _albumPopularity[key] = max(_albumPopularity[key] ?? 0, album.popularity);
+    }
+    for (final artist in results.artists) {
+      final key = SearchText.squash(artist.name);
+      final existing = _artists[key];
+      if (existing != null) {
+        existing.tidal = artist.popularity;
+      } else {
+        _artists[key] = _Artist(DiscoverArtist(mbid: 'name:${artist.name}', name: artist.name), tidal: artist.popularity);
+      }
+    }
+  }
+
+  /// Songs without a preview (TIDAL's, MusicBrainz's) get Deezer's copy of the same recording
+  /// by ISRC: its preview, and its cover when we have none. Without one they don't show.
+  Future<void> addPreviews({int limit = 16}) async {
+    final missing = [
+      for (final song in _songs)
+        if (song.track.previewUrl == null && song.isrcs.isNotEmpty) song,
+    ].take(limit).toList();
+    await Future.wait([
+      for (final song in missing)
+        () async {
+          for (final isrc in song.isrcs.take(2)) {
+            final deezer = await quietly(Deezer.trackByIsrc(isrc), null, 'Deezer by ISRC');
+            if (deezer == null || deezer.previewUrl == null) continue;
+            final album = song.track.album;
+            final sameAlbum = SearchText.squash(SearchText.cleanTitle(deezer.album.title)) ==
+                SearchText.squash(SearchText.cleanTitle(album.title));
+            song.track = _copy(
+              song.track,
+              id: deezer.id,
+              previewUrl: deezer.previewUrl,
+              album: album.copyWith(
+                coverUrl: album.coverUrl == null ? deezer.album.coverUrl : null,
+                deezerId: sameAlbum ? deezer.album.deezerId : null,
+              ),
+            );
+            song.deezerRank ??= deezer.rank > 1000 ? deezer.rank : null;
+            return;
+          }
+        }(),
+    ]);
   }
 
   /// MusicBrainz recordings: they bring the ISRCs and the release group ids. A recording
@@ -597,6 +733,7 @@ class _Linker {
     album: track.album.copyWith(mbid: MusicIds.isMbid(mbid) ? mbid : null, ids: ids),
     previewUrl: track.previewUrl,
     length: track.length,
+    featuring: track.featuring,
   );
 
   /// Last.fm songs: listener counts for the songs we have (they have no album to show alone).
