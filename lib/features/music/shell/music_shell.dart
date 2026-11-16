@@ -91,7 +91,27 @@ class _MusicShellState extends State<MusicShell> {
     super.didChangeDependencies();
     _insets = context.read<MiniPlayerInsetController?>();
     _active = ShellActivity.watch(context);
-    if (!_active) _insets?.setMusicShellInsets(null);
+    if (!_active) _clearInsets(_insets);
+  }
+
+  /// Hand the mini player back to the video shell's insets. Never mid-build: the controller
+  /// notifies listeners, and widgets above us are listening.
+  static void _clearInsets(MiniPlayerInsetController? insets) {
+    if (insets == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => insets.setMusicShellInsets(null));
+  }
+
+  /// Opens [item] (an artist or an album) on the current tab, for Now Playing's links.
+  void _openFromOutside(MediaItem item) {
+    final navigator = _navigators[_tab]!.currentState;
+    if (navigator == null) return;
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => item.kind == MediaKind.artist ? MusicArtistPage(artist: item) : MusicReleasePage(album: item),
+        ),
+      ),
+    );
   }
 
   /// Opens [item] (an artist or an album) on the current tab, for Now Playing's links.
@@ -111,7 +131,7 @@ class _MusicShellState extends State<MusicShell> {
   void dispose() {
     if (MusicModeLinks.open == _openFromOutside) MusicModeLinks.open = null;
     AppModeController.instance.removeListener(_onModeChanged);
-    _insets?.setMusicShellInsets(null);
+    _clearInsets(_insets);
     for (final node in _railFocus.values) {
       node.dispose();
     }

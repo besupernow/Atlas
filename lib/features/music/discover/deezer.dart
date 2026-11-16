@@ -242,6 +242,35 @@ abstract final class Deezer {
     );
   }
 
+  /// Deezer's search for [kind] (track, album or artist), raw entries in Deezer's order.
+  static Future<List<Map>> search(String kind, String query, {int limit = 25}) async =>
+      _data(await _get('/search/$kind', {'q': query, 'limit': '$limit'}));
+
+  // ---- Standard codes, for tying Deezer's albums and songs to MusicBrainz.
+
+  /// The barcode (UPC/EAN) of a Deezer album.
+  static Future<String?> upcOf(int albumId) async {
+    final info = await _get('/album/$albumId');
+    return info is Map ? _string(info['upc']) : null;
+  }
+
+  /// The ISRC of a Deezer track.
+  static Future<String?> isrcOf(int trackId) async {
+    final info = await _get('/track/$trackId');
+    return info is Map ? _string(info['isrc']) : null;
+  }
+
+  /// ISRCs of a Deezer album's first few tracks.
+  static Future<List<String>> albumIsrcs(int albumId, {int count = 2}) async {
+    final tracks = _data(await _get('/album/$albumId/tracks', {'limit': '200'}));
+    final isrcs = <String>[];
+    for (final track in tracks.take(count)) {
+      final isrc = _string(track['isrc']) ?? (track['id'] is num ? await isrcOf((track['id'] as num).toInt()) : null);
+      if (isrc != null) isrcs.add(isrc);
+    }
+    return isrcs;
+  }
+
   static String normal(String value) => value
       .toLowerCase()
       .replaceAll(RegExp(r'\((deluxe|expanded|remaster|anniversary|bonus|explicit)[^)]*\)|\[[^\]]*\]'), '')

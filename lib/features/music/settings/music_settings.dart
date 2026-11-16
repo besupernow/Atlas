@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -12,16 +10,16 @@ import '../../../services/settings_service.dart';
 import '../../../widgets/setting_tile.dart';
 import '../../../widgets/settings_page.dart';
 import '../../../widgets/settings_section.dart';
-import '../discover/listenbrainz.dart';
-import '../discover/listenbrainz_connect.dart';
+import '../data/music_server.dart';
 import '../music_strings.dart';
+import 'listenbrainz_accounts.dart';
 
 /// Atlas: settings opened from music mode: the shared groups (general, appearance, accounts,
 /// downloads, advanced), with music's own groups where video playback would be.
 Future<void> openMusicSettings(BuildContext context) =>
     Navigator.of(context).push(buildSettingsRoute(mode: SettingsMode.music, musicSections: musicSettingsSections));
 
-/// Music mode's groups in Settings: playback and ListenBrainz.
+/// Music mode's groups in Settings: playback, and for admins, everyone's ListenBrainz accounts.
 List<Widget> musicSettingsSections(BuildContext context) => [
   SettingsGroup(
     title: MusicStrings.settingsMusic,
@@ -37,22 +35,18 @@ List<Widget> musicSettingsSections(BuildContext context) => [
   ),
 ];
 
+/// Admins only: which ListenBrainz account goes with each user (saved on the server).
 class _ListenBrainzTile extends StatelessWidget {
   const _ListenBrainzTile();
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: ListenBrainzAccount.changes,
-      builder: (context, _, _) {
-        final name = ListenBrainzAccount.username(context);
-        return SettingNavigationTile(
-          icon: Symbols.graphic_eq_rounded,
-          title: MusicStrings.listenBrainz,
-          subtitle: name == null ? MusicStrings.listenBrainzSubtitle : MusicStrings.connectedAsName(name),
-          onTap: () => unawaited(showListenBrainzConnect(context)),
-        );
-      },
+    if (!MusicServer.isAdmin(context)) return const SizedBox.shrink();
+    return SettingNavigationTile(
+      icon: Symbols.graphic_eq_rounded,
+      title: MusicStrings.listenBrainzAccounts,
+      subtitle: MusicStrings.listenBrainzAccountsSubtitle,
+      destinationBuilder: (_) => const ListenBrainzAccounts(),
     );
   }
 }

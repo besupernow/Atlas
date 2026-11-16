@@ -10,6 +10,7 @@ import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../../../media/media_server_client.dart';
 import '../../../services/music/music_playback_service.dart';
+import '../../../utils/app_logger.dart';
 import '../../../utils/media_image_helper.dart';
 import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
@@ -915,13 +916,21 @@ class _HeroCard extends StatelessWidget {
 
 /// Ask Allseerr for [album] (an album, EP or single). False when it couldn't (not connected,
 /// no MusicBrainz match, server error).
+/// Request [album] and say how it went.
 Future<bool> requestAlbum(BuildContext context, DiscoverAlbum album) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
   final seerr = AllseerrMusic.of(context);
-  if (seerr == null) return false;
+  if (seerr == null) {
+    messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestUnavailable)));
+    return false;
+  }
   try {
     await seerr.request(album);
+    messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestSent)));
     return true;
-  } catch (_) {
+  } catch (error) {
+    appLogger.w('Music request for ${album.artistName} - ${album.title} failed', error: error);
+    messenger?.showSnackBar(SnackBar(content: Text(MusicRequestException.describe(error))));
     return false;
   }
 }
@@ -956,8 +965,9 @@ class _RequestButtonState extends State<RequestButton> {
     try {
       await seerr.request(widget.album);
       messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestSent)));
-    } catch (_) {
-      messenger?.showSnackBar(const SnackBar(content: Text(MusicStrings.requestFailed)));
+    } catch (error) {
+      appLogger.w('Music request for ${widget.album.artistName} - ${widget.album.title} failed', error: error);
+      messenger?.showSnackBar(SnackBar(content: Text(MusicRequestException.describe(error))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

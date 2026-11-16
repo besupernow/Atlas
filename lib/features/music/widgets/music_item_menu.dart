@@ -253,9 +253,7 @@ abstract final class MusicItemMenu {
   }
 
   static Future<void> _request(BuildContext context, DiscoverAlbum album) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final ok = await requestAlbum(context, album);
-    messenger?.showSnackBar(SnackBar(content: Text(ok ? MusicStrings.requestSent : MusicStrings.requestFailed)));
+    await requestAlbum(context, album);
   }
 }
 

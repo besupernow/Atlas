@@ -13,9 +13,6 @@ import '../../../screens/profile/profile_teardown.dart';
 import '../../../utils/dialogs.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/app_menu.dart';
-import '../discover/listenbrainz.dart';
-import '../discover/listenbrainz_connect.dart';
-import '../music_strings.dart';
 import '../settings/music_settings.dart';
 
 /// Atlas: the profile picture in music mode's header, like the one on the movies Discover
@@ -35,8 +32,6 @@ class _MusicProfileButtonState extends State<MusicProfileButton> {
     switch (value) {
       case 'settings':
         await openMusicSettings(context);
-      case 'listenbrainz':
-        await showListenBrainzConnect(context);
       case 'manage_profiles':
         await Navigator.of(
           context,
@@ -81,7 +76,6 @@ class _MusicProfileButtonState extends State<MusicProfileButton> {
       onSelected: (value) => unawaited(_onSelected(value)),
       entriesBuilder: (context) {
         final others = profiles.profiles.where((p) => p.id != active?.id).toList();
-        final listenBrainz = ListenBrainzAccount.username(context);
         return [
           for (final p in others)
             AppMenuItem<String>(
@@ -93,11 +87,6 @@ class _MusicProfileButtonState extends State<MusicProfileButton> {
                   : null,
             ),
           if (others.isNotEmpty) const AppMenuDivider(),
-          AppMenuItem<String>(
-            value: 'listenbrainz',
-            icon: Symbols.graphic_eq_rounded,
-            label: listenBrainz == null ? MusicStrings.connect : MusicStrings.connectedAsName(listenBrainz),
-          ),
           AppMenuItem<String>(value: 'manage_profiles', icon: Symbols.group_rounded, label: t.profiles.sectionTitle),
           AppMenuItem<String>(value: 'settings', icon: Symbols.settings_rounded, label: t.common.settings),
           AppMenuItem<String>(value: 'logout', icon: Symbols.logout_rounded, label: t.common.logout),

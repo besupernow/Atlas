@@ -21,6 +21,61 @@ enum DiscoverStatus {
   bool get inProgress => this == DiscoverStatus.requested || this == DiscoverStatus.downloading;
 }
 
+/// The standard codes that tie the same music together across Deezer, Last.fm and MusicBrainz.
+/// A request needs the MusicBrainz release group; the rest are how we get to it reliably
+/// (a UPC or an ISRC names exactly one product or recording, a name only roughly).
+class MusicIds {
+  const MusicIds({
+    this.releaseGroupMbid,
+    this.releaseMbid,
+    this.recordingMbid,
+    this.upc,
+    this.isrc,
+    this.deezerTrackId,
+  });
+
+  /// What Allseerr requests are made with.
+  final String? releaseGroupMbid;
+
+  /// One edition of it (Last.fm's album ids are these).
+  final String? releaseMbid;
+
+  /// The song this album was found through, when it came from a song.
+  final String? recordingMbid;
+
+  /// The barcode of the release (Deezer's albums carry it).
+  final String? upc;
+
+  /// The ISRC of the song this album was found through.
+  final String? isrc;
+  final int? deezerTrackId;
+
+  static const none = MusicIds();
+
+  bool get isEmpty =>
+      releaseGroupMbid == null &&
+      releaseMbid == null &&
+      recordingMbid == null &&
+      upc == null &&
+      isrc == null &&
+      deezerTrackId == null;
+
+  /// Ours, with anything [other] knows that we don't.
+  MusicIds merge(MusicIds other) => MusicIds(
+    releaseGroupMbid: releaseGroupMbid ?? other.releaseGroupMbid,
+    releaseMbid: releaseMbid ?? other.releaseMbid,
+    recordingMbid: recordingMbid ?? other.recordingMbid,
+    upc: upc ?? other.upc,
+    isrc: isrc ?? other.isrc,
+    deezerTrackId: deezerTrackId ?? other.deezerTrackId,
+  );
+
+  static final _uuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+  /// Whether [value] is a MusicBrainz id (and not one of our `dz:` / `name:` stand-ins).
+  static bool isMbid(String? value) => value != null && _uuid.hasMatch(value);
+}
+
 /// An album from outside the server (ListenBrainz, MusicBrainz, through Allseerr), keyed by its
 /// MusicBrainz release group id, which is also what an Allseerr request is made with.
 class DiscoverAlbum {
@@ -35,10 +90,12 @@ class DiscoverAlbum {
     this.status = DiscoverStatus.notRequested,
     this.reason,
     this.deezerId,
+    this.ids = MusicIds.none,
   });
 
-  /// The MusicBrainz release group id, or `dz:<deezer id>` for an album that came from Deezer
-  /// and hasn't been matched to MusicBrainz yet (see [hasMbid]; requests match it first).
+  /// The MusicBrainz release group id, or a stand-in (`dz:<deezer id>`, `lf:…`, `mb:…`) for an
+  /// album from Deezer or Last.fm that isn't tied to MusicBrainz yet (see [hasMbid]; requests
+  /// resolve it from [ids] first).
   final String mbid;
   final String title;
   final String artistName;
@@ -56,8 +113,11 @@ class DiscoverAlbum {
   /// Deezer's id, for albums from Deezer's charts and releases (art, track list, previews).
   final int? deezerId;
 
-  /// False for albums from Deezer (`dz:`) or the iTunes Store (`it:`) not yet matched.
-  bool get hasMbid => !mbid.startsWith('dz:') && !mbid.startsWith('it:');
+  /// The codes that lead to its MusicBrainz release group.
+  final MusicIds ids;
+
+  /// Whether [mbid] is a real MusicBrainz release group id.
+  bool get hasMbid => MusicIds.isMbid(mbid);
 
   String? get year => releaseDate != null && releaseDate!.length >= 4 ? releaseDate!.substring(0, 4) : null;
 
@@ -68,6 +128,8 @@ class DiscoverAlbum {
     String? reason,
     int? deezerId,
     String? artistMbid,
+    MusicIds? ids,
+    String? type,
   }) => DiscoverAlbum(
     mbid: mbid ?? this.mbid,
     title: title,
@@ -75,10 +137,11 @@ class DiscoverAlbum {
     artistMbid: artistMbid ?? this.artistMbid,
     coverUrl: coverUrl ?? this.coverUrl,
     releaseDate: releaseDate,
-    type: type,
+    type: type ?? this.type,
     status: status ?? this.status,
     reason: reason ?? this.reason,
     deezerId: deezerId ?? this.deezerId,
+    ids: ids == null ? this.ids : this.ids.merge(ids),
   );
 
   /// From an Allseerr `AlbumResult`.
@@ -127,7 +190,7 @@ class DiscoverArtist {
   final String? reason;
   final int? deezerId;
 
-  bool get hasMbid => !mbid.startsWith('dz:');
+  bool get hasMbid => MusicIds.isMbid(mbid);
 
   static DiscoverArtist? fromSeerr(Object? json, {String? reason}) {
     if (json is! Map<String, dynamic>) return null;

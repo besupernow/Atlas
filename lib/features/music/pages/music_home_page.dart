@@ -7,7 +7,6 @@ import '../../../utils/music_navigation.dart';
 import '../discover/allseerr_music.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
-import '../discover/listenbrainz_connect.dart';
 import '../discover/music_feed_page.dart';
 import '../discover/music_mixes.dart';
 import '../music_strings.dart';
@@ -163,17 +162,6 @@ class _MusicHomePageState extends State<MusicHomePage> {
         items: MusicDiscovery.server(await _shared(d).recentlyPlayed),
         seeAll: () async => MusicDiscovery.server(await d.catalog.recentlyPlayed(limit: 60)),
       ),
-    ),
-    MusicFeedSpec(
-      id: 'connect',
-      load: (d) async {
-        if (d.listenBrainz != null) return null;
-        return MusicFeedRow(
-          id: 'connect',
-          title: MusicStrings.connectTitle,
-          custom: (context, focusRail) => ListenBrainzConnectCard(onNavigateLeft: focusRail),
-        );
-      },
     ),
     MusicFeedSpec(
       id: 'made-for-you',

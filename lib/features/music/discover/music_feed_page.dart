@@ -78,7 +78,10 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
     final first = _sources == null;
     _sources = sources;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_load(fresh: !first));
+      if (!mounted) return;
+      unawaited(_load(fresh: !first));
+      // The ListenBrainz name lives on the server; a change reloads through [_reload].
+      unawaited(ListenBrainzAccount.refresh(context, force: !first));
     });
   }
 
