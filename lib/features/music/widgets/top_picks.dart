@@ -253,10 +253,10 @@ class _TopPickCard extends StatelessWidget {
 
     final Widget art = switch (pick) {
       MixPick(:final mix) => MixArt(mix: mix, size: width, radius: 0),
-      ItemPick(:final item) => MusicArt(item: item, size: width, radius: 0, shadow: false),
+      ItemPick(:final item) => MusicArt(item: item, size: width, radius: 0),
       StationPick(:final artist) => Stack(
         children: [
-          MusicArt(item: ServerFeedItem(artist), size: width, radius: 0, shadow: false),
+          MusicArt(item: ServerFeedItem(artist), size: width, radius: 0),
           Positioned(
             left: 12,
             top: 12,

@@ -293,7 +293,7 @@ class _SongResult extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  MusicArt(item: item, size: 52, radius: 8, shadow: false),
+                  MusicArt(item: item, size: 52, radius: 8),
                   if (server == null)
                     const Positioned(right: 2, bottom: 2, child: AppIcon(Symbols.cloud_rounded, size: 14, color: Colors.white, fill: 1.0)),
                 ],

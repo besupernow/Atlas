@@ -216,10 +216,16 @@ class DiscoverTrack {
     this.disc = 1,
     this.artist,
     this.previewUrl,
+    this.isrc,
+    this.deezerId,
   });
 
   final String title;
   final String number;
+
+  /// The song's ISRC and Deezer id, when Deezer gave them (for requesting just this song).
+  final String? isrc;
+  final int? deezerId;
   final Duration? length;
 
   /// A 30-second clip (Deezer), when there is one.

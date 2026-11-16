@@ -152,7 +152,9 @@ abstract final class MusicPreviews {
 }
 
 /// Atlas: plays previews. One at a time, app-wide; music that was playing pauses for the clip
-/// and carries on when it ends or is stopped (like Apple Music).
+/// and carries on when it ends or is stopped (like Apple Music). A preview belongs to the page
+/// it was started on: it stops when that page is closed or another page opens over it (menus
+/// and sheets over it don't count).
 class MusicPreviewPlayer extends ChangeNotifier {
   MusicPreviewPlayer._();
 
@@ -177,11 +179,41 @@ class MusicPreviewPlayer extends ChangeNotifier {
 
   bool isPlaying(String key, {int? index}) => _playingKey == key && (index == null || index == _index);
 
+  bool get active => _playingKey != null;
+
+  VoidCallback? _unwatch;
+
+  /// Stop when the page [context] is on goes away or gets covered by another page.
+  void _watchPage(BuildContext context) {
+    _unwatch?.call();
+    _unwatch = null;
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    final animation = route.animation;
+    final covering = route.secondaryAnimation;
+    void onPage(AnimationStatus status) {
+      if (status == AnimationStatus.reverse || status == AnimationStatus.dismissed) unawaited(stop());
+    }
+
+    // Only another page drives this (a page route doesn't transition to sheets or menus).
+    void onCovered(AnimationStatus status) {
+      if (status == AnimationStatus.forward || status == AnimationStatus.completed) unawaited(stop());
+    }
+
+    animation?.addStatusListener(onPage);
+    covering?.addStatusListener(onCovered);
+    _unwatch = () {
+      animation?.removeStatusListener(onPage);
+      covering?.removeStatusListener(onCovered);
+    };
+  }
+
   /// Play [clips] of the album [key] from [startAt]; tapping the playing one stops it.
   Future<void> toggle(BuildContext context, String key, List<PreviewClip> clips, {int startAt = 0}) async {
     if (isPlaying(key, index: startAt)) return stop();
     if (clips.isEmpty) return;
     final music = context.read<MusicPlaybackService?>();
+    _watchPage(context);
     await _stopController();
     if (_pausedMusic == null && music != null && music.isPlaying) {
       _pausedMusic = music;
@@ -196,6 +228,7 @@ class MusicPreviewPlayer extends ChangeNotifier {
   /// Play a whole album's previews in order, starting from the first.
   Future<void> playAlbum(BuildContext context, String key, Future<List<PreviewClip>> clips) async {
     if (_playingKey == key) return stop();
+    _watchPage(context);
     _loading = true;
     _playingKey = key;
     notifyListeners();
@@ -269,6 +302,8 @@ class MusicPreviewPlayer extends ChangeNotifier {
 
   /// Stop the preview and resume any music it paused.
   Future<void> stop() async {
+    _unwatch?.call();
+    _unwatch = null;
     await _stopController();
     _playingKey = null;
     _loading = false;

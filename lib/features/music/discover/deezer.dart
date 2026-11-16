@@ -202,6 +202,30 @@ abstract final class Deezer {
     return albums;
   }
 
+  /// An artist's most played songs, with previews.
+  static Future<List<ChartTrack>> topTracksOf(DiscoverArtist artist, {int limit = 15}) async {
+    final id = artist.deezerId ?? (await findArtist(artist.name))?.deezerId;
+    if (id == null) return const [];
+    final tracks = <ChartTrack>[];
+    for (final json in _data(await _get('/artist/$id/top', {'limit': '$limit'}))) {
+      final album = albumFrom(json['album'], artist: json['artist'] ?? {'name': artist.name});
+      final trackId = json['id'];
+      if (album == null || trackId is! num) continue;
+      tracks.add(
+        ChartTrack(
+          id: trackId.toInt(),
+          rank: tracks.length + 1,
+          title: _string(json['title_short']) ?? _string(json['title']) ?? '',
+          artistName: album.artistName,
+          album: album.copyWith(ids: MusicIds(deezerTrackId: trackId.toInt(), isrc: _string(json['isrc']))),
+          previewUrl: _string(json['preview']),
+          length: json['duration'] is num ? Duration(seconds: (json['duration'] as num).toInt()) : null,
+        ),
+      );
+    }
+    return tracks;
+  }
+
   /// The album an artist is best known for (the album of their most played song).
   static Future<DiscoverAlbum?> signatureAlbum(DiscoverArtist artist, {String? reason}) async {
     final id = artist.deezerId ?? (await findArtist(artist.name))?.deezerId;
@@ -237,6 +261,8 @@ abstract final class Deezer {
             length: track['duration'] is num ? Duration(seconds: (track['duration'] as num).toInt()) : null,
             artist: track['artist'] is Map ? _string(track['artist']['name']) : null,
             previewUrl: _string(track['preview']),
+            isrc: _string(track['isrc']),
+            deezerId: (track['id'] as num?)?.toInt(),
           ),
       ],
     );
@@ -258,6 +284,22 @@ abstract final class Deezer {
   static Future<String?> isrcOf(int trackId) async {
     final info = await _get('/track/$trackId');
     return info is Map ? _string(info['isrc']) : null;
+  }
+
+  /// A song's ISRC found by artist and title (exact title, artist contained).
+  static Future<String?> findIsrc(String artist, String title) async {
+    final query = 'artist:"${artist.replaceAll('"', '')}" track:"${title.replaceAll('"', '')}"';
+    final wantTitle = normal(title);
+    final wantArtist = normal(artist);
+    for (final json in _data(await _get('/search/track', {'q': query, 'limit': '10'}))) {
+      final gotTitle = normal(_string(json['title_short']) ?? _string(json['title']) ?? '');
+      final artistJson = json['artist'];
+      final gotArtist = normal(artistJson is Map ? _string(artistJson['name']) ?? '' : '');
+      if (gotTitle != wantTitle || !(gotArtist.contains(wantArtist) || wantArtist.contains(gotArtist))) continue;
+      final id = json['id'];
+      if (id is num) return isrcOf(id.toInt());
+    }
+    return null;
   }
 
   /// ISRCs of a Deezer album's first few tracks.

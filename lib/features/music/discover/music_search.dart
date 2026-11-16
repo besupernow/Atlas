@@ -75,7 +75,8 @@ class MusicSearch {
   MusicSearchOutcome instant(String rawQuery) {
     final query = rawQuery.trim();
     if (query.isEmpty || _songs.length + _artists.length == 0) return const MusicSearchOutcome();
-    final songs = _songs.search(query, minRelevance: 0.6, limit: 20);
+    // Songs from outside only show when they can be previewed.
+    final songs = _songs.search(query, minRelevance: 0.6, limit: 30).where((hit) => hit.value.previewUrl != null).toList();
     final artists = _artists.search(query, minRelevance: 0.6, limit: 10);
     final albums = _albums.search(query, minRelevance: 0.6, limit: 15);
     final meant = _artistIsMeant(artists, songs);
@@ -184,6 +185,8 @@ class MusicSearch {
     final songs = <SearchSong>[];
     final seen = <String>{};
     for (final hit in songsRanked) {
+      // Songs from outside only show when they can be previewed.
+      if (hit.value.previewUrl == null) continue;
       final song = SearchSong.external(hit.value, hit.score);
       if (seen.add(song.key)) songs.add(song);
     }
