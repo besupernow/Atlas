@@ -4,7 +4,7 @@
 /// `--dart-define=LASTFM_API_KEY=yourkey`. Without one, search still works off Deezer and
 /// MusicBrainz, just with less to go on for popularity.
 abstract final class MusicKeys {
-  static const _pastedLastFmKey = '5e68889f695e159f3752f9a0853fb8a2';
+  static const _pastedLastFmKey = '';
 
   static const lastFm = String.fromEnvironment('LASTFM_API_KEY', defaultValue: _pastedLastFmKey);
 
