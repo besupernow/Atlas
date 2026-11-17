@@ -430,7 +430,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           ),
         ),
         if (playing)
-          Padding(padding: const EdgeInsets.fromLTRB(32, 8, 32, 0), child: _buildTrackInfo(track, centered: true)),
+          Padding(padding: const EdgeInsets.fromLTRB(28, 12, 28, 0), child: _buildTrackInfo(track, centered: false)),
       ],
     );
     // Touch only — desktop keeps mouse drags for text selection and the
@@ -449,10 +449,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     return Column(
       children: [
         Expanded(child: upper),
-        Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: _buildSeekBar(track)),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 14, 16, 0), child: _buildSeekBar(track)),
         _buildTransportRow(service),
+        const SizedBox(height: 4),
         _buildUtilityRow(showQueueButton: true),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -621,20 +622,46 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           children: [
             // Inset past the macOS traffic lights — this screen is a fullscreen
             // route, so the close button would otherwise sit underneath them.
-            DesktopAppBarHelper.buildAdjustedLeading(
-              FocusableButton(
-                onPressed: _pop,
-                child: IconButton(
-                  icon: AppIcon(Symbols.keyboard_arrow_down_rounded, fill: 1, color: tk.text),
-                  tooltip: t.common.close,
+            if (PlatformDetector.isDesktopOS())
+              DesktopAppBarHelper.buildAdjustedLeading(
+                FocusableButton(
                   onPressed: _pop,
+                  child: IconButton(
+                    icon: AppIcon(Symbols.keyboard_arrow_down_rounded, fill: 1, color: tk.text),
+                    tooltip: t.common.close,
+                    onPressed: _pop,
+                  ),
+                ),
+                context: context,
+              )!
+            else
+              const SizedBox(width: 44),
+            // Atlas: a grabber, like a sheet you pull down (no "Playing from …" line).
+            Expanded(
+              child: Center(
+                child: Semantics(
+                  button: true,
+                  label: t.common.close,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _pop,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: tk.text.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              context: context,
-            )!,
-            // Atlas: no "Playing from …" line; the lyrics and queue buttons below switch views.
-            const Spacer(),
+            ),
             _buildOverflowButton(track),
+            const SizedBox(width: 4),
           ],
         ),
       ),
@@ -759,10 +786,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         onNavigateRight: focusable ? () {} : null,
         onBack: focusable ? _pop : null,
         useBackgroundFocus: focusable,
-        child: IconButton(
-          icon: AppIcon(Symbols.more_vert_rounded, fill: 1, color: tk.text),
-          onPressed: showMenu,
-          tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+        child: Tooltip(
+          message: MaterialLocalizations.of(context).showMenuTooltip,
+          child: _Pressable(
+            onTap: showMenu,
+            child: _Frosted(
+              size: 36,
+              child: AppIcon(Symbols.more_horiz_rounded, fill: 1, size: 22, color: tk.text),
+            ),
+          ),
         ),
       ),
     );
@@ -881,17 +913,65 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         isFocused: state.showFocus,
         borderRadius: MonoTokens.radiusFull,
       ),
-      child: IconButton(
-        icon: AppIcon(icon, fill: 1, size: size, color: active ? tk.text : tk.textMuted),
-        tooltip: tooltip,
-        onPressed: onPressed,
+      child: Tooltip(
+        message: tooltip ?? '',
+        child: _Pressable(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: AppIcon(icon, fill: 1, size: size, color: active ? tk.text : tk.text.withValues(alpha: 0.45)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Lyrics / Up Next: a quiet glyph, in a frosted chip when that view is open.
+  Widget _utilityIcon(
+    FocusableActionBuildState state, {
+    required IconData icon,
+    required bool active,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    final tk = tokens(context);
+    return AnimatedContainer(
+      duration: state.animationDuration,
+      decoration: FocusTheme.textFillFocusDecoration(
+        context,
+        isFocused: state.showFocus,
+        borderRadius: MonoTokens.radiusFull,
+      ),
+      child: Tooltip(
+        message: tooltip,
+        child: _Pressable(
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: active ? tk.text.withValues(alpha: 0.9) : Colors.transparent,
+            ),
+            child: Center(
+              child: AppIcon(
+                icon,
+                fill: 1,
+                size: 22,
+                color: active ? tk.bg : tk.text.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildTransportRow(MusicPlaybackService service) {
     final transport = FocusableActionBar(
-      spacing: 8,
+      spacing: 14,
       onNavigateUp: _seekFocusNode.requestFocus,
       onNavigateDown: () => _utilityBarKey.currentState?.requestFocusOnFirst(),
       onBack: _pop,
@@ -916,7 +996,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             icon: Symbols.skip_previous_rounded,
             tooltip: t.music.previousTrack,
             onPressed: () => unawaited(service.previous()),
-            size: 32,
+            size: 42,
           ),
         ),
         FocusableAction(
@@ -935,7 +1015,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             icon: Symbols.skip_next_rounded,
             tooltip: t.music.nextTrack,
             onPressed: () => unawaited(service.next()),
-            size: 32,
+            size: 42,
           ),
         ),
         FocusableAction(
@@ -966,7 +1046,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     return Center(
       child: FocusableActionBar(
         key: _utilityBarKey,
-        spacing: 16,
+        spacing: 64,
         onNavigateUp: _focusTransport,
         // Bottom of the chain — trap DOWN so focus can't escape the screen.
         // ignore: no-empty-block
@@ -976,26 +1056,24 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           FocusableAction(
             debugLabel: 'np_lyrics',
             onPressed: _toggleLyrics,
-            builder: (context, state) => _transportIcon(
+            builder: (context, state) => _utilityIcon(
               state,
               icon: Symbols.lyrics_rounded,
               active: _showLyrics,
               tooltip: t.music.lyrics,
               onPressed: _toggleLyrics,
-              size: 22,
             ),
           ),
           if (showQueueButton)
             FocusableAction(
               debugLabel: 'np_queue',
               onPressed: _toggleQueue,
-              builder: (context, state) => _transportIcon(
+              builder: (context, state) => _utilityIcon(
                 state,
                 icon: Symbols.queue_music_rounded,
                 active: _tab == _NowPlayingTab.queue,
                 tooltip: t.music.queue,
                 onPressed: _toggleQueue,
-                size: 22,
               ),
             ),
         ],
@@ -1090,18 +1168,41 @@ class _Background extends StatelessWidget {
         ColoredBox(color: tk.bg),
         // Atlas: the art's colors wash the whole screen (the blurred cover, stronger than before),
         // fading into the page toward the controls.
+        // Atlas: the cover blown up and blurred twice over (one turned, so the colors pool
+        // unevenly like Apple Music's), then a soft shade toward the controls.
         Opacity(
-          opacity: heavyScrim ? 0.4 : 0.62,
+          opacity: heavyScrim ? 0.45 : 0.9,
           child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80, tileMode: TileMode.mirror),
-            child: Transform.scale(
-              scale: 1.3,
-              child: OptimizedMediaImage(
-                client: client,
-                imagePath: track.thumbPath,
-                imageType: ImageType.square,
-                fit: BoxFit.cover,
-              ),
+            imageFilter: ImageFilter.blur(sigmaX: 90, sigmaY: 90, tileMode: TileMode.mirror),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Transform.scale(
+                  scale: 1.6,
+                  child: OptimizedMediaImage(
+                    client: client,
+                    imagePath: track.thumbPath,
+                    imageType: ImageType.square,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Opacity(
+                  opacity: 0.55,
+                  child: Transform.rotate(
+                    angle: math.pi,
+                    child: Transform.scale(
+                      scale: 2.2,
+                      alignment: Alignment.bottomLeft,
+                      child: OptimizedMediaImage(
+                        client: client,
+                        imagePath: track.thumbPath,
+                        imageType: ImageType.square,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1110,7 +1211,8 @@ class _Background extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [tk.bg.withValues(alpha: 0.05), tk.bg.withValues(alpha: 0.35), tk.bg.withValues(alpha: 0.7)],
+              stops: const [0, 0.55, 1],
+              colors: [tk.bg.withValues(alpha: 0.1), tk.bg.withValues(alpha: 0.28), tk.bg.withValues(alpha: 0.62)],
             ),
           ),
         ),
@@ -1135,43 +1237,104 @@ class _PlayPauseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = tokens(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final isPlaying = context.select<MusicPlaybackService, bool>((s) => s.isPlaying);
     final isLoading = context.select<MusicPlaybackService, bool>((s) => s.status == MusicPlaybackStatus.loading);
 
-    return AnimatedScale(
-      scale: state.showFocus ? 1.08 : 1.0,
+    // Atlas: just the glyph, big, like Apple Music (no Material slab). It swaps with a quick
+    // scale and fade; on TV, focus shows as the usual soft pill behind it.
+    return AnimatedContainer(
       duration: state.animationDuration,
-      child: AnimatedContainer(
-        duration: MonoMotion.shape(context),
-        curve: MonoMotion.emphasized,
-        width: 72,
-        height: 72,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: colorScheme.inverseSurface,
-          borderRadius: BorderRadius.circular(isPlaying ? tk.radiusLg + 4 : 36),
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            mouseCursor: SystemMouseCursors.click,
-            onTap: onPressed,
-            child: Center(
-              child: isLoading
-                  ? SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: colorScheme.onInverseSurface),
-                    )
-                  : AppIcon(
-                      isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
-                      fill: 1,
-                      size: 36,
-                      color: colorScheme.onInverseSurface,
+      decoration: FocusTheme.textFillFocusDecoration(context, isFocused: state.showFocus, borderRadius: MonoTokens.radiusFull),
+      child: _Pressable(
+        onTap: onPressed,
+        child: SizedBox(
+          width: 84,
+          height: 84,
+          child: Center(
+            child: isLoading
+                ? SizedBox(width: 34, height: 34, child: CircularProgressIndicator(strokeWidth: 3, color: tk.text))
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, animation) => ScaleTransition(
+                      scale: Tween(begin: 0.6, end: 1.0).animate(animation),
+                      child: FadeTransition(opacity: animation, child: child),
                     ),
-            ),
+                    child: AppIcon(
+                      isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+                      key: ValueKey(isPlaying),
+                      fill: 1,
+                      size: 64,
+                      color: tk.text,
+                    ),
+                  ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Atlas: a tap target that dips in scale while pressed instead of a Material ink splash.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  void _set(bool down) {
+    if (_down != down) setState(() => _down = down);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down ? 0.86 : 1,
+          duration: Duration(milliseconds: _down ? 90 : 220),
+          curve: _down ? Curves.easeOut : Curves.easeOutBack,
+          child: AnimatedOpacity(
+            opacity: _down ? 0.7 : 1,
+            duration: const Duration(milliseconds: 120),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Atlas: a small frosted circle (blur over whatever's behind, a touch of white).
+class _Frosted extends StatelessWidget {
+  const _Frosted({required this.child, required this.size});
+
+  final Widget child;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          width: size,
+          height: size,
+          color: Colors.white.withValues(alpha: 0.12),
+          alignment: Alignment.center,
+          child: child,
         ),
       ),
     );
@@ -1327,15 +1490,17 @@ class _NowPlayingSeekBarState extends State<_NowPlayingSeekBar> {
           mainAxisSize: .min,
           children: [
             SliderTheme(
+              // Atlas: a soft capsule with no thumb that grows while you drag it (Apple Music),
+              // instead of Material's slider.
               data: SliderTheme.of(context).copyWith(
-                trackHeight: 4,
-                activeTrackColor: tk.text,
-                inactiveTrackColor: tk.outline,
-                thumbColor: tk.text,
-                trackGap: dragging ? 4 : 0,
-                thumbSize: const WidgetStatePropertyAll(Size(4, 18)),
-                thumbShape: dragging ? null : SliderComponentShape.noThumb,
+                trackHeight: dragging ? 12 : 6,
+                activeTrackColor: tk.text.withValues(alpha: dragging ? 0.95 : 0.8),
+                inactiveTrackColor: tk.text.withValues(alpha: 0.18),
+                thumbColor: Colors.transparent,
+                trackGap: 0,
+                thumbShape: SliderComponentShape.noThumb,
                 overlayShape: SliderComponentShape.noOverlay,
+                trackShape: const RoundedRectSliderTrackShape(),
               ),
               child: Slider(
                 max: hasDuration ? durationMs : 1,
@@ -1363,10 +1528,24 @@ class _NowPlayingSeekBarState extends State<_NowPlayingSeekBar> {
                 children: [
                   Text(
                     formatDurationTimestamp(Duration(milliseconds: positionMs.round())),
-                    style: TextStyle(fontSize: 12, color: tk.textMuted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: tk.text.withValues(alpha: 0.55),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                   const Spacer(),
-                  Text(formatDurationTimestamp(duration), style: TextStyle(fontSize: 12, color: tk.textMuted)),
+                  // Time left, like Apple Music.
+                  Text(
+                    '-${formatDurationTimestamp(Duration(milliseconds: (durationMs - positionMs).clamp(0, durationMs).round()))}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: tk.text.withValues(alpha: 0.55),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ],
               ),
             ),

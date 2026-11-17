@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../focus/focusable_action_bar.dart';
-import '../../../focus/focusable_wrapper.dart';
 import '../../../media/artist_discography.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
@@ -24,13 +23,13 @@ import '../discover/deezer.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
-import '../discover/music_previews.dart';
 import '../discover/music_search_index.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/art_backdrop.dart';
-import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
+import '../widgets/release_hero.dart';
+import '../widgets/release_tracks.dart';
 
 /// Atlas: an Apple Music style artist page: full-bleed artwork fading into the page with the
 /// name over it, Play / Shuffle / Station, the five songs played most, the discography split
@@ -45,7 +44,29 @@ class MusicArtistPage extends StatefulWidget {
   State<MusicArtistPage> createState() => _MusicArtistPageState();
 }
 
+/// What an artist page last showed, kept for the session so going back to it is instant.
+class _ArtistPageCache {
+  _ArtistPageCache({
+    required this.discography,
+    required this.allTracks,
+    required this.topSongs,
+    required this.similar,
+    required this.popular,
+    required this.outsideReleases,
+    required this.outsideSimilar,
+  });
+
+  final List<ArtistDiscographyGroup> discography;
+  final List<MediaItem> allTracks;
+  final List<MediaItem> topSongs;
+  final List<MediaItem> similar;
+  final List<_ArtistSong> popular;
+  final List<ExternalAlbumItem> outsideReleases;
+  final List<MusicFeedItem> outsideSimilar;
+}
+
 class _MusicArtistPageState extends State<MusicArtistPage> {
+  static final Map<String, _ArtistPageCache> _cache = {};
   final _actionsKey = GlobalKey<FocusableActionBarState>();
   final _firstSongFocus = FocusNode(debugLabel: 'music.artist.topSong');
 
@@ -69,6 +90,16 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
   void initState() {
     super.initState();
     _client = context.tryGetMediaClientWithFallback(serverIdOrNull(_artist.serverId));
+    if (_cache[_artist.globalKey] case final cached?) {
+      _discography = cached.discography;
+      _allTracks = cached.allTracks;
+      _topSongs = cached.topSongs;
+      _similar = cached.similar;
+      _popular = cached.popular;
+      _outsideReleases = cached.outsideReleases;
+      _outsideSimilar = cached.outsideSimilar;
+    }
+    // Refreshes quietly in the background when it came from the cache.
     unawaited(_load());
     if (PlatformDetector.isTV()) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _actionsKey.currentState?.requestFocusOnFirst());
@@ -152,6 +183,15 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           if (item is! ExternalArtistItem || !similarNames.contains(SearchText.squash(item.artist.name))) item,
       ];
     });
+    _cache[_artist.globalKey] = _ArtistPageCache(
+      discography: _discography,
+      allTracks: _allTracks ?? const [],
+      topSongs: _topSongs,
+      similar: _similar,
+      popular: _popular,
+      outsideReleases: _outsideReleases,
+      outsideSimilar: _outsideSimilar,
+    );
   }
 
   /// The server's releases of [kind] with the outside ones of the same kind, newest first.
@@ -250,7 +290,8 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
       appBar: isTV
           ? null
           : AppBar(
-        backgroundColor: Colors.transparent,
+        leading: const FrostedBackButton(),
+              backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -294,18 +335,24 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                 const MusicSectionTitle(MusicStrings.topSongs),
                 Padding(
                   padding: MusicPage.padding(context),
-                  child: Column(
-                    children: [
-                      for (final (index, song) in _popular.indexed)
-                        _TopSongTile(
-                          song: song,
-                          rank: index + 1,
-                          focusNode: index == 0 ? _firstSongFocus : null,
-                          onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
-                          onNavigateLeft: focus?.focusRail,
-                          onPlay: _playTopSong,
-                        ),
-                    ],
+                  child: GlassPanel(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        children: [
+                          for (final (index, song) in _popular.indexed)
+                            SongTile(
+                              track: song.track,
+                              server: song.server,
+                              rank: index + 1,
+                              focusNode: index == 0 ? _firstSongFocus : null,
+                              onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
+                              onNavigateLeft: focus?.focusRail,
+                              onPlay: _playTopSong,
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ] else if (_topSongs.isNotEmpty) ...[
@@ -429,110 +476,4 @@ class _ArtistSong {
 
   final ChartTrack track;
   final MediaItem? server;
-}
-
-class _TopSongTile extends StatelessWidget {
-  const _TopSongTile({
-    required this.song,
-    required this.rank,
-    required this.onPlay,
-    this.focusNode,
-    this.onNavigateUp,
-    this.onNavigateLeft,
-  });
-
-  final _ArtistSong song;
-  final int rank;
-  final ValueChanged<MediaItem> onPlay;
-  final FocusNode? focusNode;
-  final VoidCallback? onNavigateUp;
-  final VoidCallback? onNavigateLeft;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final track = song.track;
-    final server = song.server;
-    final MusicFeedItem item = server != null ? ServerFeedItem(server) : ExternalAlbumItem(track.album);
-    final preview = track.previewUrl;
-
-    void tap() {
-      if (server != null) {
-        onPlay(server);
-      } else if (preview != null) {
-        unawaited(MusicPreviewPlayer.instance.toggle(context, track.previewKey, [PreviewClip(title: track.title, url: preview)]));
-      }
-    }
-
-    return FocusableWrapper(
-      focusNode: focusNode,
-      borderRadius: 12,
-      onSelect: tap,
-      onNavigateUp: onNavigateUp,
-      onNavigateLeft: onNavigateLeft,
-      onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
-      child: InkWell(
-        canRequestFocus: false,
-        borderRadius: BorderRadius.circular(12),
-        onTap: tap,
-        onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
-        onSecondaryTapUp: (details) => unawaited(MusicItemMenu.show(context, item, position: details.globalPosition)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              MusicArt(item: item, size: 48, radius: 8),
-              SizedBox(
-                width: 36,
-                child: Text(
-                  '$rank',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: scheme.onSurfaceVariant),
-                ),
-              ),
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: MusicPreviewPlayer.instance,
-                  builder: (context, _) {
-                    final playing = server == null && MusicPreviewPlayer.instance.isPlaying(track.previewKey);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: playing ? scheme.primary : null,
-                          ),
-                        ),
-                        if (playing)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 2, right: 12),
-                            child: LinearProgressIndicator(
-                              value: MusicPreviewPlayer.instance.loading ? null : MusicPreviewPlayer.instance.progress,
-                              minHeight: 2,
-                            ),
-                          )
-                        else
-                          ArtistLinks(
-                            credit: ArtistCredit([track.artistName], track.featuring),
-                            suffix: server?.albumTitle ?? track.album.title,
-                            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              // Not on the server: the request button says so.
-              if (server == null) AlbumRequestIcon(album: track.album),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

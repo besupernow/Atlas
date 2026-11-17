@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../focus/focusable_wrapper.dart';
+import '../../../media/artist_discography.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
@@ -1086,14 +1087,72 @@ class _AlbumRequestIconState extends State<AlbumRequestIcon> {
 /// Open an artist by name: their page when they're on the server, otherwise their discovery
 /// sheet (popular songs, releases, request).
 Future<void> openArtistByName(BuildContext context, String name) async {
-  final discovery = MusicDiscovery.of(context);
-  final found = await quietly(
-    discovery.resolveArtists([DiscoverArtist(mbid: 'name:$name', name: name)]),
-    const <MusicFeedItem>[],
-    'artist lookup',
-  );
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final profile = await ArtistProfiles.find(context, name);
   if (!context.mounted) return;
-  await openFeedItem(context, found.isEmpty ? ExternalArtistItem(DiscoverArtist(mbid: 'name:$name', name: name)) : found.first);
+  if (profile == null) {
+    messenger?.showSnackBar(SnackBar(content: Text(MusicStrings.noArtistProfile(name))));
+    return;
+  }
+  await openFeedItem(context, profile);
+}
+
+/// Atlas: whether someone credited on a song has a profile worth opening, and where. A name
+/// on the server counts when it has releases there (Jellyfin makes an artist for everyone on
+/// every track, so a guest singer gets an empty one); otherwise Deezer's artist of that exact
+/// name, when they have releases and an audience. Remembered for the session.
+abstract final class ArtistProfiles {
+  static final Map<String, Future<MusicFeedItem?>> _lookups = {};
+  static final Map<String, MusicFeedItem?> _known = {};
+
+  static String _key(String name) => SearchText.squash(name);
+
+  /// Already looked up: true (has one), false (doesn't), null (not yet asked).
+  static bool? known(String name) {
+    final key = _key(name);
+    return _known.containsKey(key) ? _known[key] != null : null;
+  }
+
+  static Future<MusicFeedItem?> find(BuildContext context, String name) {
+    final key = _key(name);
+    if (_known.containsKey(key)) return Future.value(_known[key]);
+    final discovery = MusicDiscovery.of(context);
+    return _lookups.putIfAbsent(key, () async {
+      try {
+        final profile = await _find(discovery, name);
+        _known[key] = profile;
+        return profile;
+      } catch (error) {
+        appLogger.d('Music: looking up the artist $name failed', error: error);
+        return null;
+      } finally {
+        unawaited(_lookups.remove(key));
+      }
+    });
+  }
+
+  static Future<MusicFeedItem?> _find(MusicDiscovery discovery, String name) async {
+    final resolved = await discovery.resolveArtists([DiscoverArtist(mbid: 'name:$name', name: name)]);
+    if (resolved.firstOrNull case ServerFeedItem(:final item)) {
+      final sources = discovery.catalog.sources;
+      final client = sources.where((source) => source.library.serverId == item.serverId).firstOrNull?.client ??
+          sources.firstOrNull?.client;
+      if (client != null) {
+        final groups = await client.fetchArtistDiscography(item).catchError((Object _) => const <ArtistDiscographyGroup>[]);
+        if (groups.any((group) => group.items.isNotEmpty)) return ServerFeedItem(item);
+      }
+    }
+    final want = Deezer.normal(name);
+    for (final hit in await Deezer.search('artist', name, limit: 5)) {
+      if (Deezer.normal('${hit['name'] ?? ''}') != want) continue;
+      final albums = (hit['nb_album'] as num?) ?? 0;
+      final fans = (hit['nb_fan'] as num?) ?? 0;
+      if (albums >= 1 && fans >= 300) {
+        if (Deezer.artistFrom(hit) case final artist?) return ExternalArtistItem(artist);
+      }
+    }
+    return null;
+  }
 }
 
 /// Artist names in a line of text, each one opening that artist ("A, B feat. C"), with an
@@ -1131,38 +1190,77 @@ class ArtistLinks extends StatefulWidget {
 }
 
 class _ArtistLinksState extends State<ArtistLinks> {
-  final List<TapGestureRecognizer> _recognizers = [];
+  /// One recognizer per name, kept across rebuilds. Now Playing rebuilds this several times a
+  /// second while a song plays; recognizers remade on every build were thrown away mid-tap, so
+  /// taps on the names did nothing.
+  final Map<String, TapGestureRecognizer> _recognizers = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _check();
+  }
+
+  /// On detail pages, look up every name up front so only real profiles are links.
+  void _check() {
+    if (!widget.accent) return;
+    for (final name in widget.credit.all) {
+      if (ArtistProfiles.known(name) != null) continue;
+      unawaited(
+        ArtistProfiles.find(context, name).then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
+    }
+  }
 
   @override
   void dispose() {
-    _disposeRecognizers();
-    super.dispose();
-  }
-
-  void _disposeRecognizers() {
-    for (final recognizer in _recognizers) {
+    for (final recognizer in _recognizers.values) {
       recognizer.dispose();
     }
     _recognizers.clear();
+    super.dispose();
   }
 
-  TextSpan _link(String name, TextStyle? linkStyle) {
+  Future<void> _open(String name) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final profile = await ArtistProfiles.find(context, name);
+    if (!mounted) return;
+    if (profile == null) {
+      messenger?.showSnackBar(SnackBar(content: Text(MusicStrings.noArtistProfile(name))));
+      return;
+    }
     final custom = widget.onTap;
-    final recognizer = TapGestureRecognizer()
-      ..onTap = () {
-        if (custom != null) {
-          custom(name);
-        } else {
-          unawaited(openArtistByName(context, name));
-        }
-      };
-    _recognizers.add(recognizer);
+    if (custom != null) {
+      custom(name);
+    } else {
+      await openFeedItem(context, profile);
+    }
+  }
+
+  InlineSpan _link(String name, TextStyle? linkStyle) {
+    // A name known to have no profile is just text.
+    if (ArtistProfiles.known(name) == false) return TextSpan(text: name);
+    final recognizer = _recognizers.putIfAbsent(name, () => TapGestureRecognizer()..onTap = () => unawaited(_open(name)));
     return TextSpan(text: name, recognizer: recognizer, style: linkStyle, mouseCursor: SystemMouseCursors.click);
   }
 
   @override
+  void didUpdateWidget(ArtistLinks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Drop recognizers for names no longer shown.
+    final names = widget.credit.all.toSet();
+    _recognizers.removeWhere((name, recognizer) {
+      if (names.contains(name)) return false;
+      recognizer.dispose();
+      return true;
+    });
+    _check();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    _disposeRecognizers();
     final credit = widget.credit;
     final linkStyle = widget.accent
         ? TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700)

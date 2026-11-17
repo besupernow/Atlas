@@ -56,30 +56,64 @@ class MusicFeedPage extends StatefulWidget {
   State<MusicFeedPage> createState() => _MusicFeedPageState();
 }
 
+/// What a feed page last showed, kept for the session so coming back to it (or the app
+/// rebuilding it) shows the rows at once instead of filling in again.
+class _FeedCache {
+  _FeedCache(this.rows, this.hero, this.sources, this.at);
+
+  final Map<String, MusicFeedRow> rows;
+  final List<MusicFeedItem> hero;
+  final String? sources;
+  final DateTime at;
+}
+
 class _MusicFeedPageState extends State<MusicFeedPage> {
+  static final Map<String, _FeedCache> _cache = {};
+
   final Map<String, MusicFeedRow> _rows = {};
   final Set<String> _pending = {};
   List<MusicFeedItem> _loadedHero = const [];
   int _generation = 0;
   String? _sources;
+  Timer? _sourcesSettle;
+
+  /// For a moment after a load starts, a row still loading holds back the rows below it. After
+  /// that, slow rows don't keep the rest of the page waiting.
+  bool _holdInOrder = false;
+  Timer? _holdTimer;
 
   @override
   void initState() {
     super.initState();
     ListenBrainzAccount.changes.addListener(_reload);
+    if (_cache[widget.title] case final cached?) {
+      _rows.addAll(cached.rows);
+      _loadedHero = cached.hero;
+    }
   }
 
   /// Loads the first time the libraries (and Allseerr) are there, and again whenever they
-  /// change, so the page never sits empty waiting for a pull to refresh.
+  /// change, so the page never sits empty waiting for a pull to refresh. At startup those
+  /// arrive one after another, so changes settle for a moment and load once; what's on screen
+  /// stays until the new rows replace it.
   /// Called from build (where watching providers is allowed).
   void _watchSources() {
     final sources = watchMusicSources(context);
     if (sources == _sources) return;
     final first = _sources == null;
     _sources = sources;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    final cached = _cache[widget.title];
+    // Just shown from the cache with the same sources: nothing to do yet.
+    if (first &&
+        cached != null &&
+        cached.sources == sources &&
+        DateTime.now().difference(cached.at) < const Duration(minutes: 10)) {
+      return;
+    }
+    _sourcesSettle?.cancel();
+    _sourcesSettle = Timer(Duration(milliseconds: first && _rows.isEmpty ? 0 : 450), () {
       if (!mounted) return;
-      unawaited(_load(fresh: !first));
+      unawaited(_load(refreshCaches: !first));
       // The ListenBrainz name lives on the server; a change reloads through [_reload].
       unawaited(ListenBrainzAccount.refresh(context, force: !first));
     });
@@ -87,14 +121,18 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
 
   @override
   void dispose() {
+    _sourcesSettle?.cancel();
+    _holdTimer?.cancel();
     ListenBrainzAccount.changes.removeListener(_reload);
     super.dispose();
   }
 
   void _reload() => unawaited(_load());
 
-  Future<void> _load({bool fresh = false}) async {
-    if (fresh) {
+  /// Load every row. Rows already showing stay until their new version arrives (or the row
+  /// comes back empty), so nothing blinks out and back in.
+  Future<void> _load({bool refreshCaches = false}) async {
+    if (refreshCaches) {
       MusicDiscovery.invalidate();
       Deezer.clearCache();
     }
@@ -104,7 +142,7 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
     if (heroLoader != null) {
       unawaited(
         quietly(heroLoader(discovery), const <MusicFeedItem>[], 'banner').then((items) {
-          if (mounted && generation == _generation) setState(() => _loadedHero = items);
+          if (mounted && generation == _generation && items.isNotEmpty) setState(() => _loadedHero = items);
         }),
       );
     }
@@ -112,7 +150,12 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
       _pending
         ..clear()
         ..addAll(widget.specs.map((spec) => spec.id));
-      if (fresh) _rows.clear();
+      // Only an empty page fills in order; one already showing rows just updates them.
+      _holdInOrder = _rows.isEmpty;
+    });
+    _holdTimer?.cancel();
+    _holdTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) setState(() => _holdInOrder = false);
     });
     await Future.wait([
       for (final spec in widget.specs)
@@ -134,6 +177,9 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
           });
         }(),
     ]);
+    if (mounted && generation == _generation) {
+      _cache[widget.title] = _FeedCache(Map.of(_rows), _loadedHero, _sources, DateTime.now());
+    }
   }
 
   void _openSeeAll(MusicFeedRow row, ValueChanged<MusicFeedItem>? onItemTap) {
@@ -154,14 +200,21 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
     final focus = MusicShellFocus.maybeOf(context);
     final hero = widget.hero?.call(_rows) ?? _loadedHero;
     final loading = _pending.isNotEmpty;
-    final ordered = [
-      for (final spec in widget.specs)
-        if (_rows[spec.id] case final row?) (spec, row),
-    ];
+    // Rows show in page order: one still loading holds back the ones below it (unless they're
+    // already on screen), so nothing pops in above what you're looking at.
+    final ordered = <(MusicFeedSpec, MusicFeedRow)>[];
+    for (final spec in widget.specs) {
+      final row = _rows[spec.id];
+      if (row != null) {
+        ordered.add((spec, row));
+      } else if (_pending.contains(spec.id) && _holdInOrder) {
+        break;
+      }
+    }
     return MusicPage(
       title: widget.title,
       actions: widget.actions,
-      onRefresh: () => _load(fresh: true),
+      onRefresh: () => _load(refreshCaches: true),
       children: [
         if (hero.isNotEmpty)
           MusicHeroCarousel(items: hero, eyebrow: widget.heroEyebrow, onNavigateToSidebar: focus?.focusRail),
