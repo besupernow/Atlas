@@ -16,6 +16,7 @@ import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
+import '../../../services/music/music_bans.dart';
 
 /// Atlas: music search, across the server and everything out there. Typos are fine and popular
 /// things come first (see [MusicSearch]). A top result, then artists, albums and songs; ours
@@ -45,11 +46,17 @@ class MusicSearchPageState extends State<MusicSearchPage> {
   @override
   void initState() {
     super.initState();
+    MusicBans.instance.addListener(_bansChanged);
     _controller.addListener(_onChanged);
+  }
+
+  void _bansChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    MusicBans.instance.removeListener(_bansChanged);
     _debounce?.cancel();
     _controller.removeListener(_onChanged);
     _controller.dispose();
@@ -96,7 +103,9 @@ class MusicSearchPageState extends State<MusicSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final results = _results;
+    // Anything hidden since the search ran drops out right away.
+    final raw = _results;
+    final results = raw == null ? null : MusicSearchOutcome.visible(raw);
     final focus = MusicShellFocus.maybeOf(context);
     final top = results?.top;
     final topSong = results?.topSong;

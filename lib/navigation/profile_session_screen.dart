@@ -43,6 +43,7 @@ import '../widgets/music/mini_player.dart';
 import '../widgets/agent_control_scope.dart';
 import 'profile_navigation_scope.dart';
 import 'settings_shortcut.dart';
+import '../services/music/music_bans.dart';
 
 CatalogSourcesProvider _createCatalogSourcesProvider(BuildContext context) {
   return CatalogSourcesProvider(
@@ -116,6 +117,9 @@ class _ProfileSessionScreenState extends State<ProfileSessionScreen> {
   /// doing it from inside MainScreen can't work, the remount unmounts it
   /// before any settle-await completes.
   void _onSessionProfileChanged(String? activeId) {
+    // Atlas: each person's hidden artists, albums and songs (after this build: switching
+    // notifies pages that are listening).
+    WidgetsBinding.instance.addPostFrameCallback((_) => MusicBans.instance.useProfile(activeId));
     final shelf = SystemShelfService();
     if (!_seenFirstActiveId) {
       _seenFirstActiveId = true;

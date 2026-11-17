@@ -84,6 +84,8 @@ Future<void> openNowPlaying(BuildContext context) async {
   await navigator.push(
     PageRouteBuilder<void>(
       settings: const RouteSettings(name: kNowPlayingRouteName),
+      // See-through, so pulling the sheet down shows the page under it.
+      opaque: false,
       transitionDuration: duration,
       reverseTransitionDuration: duration,
       pageBuilder: (context, animation, secondaryAnimation) => const NowPlayingScreen(),

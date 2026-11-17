@@ -10,6 +10,7 @@ import 'lastfm.dart';
 import 'music_search_index.dart';
 import 'musicbrainz.dart';
 import 'tidal.dart';
+import '../../../services/music/music_bans.dart';
 
 /// A song in search results: ours (playable) or from outside (preview, request its release).
 class SearchSong {
@@ -35,6 +36,25 @@ class SearchSong {
 }
 
 class MusicSearchOutcome {
+  /// Atlas: [raw] without anything this person hid.
+  factory MusicSearchOutcome.visible(MusicSearchOutcome raw) {
+    bool songHidden(SearchSong song) {
+      final server = song.server;
+      if (server != null) return MusicBans.instance.blocks(server);
+      return song.external?.isHidden ?? false;
+    }
+
+    final top = raw.top;
+    final topSong = raw.topSong;
+    return MusicSearchOutcome(
+      top: top == null || top.isHidden ? null : top,
+      topSong: topSong == null || songHidden(topSong) ? null : topSong,
+      artists: [for (final item in raw.artists) if (!item.isHidden) item],
+      albums: [for (final item in raw.albums) if (!item.isHidden) item],
+      songs: [for (final song in raw.songs) if (!songHidden(song)) song],
+    );
+  }
+
   const MusicSearchOutcome({
     this.top,
     this.topSong,

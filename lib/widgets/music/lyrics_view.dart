@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +15,7 @@ import '../../screens/libraries/state_messages.dart';
 import '../../services/music/music_playback_service.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/platform_detector.dart';
+import '../app_icon.dart';
 
 /// Lyrics pane for the now-playing screen (swapped in over the artwork).
 ///
@@ -36,7 +38,11 @@ class LyricsView extends StatefulWidget {
   /// Called on BACK / DOWN-out so the host can move focus back to transport.
   final VoidCallback? onExit;
 
-  const LyricsView({super.key, required this.lyricsFuture, this.focusNode, this.onExit});
+  /// Atlas: share the chosen lines (long-press a line to start choosing, like Apple Music).
+  /// Omitted, lines can't be shared.
+  final void Function(List<String> lines)? onShareLines;
+
+  const LyricsView({super.key, required this.lyricsFuture, this.focusNode, this.onExit, this.onShareLines});
 
   @override
   State<LyricsView> createState() => _LyricsViewState();
@@ -58,6 +64,43 @@ class _LyricsViewState extends State<LyricsView> {
 
   bool _paneFocused = false;
   int _focusedLine = 0;
+
+  /// Atlas: choosing lines to share. While choosing, every line is sharp and tapping toggles it.
+  bool _choosing = false;
+  final Set<int> _chosen = {};
+
+  void _startChoosing(int index) {
+    if (widget.onShareLines == null) return;
+    unawaited(HapticFeedback.selectionClick());
+    setState(() {
+      _choosing = true;
+      _chosen
+        ..clear()
+        ..add(index);
+    });
+  }
+
+  void _toggleChosen(int index) => setState(() {
+    if (!_chosen.remove(index)) _chosen.add(index);
+    if (_chosen.isEmpty) _choosing = false;
+  });
+
+  void _stopChoosing() => setState(() {
+    _choosing = false;
+    _chosen.clear();
+  });
+
+  void _shareChosen() {
+    final lyrics = _lyrics;
+    final share = widget.onShareLines;
+    if (lyrics == null || share == null || _chosen.isEmpty) return;
+    final lines = [
+      for (final index in _chosen.toList()..sort())
+        if (lyrics.lines[index].text.trim().isNotEmpty) lyrics.lines[index].text.trim(),
+    ];
+    _stopChoosing();
+    if (lines.isNotEmpty) share(lines);
+  }
 
   @override
   void initState() {
@@ -159,6 +202,7 @@ class _LyricsViewState extends State<LyricsView> {
   }
 
   bool get _autoScrollSuppressed {
+    if (_choosing) return true;
     final at = _manualScrollAt;
     return at != null && DateTime.now().difference(at) < _manualScrollHold;
   }
@@ -254,7 +298,7 @@ class _LyricsViewState extends State<LyricsView> {
 
     final showFocus = _paneFocused && InputModeTracker.isKeyboardMode(context);
 
-    final Widget list = NotificationListener<ScrollNotification>(
+    Widget list = NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
       child: SingleChildScrollView(
         controller: _scroll,
@@ -267,6 +311,41 @@ class _LyricsViewState extends State<LyricsView> {
         ),
       ),
     );
+
+    if (_choosing) {
+      final scheme = Theme.of(context).colorScheme;
+      list = Stack(
+        children: [
+          Positioned.fill(child: list),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 12,
+            child: Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: _stopChoosing,
+                  icon: const AppIcon(Symbols.close_rounded),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      shape: const StadiumBorder(),
+                      backgroundColor: scheme.primary,
+                    ),
+                    onPressed: _chosen.isEmpty ? null : _shareChosen,
+                    icon: const AppIcon(Symbols.ios_share_rounded),
+                    label: Text(_chosen.length == 1 ? 'Share Line' : 'Share ${_chosen.length} Lines'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
 
     final focusNode = widget.focusNode;
     if (focusNode == null) return list;
@@ -296,9 +375,13 @@ class _LyricsViewState extends State<LyricsView> {
     final distance = !lyrics.synced || _activeIndex < 0
         ? 0
         : (index < _activeIndex ? _activeIndex - index : (index - _activeIndex - 1).clamp(0, 99));
-    final sharp = !lyrics.synced || showFocus || _autoScrollSuppressed || distance <= 1;
-    final blur = sharp ? 0.0 : ((distance - 1) * 1.4).clamp(0.0, 5.0);
-    final opacity = !lyrics.synced || isActive
+    // Sharp: the line being sung and the next one. Everything else (the lines already sung
+    // too) starts blurring right away and gets softer with distance.
+    final sharp = _choosing || !lyrics.synced || showFocus || _autoScrollSuppressed || distance == 0;
+    final blur = sharp ? 0.0 : (1.2 + (distance - 1) * 1.3).clamp(0.0, 6.0);
+    final opacity = _choosing
+        ? (_chosen.contains(index) ? 1.0 : 0.3)
+        : !lyrics.synced || isActive
         ? 1.0
         : (showFocus || _autoScrollSuppressed ? 0.6 : (0.55 - (distance - 1) * 0.08).clamp(0.22, 0.55));
 
@@ -325,7 +408,12 @@ class _LyricsViewState extends State<LyricsView> {
       key: _lineKeys[index],
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: lyrics.synced && line.startMs != null ? () => _seekTo(line) : null,
+        onTap: _choosing
+            ? () => _toggleChosen(index)
+            : (lyrics.synced && line.startMs != null ? () => _seekTo(line) : null),
+        onLongPress: widget.onShareLines == null || _choosing || line.text.trim().isEmpty
+            ? null
+            : () => _startChoosing(index),
         child: AnimatedScale(
           scale: isActive ? 1.0 : 0.97,
           alignment: Alignment.centerLeft,

@@ -57,34 +57,63 @@ class FadingArt extends StatelessWidget {
   /// How far the art is scaled up (from its top, so faces and titles stay put).
   final double zoom;
 
+  /// The masked layer runs this far past the visible bottom, so its own edge (where a
+  /// ShaderMask can leave a one-pixel seam on some renderers) is always clipped away.
+  static const _spill = 24.0;
+
   @override
   Widget build(BuildContext context) {
     final start = fadeFrom.clamp(0.0, 0.95);
-    final span = 1 - start;
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (rect) => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        // An ease-out curve in five steps: no visible edge where the picture ends.
-        // Fully clear a little before the bottom: when the page scrolls to a fraction of a pixel
-        // the mask's last row can land on the art's edge and show as a line.
-        stops: [0, start, start + span * 0.28, start + span * 0.5, start + span * 0.72, start + span * 0.92, 1],
-        colors: [
-          Colors.white,
-          Colors.white,
-          Colors.white.withValues(alpha: 0.82),
-          Colors.white.withValues(alpha: 0.5),
-          Colors.white.withValues(alpha: 0.18),
-          Colors.white.withValues(alpha: 0),
-          Colors.white.withValues(alpha: 0),
-        ],
-      ).createShader(rect),
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: ClipRect(
-          child: Transform.scale(scale: zoom, alignment: Alignment.topCenter, child: image),
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          minHeight: height + _spill,
+          maxHeight: height + _spill,
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) {
+              // Stops in this taller box's terms: fully clear a few pixels before the visible
+              // bottom, and clear all the way down past it.
+              final total = rect.height;
+              double at(double fraction) => (fraction * (height - 4)) / total;
+              final span = 1 - start;
+              return LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [
+                  0,
+                  at(start),
+                  at(start + span * 0.3),
+                  at(start + span * 0.55),
+                  at(start + span * 0.8),
+                  at(1),
+                  1,
+                ],
+                colors: [
+                  Colors.white,
+                  Colors.white,
+                  Colors.white.withValues(alpha: 0.8),
+                  Colors.white.withValues(alpha: 0.45),
+                  Colors.white.withValues(alpha: 0.14),
+                  Colors.white.withValues(alpha: 0),
+                  Colors.white.withValues(alpha: 0),
+                ],
+              ).createShader(rect);
+            },
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                height: height,
+                width: double.infinity,
+                child: ClipRect(
+                  child: Transform.scale(scale: zoom, alignment: Alignment.topCenter, child: image),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

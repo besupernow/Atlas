@@ -80,6 +80,19 @@ abstract final class MusicStrings {
   static String requestNoMatch(String title) =>
       "$title isn't on MusicBrainz yet, and Lidarr only gets what MusicBrainz lists. Try again once it's been added.";
   static const feat = 'feat.';
+  static const share = 'Share';
+  static const hideSong = 'Hide Song';
+  static const hideAlbum = 'Hide Album';
+  static String hideArtist(String name) => 'Hide $name';
+  static String hidden(String title) => "Hidden. You won't see or hear $title again.";
+  static const undo = 'Undo';
+  static const hiddenMusic = 'Hidden Music';
+  static const hiddenMusicSubtitle = "Artists, albums and songs you never want to see or hear";
+  static const hiddenMusicEmpty = 'Nothing hidden. Long-press an artist, album or song and choose Hide to keep it out of music mode.';
+  static const unhide = 'Unhide';
+  static const hiddenArtist = 'Artist';
+  static String hiddenAlbumBy(String artist) => artist.isEmpty ? 'Album' : 'Album · $artist';
+  static String hiddenSongBy(String artist) => artist.isEmpty ? 'Song' : 'Song · $artist';
   static String noArtistProfile(String name) => "$name doesn't have an artist profile to show.";
   static String released(String date) => 'Released $date';
   static const musicBrainzBusy = "MusicBrainz is busy right now, so Lidarr's id for it couldn't be looked up. Try again in a minute.";

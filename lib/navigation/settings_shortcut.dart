@@ -23,8 +23,38 @@ MaterialPageRoute<void> buildSettingsRoute({
 }) {
   return MaterialPageRoute<void>(
     settings: const RouteSettings(name: kSettingsRouteName),
-    builder: (_) => SettingsScreen(mode: mode, musicSections: musicSections),
+    builder: (_) => _OpenSettingsMarker(child: SettingsScreen(mode: mode, musicSections: musicSections)),
   );
+}
+
+/// Atlas: how many pushed settings screens are open (pages pushed over settings count too,
+/// since settings stays mounted under them). The mini player hides while this is above zero.
+final ValueNotifier<int> openSettingsScreens = ValueNotifier<int>(0);
+
+class _OpenSettingsMarker extends StatefulWidget {
+  const _OpenSettingsMarker({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_OpenSettingsMarker> createState() => _OpenSettingsMarkerState();
+}
+
+class _OpenSettingsMarkerState extends State<_OpenSettingsMarker> {
+  @override
+  void initState() {
+    super.initState();
+    openSettingsScreens.value++;
+  }
+
+  @override
+  void dispose() {
+    openSettingsScreens.value--;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// True when [event] is the desktop "open settings" chord — Cmd+, on macOS

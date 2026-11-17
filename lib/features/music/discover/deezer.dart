@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'discover_models.dart';
+import '../../../services/music/music_bans.dart';
 
 /// A song on a chart.
 class ChartTrack {
@@ -30,6 +31,14 @@ class ChartTrack {
 
   /// Everyone on the song, for clickable names.
   List<String> get artists => [artistName, ...featuring];
+
+  /// Atlas: hidden by this person (the song, its album or anyone on it).
+  bool get isHidden => MusicBans.instance.blocksNames(
+    artist: artistName,
+    album: album.title,
+    song: title,
+    featuring: featuring,
+  );
 
   /// Key for the preview player.
   String get previewKey => 'dz-track:$id';

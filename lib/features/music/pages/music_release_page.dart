@@ -25,6 +25,7 @@ import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
 import '../widgets/release_hero.dart';
 import '../widgets/release_tracks.dart';
+import '../../../services/music/music_bans.dart';
 
 /// Atlas: music mode's page for a release on the server: an album, an EP or a single. The cover
 /// sits sharp at the top and melts into a blur of its own colors that tints the whole page
@@ -51,8 +52,19 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
   MediaItem get _album => widget.album;
 
   @override
+  void dispose() {
+    MusicBans.instance.removeListener(_bansChanged);
+    super.dispose();
+  }
+
+  void _bansChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void initState() {
     super.initState();
+    MusicBans.instance.addListener(_bansChanged);
     _client = context.tryGetMediaClientWithFallback(serverIdOrNull(_album.serverId));
     if (_cache[_album.globalKey] case (final tracks, final more)) {
       _tracks = tracks;
@@ -111,7 +123,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
   };
 
   Future<void> _play({MediaItem? from, bool shuffle = false}) async {
-    final tracks = _tracks;
+    // Atlas: nothing this person hid.
+    final tracks = _tracks == null ? null : MusicBans.instance.filter(_tracks!);
     if (tracks == null || tracks.isEmpty) return;
     await MusicPreviewPlayer.instance.cancel();
     if (!mounted) return;
@@ -165,7 +178,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isTV = PlatformDetector.isTV();
-    final tracks = _tracks;
+    // Atlas: nothing this person hid.
+    final tracks = _tracks == null ? null : MusicBans.instance.filter(_tracks!);
     final art = OptimizedMediaImage(
       client: _client,
       imagePath: _album.thumbPath,

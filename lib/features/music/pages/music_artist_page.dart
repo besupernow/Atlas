@@ -30,6 +30,7 @@ import '../widgets/art_backdrop.dart';
 import '../widgets/music_page.dart';
 import '../widgets/release_hero.dart';
 import '../widgets/release_tracks.dart';
+import '../../../services/music/music_bans.dart';
 
 /// Atlas: an Apple Music style artist page: full-bleed artwork fading into the page with the
 /// name over it, Play / Shuffle / Station, the five songs played most, the discography split
@@ -101,6 +102,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
     }
     // Refreshes quietly in the background when it came from the cache.
     unawaited(_load());
+    MusicBans.instance.addListener(_bansChanged);
     if (PlatformDetector.isTV()) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _actionsKey.currentState?.requestFocusOnFirst());
     }
@@ -108,8 +110,13 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
 
   @override
   void dispose() {
+    MusicBans.instance.removeListener(_bansChanged);
     _firstSongFocus.dispose();
     super.dispose();
+  }
+
+  void _bansChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -215,7 +222,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
       for (final item in server) ('${item.albumYear ?? item.year ?? ''}', ServerFeedItem(item)),
       for (final item in outside) (item.album.releaseDate ?? item.album.year ?? '', item),
     ]..sort((a, b) => b.$1.compareTo(a.$1));
-    return [for (final (_, item) in items) item];
+    return [for (final (_, item) in items) if (!item.isHidden) item];
   }
 
   static DiscographyGroupKind _kindOf(DiscoverAlbum album) => switch (album.type?.toLowerCase()) {
@@ -284,6 +291,13 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
     final focus = MusicShellFocus.maybeOf(context);
     final summary = _artist.summary;
     final loading = _allTracks == null;
+    // Atlas: nothing this person hid.
+    final bans = MusicBans.instance;
+    final popular = [
+      for (final song in _popular)
+        if (!(song.server != null ? bans.blocks(song.server!) : song.track.isHidden)) song,
+    ];
+    final topSongs = bans.filter(_topSongs);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -331,7 +345,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           else ...[
               // Top Songs: their real chart, ours where we have it (play), the rest previews
               // with a request button. Before the outside chart loads, the server's own.
-              if (_popular.isNotEmpty) ...[
+              if (popular.isNotEmpty) ...[
                 const MusicSectionTitle(MusicStrings.topSongs),
                 Padding(
                   padding: MusicPage.padding(context),
@@ -340,7 +354,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Column(
                         children: [
-                          for (final (index, song) in _popular.indexed)
+                          for (final (index, song) in popular.indexed)
                             SongTile(
                               track: song.track,
                               server: song.server,
@@ -355,19 +369,19 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                     ),
                   ),
                 ),
-              ] else if (_topSongs.isNotEmpty) ...[
+              ] else if (topSongs.isNotEmpty) ...[
                 const MusicSectionTitle(MusicStrings.topSongs),
                 Padding(
                   padding: MusicPage.padding(context),
                   child: Column(
                     children: [
-                      for (final (index, track) in _topSongs.indexed)
+                      for (final (index, track) in topSongs.indexed)
                         TrackRow(
                           item: track,
                           focusNode: index == 0 ? _firstSongFocus : null,
                           showTrackNumber: false,
                           isFirst: index == 0,
-                          isLast: index == _topSongs.length - 1,
+                          isLast: index == topSongs.length - 1,
                           onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
                           onTap: () => _playTopSong(track),
                         ),
@@ -383,7 +397,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                     items: items,
                     onNavigateToSidebar: focus?.focusRail,
                   ),
-              if ([..._similar.map(ServerFeedItem.new), ..._outsideSimilar] case final similar when similar.isNotEmpty)
+              if ([..._similar.map(ServerFeedItem.new), ..._outsideSimilar].where((item) => !item.isHidden).toList() case final similar when similar.isNotEmpty)
                 MusicFeedShelf(
                   title: MusicStrings.similarArtists,
                   items: similar,

@@ -12,6 +12,7 @@ import '../../i18n/strings.g.dart';
 import '../../media/ids.dart';
 import '../../media/media_item.dart';
 import '../../mixins/context_menu_tap_mixin.dart';
+import '../../navigation/settings_shortcut.dart';
 import '../../providers/libraries_provider.dart';
 import '../../services/music/music_playback_service.dart';
 import '../../theme/mono_motion.dart';
@@ -222,7 +223,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
     final suppress = context.read<MusicUiRouteObserver?>()?.suppress ?? _noSuppression;
     final openSheets = OverlaySheetController.openSheetCount;
     return ListenableBuilder(
-      listenable: Listenable.merge([suppress, openSheets, modes]),
+      listenable: Listenable.merge([suppress, openSheets, modes, openSettingsScreens]),
       builder: (context, _) {
         final musicMode = modes.isMusic && hasMusicLibraries;
         if (modes.isMusic) _hiddenForVideo = false;
@@ -230,7 +231,8 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         final idle = musicMode && !hasSession && !suppress.value;
         // Sheets render inside the routes' subtrees, BELOW this overlay —
         // hide the card while any sheet is up so it never floats over one.
-        final visible = (hasSession || idle) && openSheets.value == 0;
+        // Atlas: not over settings either.
+        final visible = (hasSession || idle) && openSheets.value == 0 && openSettingsScreens.value == 0;
         final useSideNav = PlatformDetector.shouldUseSideNavigation(context);
         // Report off the session (not sheet) state so the underlying
         // screen's scroll padding doesn't jump while a sheet is open.

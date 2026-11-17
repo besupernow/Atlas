@@ -34,6 +34,7 @@ import '../libraries/content_state_builder.dart';
 import '../../mixins/grid_focus_node_mixin.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/system_bottom_inset.dart';
+import '../../services/music/music_bans.dart';
 
 /// Screen to display the contents of a playlist
 class PlaylistDetailScreen extends StatefulWidget {
@@ -214,7 +215,8 @@ class _PlaylistDetailScreenState extends BaseMediaListDetailScreen<PlaylistDetai
       _continuation.setContinuation(startIndex: page.items.length, totalCount: page.totalCount);
 
       setState(() {
-        items = List.of(page.items);
+        // Atlas: no music this person hid.
+        items = MusicBans.instance.filter(List.of(page.items));
         isLoading = false;
       });
 
@@ -240,7 +242,7 @@ class _PlaylistDetailScreenState extends BaseMediaListDetailScreen<PlaylistDetai
   void _applyPlaylistContinuationPage(ContinuationPage<MediaItem> page) {
     if (!mounted) return;
     setState(() {
-      items = List.of(items)..addAll(page.items);
+      items = List.of(items)..addAll(MusicBans.instance.filter(page.items));
     });
   }
 
