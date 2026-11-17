@@ -198,7 +198,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
           ),
       ],
       iconActions: [
-        IconButton.filledTonal(
+        IconButton(
+          style: ReleaseButtons.round(context),
           onPressed: () => unawaited(_toggleLove()),
           tooltip: _loved ? MusicStrings.unlove : MusicStrings.love,
           icon: AppIcon(
@@ -207,7 +208,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             color: _loved ? theme.colorScheme.primary : null,
           ),
         ),
-        IconButton.filledTonal(
+        IconButton(
+          style: ReleaseButtons.round(context),
           onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_album))),
           icon: const AppIcon(Symbols.more_horiz_rounded),
         ),
@@ -219,11 +221,11 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
       appBar: isTV
           ? null
           : AppBar(
-              leading: const FrostedBackButton(),
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              scrolledUnderElevation: 0,
-            ),
+        leading: const FrostedBackButton(),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
       body: ArtBackdrop(
         image: art,
         child: ListView(
@@ -235,24 +237,24 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             else if (_failed)
               const MusicPagePlaceholder(message: MusicStrings.loadFailed)
             else if (tracks != null) ...[
-              Padding(
-                padding: MusicPage.padding(context),
-                child: ReleaseTrackList(
-                  tracks: tracks,
-                  albumArtist: _album.albumArtistTitle,
-                  showNumbers: !_isSingle,
-                  onPlay: (track) => unawaited(_play(from: track)),
-                ),
-              ),
-              if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
                 Padding(
-                  padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16)),
-                  child: Text(
-                    MusicStrings.released(released),
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  padding: MusicPage.padding(context),
+                  child: ReleaseTrackList(
+                    tracks: tracks,
+                    albumArtist: _album.albumArtistTitle,
+                    showNumbers: !_isSingle,
+                    onPlay: (track) => unawaited(_play(from: track)),
                   ),
                 ),
-            ],
+                if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
+                  Padding(
+                    padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16)),
+                    child: Text(
+                      MusicStrings.released(released),
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+              ],
             MusicFeedShelf(
               title: MusicStrings.moreBy(_album.albumArtistTitle ?? ''),
               items: _moreByArtist,
