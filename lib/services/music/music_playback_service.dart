@@ -44,6 +44,10 @@ abstract class MusicPlaybackService extends ChangeNotifier {
   MusicPlaybackStatus get status;
   bool get isPlaying => status == MusicPlaybackStatus.playing;
 
+  /// Atlas: how many times a video has taken over from music this session. The mini player
+  /// hides for good in video mode after one does, until music mode is opened again.
+  int get videoTakeovers => 0;
+
   Duration? get duration;
   Duration get position;
   Stream<Duration> get positionStream;

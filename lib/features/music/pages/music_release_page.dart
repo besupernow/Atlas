@@ -221,11 +221,11 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
       appBar: isTV
           ? null
           : AppBar(
-        leading: const FrostedBackButton(),
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-      ),
+              leading: const FrostedBackButton(),
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+            ),
       body: ArtBackdrop(
         image: art,
         child: ListView(
@@ -237,24 +237,24 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             else if (_failed)
               const MusicPagePlaceholder(message: MusicStrings.loadFailed)
             else if (tracks != null) ...[
+              Padding(
+                padding: MusicPage.padding(context),
+                child: ReleaseTrackList(
+                  tracks: tracks,
+                  albumArtist: _album.albumArtistTitle,
+                  showNumbers: !_isSingle,
+                  onPlay: (track) => unawaited(_play(from: track)),
+                ),
+              ),
+              if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
                 Padding(
-                  padding: MusicPage.padding(context),
-                  child: ReleaseTrackList(
-                    tracks: tracks,
-                    albumArtist: _album.albumArtistTitle,
-                    showNumbers: !_isSingle,
-                    onPlay: (track) => unawaited(_play(from: track)),
+                  padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16)),
+                  child: Text(
+                    MusicStrings.released(released),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
-                if (_album.originallyAvailableAt case final released? when released.isNotEmpty)
-                  Padding(
-                    padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 16)),
-                    child: Text(
-                      MusicStrings.released(released),
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ),
-              ],
+            ],
             MusicFeedShelf(
               title: MusicStrings.moreBy(_album.albumArtistTitle ?? ''),
               items: _moreByArtist,
