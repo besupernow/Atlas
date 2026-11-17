@@ -10,6 +10,7 @@ import 'deezer.dart';
 import 'discover_models.dart';
 import 'listenbrainz.dart';
 import 'music_search_index.dart';
+import '../../../services/music/music_bans.dart';
 
 /// Atlas: puts the outside world and the server together. Albums from ListenBrainz and
 /// Allseerr become cards for the server's own copy when we have it, and stay "not on the
@@ -110,10 +111,11 @@ class MusicDiscovery {
     for (final album in albums) {
       if (items.length >= limit) break;
       if (!seen.add(album.mbid)) continue;
+      if (MusicBans.instance.blocksNames(artist: album.artistName, album: album.title, featuring: album.featuring)) continue;
       final status = StatusOverrides.instance.statusOf(album.mbid) ?? known[album.mbid] ?? album.status;
       final copy = _match(index, album, status);
       if (copy != null) {
-        if (!externalOnly) items.add(ServerFeedItem(copy, reason: album.reason));
+        if (!externalOnly && !MusicBans.instance.blocks(copy)) items.add(ServerFeedItem(copy, reason: album.reason));
       } else if (!serverOnly) {
         items.add(ExternalAlbumItem(album.copyWith(status: status)));
       }
@@ -201,7 +203,7 @@ class MusicDiscovery {
     final seen = <String>{};
     return [
       for (final artist in artists)
-        if (seen.add(Deezer.normal(artist.name)))
+        if (!MusicBans.instance.blocksNames(artist: artist.name) && seen.add(Deezer.normal(artist.name)))
           if (index[Deezer.normal(artist.name)] case final server?)
             ServerFeedItem(server, reason: artist.reason)
           else
@@ -394,7 +396,10 @@ class MusicDiscovery {
     return resolveArtists(related);
   }
 
-  static List<MusicFeedItem> server(List<MediaItem> items) => [for (final item in items) ServerFeedItem(item)];
+  static List<MusicFeedItem> server(List<MediaItem> items) => [
+    for (final item in items)
+      if (!MusicBans.instance.blocks(item)) ServerFeedItem(item),
+  ];
 }
 
 /// A row on a discovery page, loaded on its own.
@@ -403,13 +408,13 @@ class MusicFeedRow {
     required this.id,
     required this.title,
     this.subtitle,
-    this.items = const [],
+    List<MusicFeedItem> items = const [],
     this.large = false,
     this.seeAll,
     this.custom,
     this.kicker,
     this.ranked = false,
-  });
+  }) : _items = items;
 
   final String id;
 
@@ -420,7 +425,11 @@ class MusicFeedRow {
   final bool ranked;
   final String title;
   final String? subtitle;
-  final List<MusicFeedItem> items;
+  final List<MusicFeedItem> _items;
+
+  /// What the row shows: everything but what this person hid (checked each time, so hiding
+  /// something takes it off every row at once).
+  List<MusicFeedItem> get items => [for (final item in _items) if (!item.isHidden) item];
 
   /// Bigger cards (the first rows of a page).
   final bool large;

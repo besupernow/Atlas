@@ -1,4 +1,5 @@
 import '../../../media/media_item.dart';
+import '../../../services/music/music_bans.dart';
 
 /// Where an album stands for this household: not here, asked for, on its way, or on the server.
 /// Mirrors Allseerr's media status (1 unknown … 5 available).
@@ -263,6 +264,19 @@ class DiscoverAlbumDetails {
 
 /// One card in a music row: something on the server, an album that isn't (yet), or an artist
 /// that isn't.
+/// Atlas: whether this person has hidden it (or its album, or its artist).
+extension MusicFeedItemBans on MusicFeedItem {
+  bool get isHidden => switch (this) {
+    ServerFeedItem(:final item) => MusicBans.instance.blocks(item),
+    ExternalAlbumItem(:final album) => MusicBans.instance.blocksNames(
+      artist: album.artistName,
+      album: album.title,
+      featuring: album.featuring,
+    ),
+    ExternalArtistItem(:final artist) => MusicBans.instance.blocksNames(artist: artist.name),
+  };
+}
+
 sealed class MusicFeedItem {
   const MusicFeedItem();
 

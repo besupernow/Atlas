@@ -12,6 +12,7 @@ import '../../../widgets/settings_page.dart';
 import '../../../widgets/settings_section.dart';
 import '../data/music_server.dart';
 import '../music_strings.dart';
+import 'hidden_music.dart';
 import 'listenbrainz_accounts.dart';
 
 /// Atlas: settings opened from music mode: the shared groups (general, appearance, accounts,
@@ -29,6 +30,12 @@ List<Widget> musicSettingsSections(BuildContext context) => [
         title: MusicStrings.musicPlayback,
         subtitle: MusicStrings.musicPlaybackSubtitle,
         destinationBuilder: (_) => const MusicPlaybackSettingsScreen(),
+      ),
+      SettingNavigationTile(
+        icon: Symbols.visibility_off_rounded,
+        title: MusicStrings.hiddenMusic,
+        subtitle: MusicStrings.hiddenMusicSubtitle,
+        destinationBuilder: (_) => const HiddenMusicScreen(),
       ),
       const _ListenBrainzTile(),
     ],

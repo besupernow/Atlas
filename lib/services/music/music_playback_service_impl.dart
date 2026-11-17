@@ -38,6 +38,7 @@ import 'music_playback_service.dart';
 import 'music_queue_controller.dart';
 import 'music_session_store.dart';
 import 'music_source_resolver.dart';
+import 'music_bans.dart';
 
 /// A gapless-armed next track: what [Player.setNext] was fed, so the
 /// trackTransition event can be mapped back to a queue entry and its
@@ -101,6 +102,8 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
        _queue = MusicQueueController(random: queueRandom),
        _volumePersistenceWriter = volumePersistenceWriter ?? _writePersistedVolume {
     _coordinator.registerMusicSession(stopAndDispose: _stopForVideoClaim);
+    // Atlas: hiding something takes it out of the queue (and skips it if it's playing).
+    MusicBans.instance.addListener(_onBansChanged);
     // tvOS has no background-audio session in v1, so it pauses on
     // backgrounding. A car keeps observing the lifecycle only as the fallback
     // authority for vehicles that cannot report UX restrictions; where the
@@ -375,6 +378,11 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     PlaybackLaunchObserver? launchObserver,
   }) {
     beginPlayIntent();
+    // Atlas: never anything this person hid.
+    final bans = MusicBans.instance;
+    tracks = bans.filter(tracks);
+    if (startTrack != null && bans.blocks(startTrack)) startTrack = null;
+    if (tracks.isEmpty) return Future.value();
     return _startQueue(
       tracks: tracks,
       startTrack: startTrack,
@@ -396,7 +404,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     }
     List<MediaItem> tracks;
     try {
-      tracks = await client.fetchInstantMix(seed.id);
+      tracks = MusicBans.instance.filter(await client.fetchInstantMix(seed.id));
     } catch (e, st) {
       if (!isPlayIntentCurrent(intent)) return InstantMixOutcome.superseded;
       appLogger.w('Instant mix fetch failed for ${seed.id}', error: e, stackTrace: st);
@@ -1629,6 +1637,17 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     _afterQueueEdit();
   }
 
+  /// Atlas: drop what's now hidden from what's coming up; skip the song playing if it is.
+  void _onBansChanged() {
+    final bans = MusicBans.instance;
+    final items = queue;
+    for (var i = items.length - 1; i > currentIndex; i--) {
+      if (bans.blocks(items[i])) removeAt(i);
+    }
+    final current = _currentTrack;
+    if (current != null && bans.blocks(current)) removeAt(currentIndex);
+  }
+
   @override
   void removeAt(int index) {
     if (index < 0 || index >= _queue.length) return;
@@ -1663,6 +1682,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   /// (mini-player appears paused) instead of silently dropping the action
   /// or surprising the user with audio.
   void _enqueue(List<MediaItem> tracks, {required bool next}) {
+    tracks = MusicBans.instance.filter(tracks);
     if (tracks.isEmpty) return;
     if (_queue.isEmpty || _currentTrack == null) {
       final first = tracks.first;
@@ -2044,6 +2064,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       _observesCarRestrictions = false;
     }
     _coordinator.unregisterMusicSession(_stopForVideoClaim);
+    MusicBans.instance.removeListener(_onBansChanged);
     _cancelTimersAndFinalizeTrack();
     // Runs to completion synchronously — see the awaitStop: false contract.
     unawaited(_teardownPlayerAndControls(awaitStop: false));

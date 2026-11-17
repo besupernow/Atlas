@@ -23,6 +23,7 @@ import '../../media/media_server_client.dart';
 import '../../mixins/context_menu_tap_mixin.dart';
 import '../../mpv/mpv.dart';
 import '../../services/device_performance.dart';
+import '../../services/music/music_bans.dart';
 import '../../services/music/music_playback_service.dart';
 import '../../theme/mono_motion.dart';
 import '../../theme/mono_tokens.dart';
@@ -47,6 +48,7 @@ import '../../features/music/discover/discover_feed.dart';
 import '../../features/music/discover/discover_models.dart';
 import '../../features/music/discover/discover_widgets.dart';
 import '../../features/music/music_strings.dart';
+import '../../features/music/widgets/lyric_share.dart';
 import '../../utils/error_message_utils.dart';
 
 /// Full-screen music player. Pushed via [openNowPlaying]; popping never
@@ -360,12 +362,30 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     // the sheet, otherwise the route pops natively — audio continues).
     final host = OverlaySheetHost(
       canPop: true,
+      // Atlas: pulled down, the whole sheet (art wash and all) slides down as one rounded card
+      // over the page underneath, which shows through dimmed, like Apple Music. The route is
+      // see-through for this; the card itself is opaque.
       child: Scaffold(
         key: _overlayChildKey,
-        backgroundColor: tk.bg,
+        backgroundColor: Colors.transparent,
         body: ValueListenableBuilder<double>(
           valueListenable: _dismissDrag,
-          builder: (context, offset, child) => Transform.translate(offset: Offset(0, offset), child: child),
+          builder: (context, offset, child) {
+            final pulled = (offset / 400).clamp(0.0, 1.0);
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (offset > 0) ColoredBox(color: Colors.black.withValues(alpha: 0.45 * (1 - pulled))),
+                Transform.translate(
+                  offset: Offset(0, offset),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(offset > 0 ? 28 : 0)),
+                    child: ColoredBox(color: tk.bg, child: child),
+                  ),
+                ),
+              ],
+            );
+          },
           child: content,
         ),
       ),
@@ -776,6 +796,29 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       item: track,
       extraEntries: [
         MediaMenuExtraEntry(icon: Symbols.bedtime_rounded, label: t.music.sleepTimer, onSelected: _showSleepTimerSheet),
+        // Atlas: hide it for good (the player skips to the next song).
+        MediaMenuExtraEntry(
+          icon: Symbols.visibility_off_rounded,
+          label: MusicStrings.hideSong,
+          onSelected: () => unawaited(
+            MusicBans.instance.add(
+              MusicBan(
+                kind: MusicBanKind.song,
+                title: track.title ?? '',
+                artist: track.trackArtistTitle ?? track.albumArtistTitle ?? '',
+                id: track.id,
+              ),
+            ),
+          ),
+        ),
+        if ((track.albumArtistTitle ?? track.trackArtistTitle) case final artist? when artist.isNotEmpty)
+          MediaMenuExtraEntry(
+            icon: Symbols.person_off_rounded,
+            label: MusicStrings.hideArtist(artist),
+            onSelected: () => unawaited(
+              MusicBans.instance.add(MusicBan(kind: MusicBanKind.artist, title: artist, id: track.grandparentId)),
+            ),
+          ),
       ],
       child: FocusableButton(
         focusNode: focusable ? _overflowFocusNode : null,
@@ -877,6 +920,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 lyricsFuture: _lyricsFutureFor(track),
                 focusNode: _lyricsPaneFocusNode,
                 onExit: _focusTransport,
+                // Atlas: long-press lines to share them as a card.
+                onShareLines: PlatformDetector.isTV()
+                    ? null
+                    : (lines) => unawaited(
+                        shareLyrics(
+                          context,
+                          track: track,
+                          client: context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId)),
+                          lines: lines,
+                        ),
+                      ),
               ),
             )
           : KeyedSubtree(

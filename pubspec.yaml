@@ -47,6 +47,8 @@ dependencies:
   wakelock_plus:
     path: packages/wakelock_plus
   path_provider: ^2.1.0
+  # Atlas: sharing lyric cards from Now Playing.
+  share_plus: ^13.2.1
   path: ^1.9.0
   universal_gamepad: ^1.5.7
   drift: ^2.31.0

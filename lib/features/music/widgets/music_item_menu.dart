@@ -8,6 +8,7 @@ import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../../../media/media_server_client.dart';
+import '../../../services/music/music_bans.dart';
 import '../../../services/music/music_playback_service.dart';
 import '../../../utils/dialogs.dart';
 import '../../../utils/music_navigation.dart';
@@ -94,10 +95,44 @@ abstract final class MusicItemMenu {
                 DiscoverArtist(mbid: album.artistMbid ?? 'name:${album.artistName}', name: album.artistName),
               ),
             ),
+          ..._hideActions([
+            MusicBan(kind: MusicBanKind.album, title: album.title, artist: album.artistName),
+            if (album.artistName.isNotEmpty) MusicBan(kind: MusicBanKind.artist, title: album.artistName),
+          ]),
         ];
       case ExternalArtistItem(:final artist):
-        return [_Action(Symbols.artist_rounded, MusicStrings.goToArtist, (c) => showArtistDiscoverySheet(c, artist))];
+        return [
+          _Action(Symbols.artist_rounded, MusicStrings.goToArtist, (c) => showArtistDiscoverySheet(c, artist)),
+          ..._hideActions([MusicBan(kind: MusicBanKind.artist, title: artist.name)]),
+        ];
     }
+  }
+
+  /// "Hide Song", "Hide Album", "Hide Artist": never shown or played again for this person
+  /// (undo in Settings → Hidden Music).
+  static List<_Action> _hideActions(List<MusicBan> bans) => [
+    for (final ban in bans)
+      _Action(
+        Symbols.visibility_off_rounded,
+        switch (ban.kind) {
+          MusicBanKind.song => MusicStrings.hideSong,
+          MusicBanKind.album => MusicStrings.hideAlbum,
+          MusicBanKind.artist => MusicStrings.hideArtist(ban.title),
+        },
+        (c) => _hide(c, ban),
+        destructive: true,
+      ),
+  ];
+
+  static Future<void> _hide(BuildContext context, MusicBan ban) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    await MusicBans.instance.add(ban);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(MusicStrings.hidden(ban.title)),
+        action: SnackBarAction(label: MusicStrings.undo, onPressed: () => unawaited(MusicBans.instance.remove(ban))),
+      ),
+    );
   }
 
   static List<_Action> _serverActions(MediaItem item) {
@@ -124,7 +159,27 @@ abstract final class MusicItemMenu {
           MusicStrings.goToArtist,
           (c) => _openById(c, item, (isTrack ? item.grandparentId : item.parentId)!, artist: true),
         ),
+      ..._hideActions(_bansFor(item)),
     ];
+  }
+
+  /// What can be hidden from a server item: the song, its album, its artist.
+  static List<MusicBan> _bansFor(MediaItem item) {
+    final albumArtist = item.albumArtistTitle ?? item.trackArtistTitle ?? '';
+    return switch (item.kind) {
+      MediaKind.track => [
+        MusicBan(kind: MusicBanKind.song, title: item.title ?? '', artist: item.trackArtistTitle ?? albumArtist, id: item.id),
+        if (item.albumTitle case final album? when album.isNotEmpty)
+          MusicBan(kind: MusicBanKind.album, title: album, artist: albumArtist, id: item.parentId),
+        if (albumArtist.isNotEmpty) MusicBan(kind: MusicBanKind.artist, title: albumArtist, id: item.grandparentId),
+      ],
+      MediaKind.album => [
+        MusicBan(kind: MusicBanKind.album, title: item.title ?? '', artist: albumArtist, id: item.id),
+        if (albumArtist.isNotEmpty) MusicBan(kind: MusicBanKind.artist, title: albumArtist, id: item.parentId),
+      ],
+      MediaKind.artist => [MusicBan(kind: MusicBanKind.artist, title: item.title ?? '', id: item.id)],
+      _ => const [],
+    };
   }
 
   static MediaServerClient? _client(BuildContext context, MediaItem item) =>

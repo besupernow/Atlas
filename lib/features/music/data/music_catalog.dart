@@ -13,6 +13,7 @@ import '../../../media/media_server_client.dart';
 import '../../../providers/libraries_provider.dart';
 import '../../../utils/app_logger.dart';
 import '../../../utils/provider_extensions.dart';
+import '../../../services/music/music_bans.dart';
 
 /// One music library and the client for its server.
 class MusicSource {
@@ -77,7 +78,8 @@ class MusicCatalog {
               return const <MediaItem>[];
             }),
     ]);
-    final merged = [for (final page in pages) ...page];
+    // Atlas: nothing this person hid.
+    final merged = MusicBans.instance.filter([for (final page in pages) ...page]);
     if (pages.length > 1 && sort != null) merged.sort((a, b) => _compare(a, b, sort, direction));
     return merged.length > limit ? merged.sublist(0, limit) : merged;
   }
@@ -113,7 +115,7 @@ class MusicCatalog {
         continue;
       }
       final moreHere = skip + result.items.length < result.totalCount;
-      return (items: result.items, hasMore: moreHere || i < sources.length - 1);
+      return (items: MusicBans.instance.filter(result.items), hasMore: moreHere || i < sources.length - 1);
     }
     return (items: const <MediaItem>[], hasMore: false);
   }
@@ -246,7 +248,7 @@ class MusicCatalog {
     final all = [
       for (final list in results)
         for (final item in list)
-          if (item.kind.isMusic) item,
+          if (item.kind.isMusic && !MusicBans.instance.blocks(item)) item,
     ];
     return MusicSearchResults(
       artists: [for (final item in all) if (item.kind == MediaKind.artist) item],

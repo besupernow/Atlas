@@ -12,6 +12,7 @@ import 'discover_feed.dart';
 import 'discover_models.dart';
 import 'discover_widgets.dart';
 import 'listenbrainz.dart';
+import '../../../services/music/music_bans.dart';
 
 /// One row of a feed page and how to load it. Rows load side by side and appear as they
 /// arrive; a row that fails or comes back empty is left out.
@@ -86,6 +87,7 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
   void initState() {
     super.initState();
     ListenBrainzAccount.changes.addListener(_reload);
+    MusicBans.instance.addListener(_bansChanged);
     if (_cache[widget.title] case final cached?) {
       _rows.addAll(cached.rows);
       _loadedHero = cached.hero;
@@ -124,10 +126,16 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
     _sourcesSettle?.cancel();
     _holdTimer?.cancel();
     ListenBrainzAccount.changes.removeListener(_reload);
+    MusicBans.instance.removeListener(_bansChanged);
     super.dispose();
   }
 
   void _reload() => unawaited(_load());
+
+  /// Something was hidden or unhidden: the rows filter themselves, they just need drawing.
+  void _bansChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// Load every row. Rows already showing stay until their new version arrives (or the row
   /// comes back empty), so nothing blinks out and back in.
@@ -198,7 +206,7 @@ class _MusicFeedPageState extends State<MusicFeedPage> {
   Widget build(BuildContext context) {
     _watchSources();
     final focus = MusicShellFocus.maybeOf(context);
-    final hero = widget.hero?.call(_rows) ?? _loadedHero;
+    final hero = [for (final item in widget.hero?.call(_rows) ?? _loadedHero) if (!item.isHidden) item];
     final loading = _pending.isNotEmpty;
     // Rows show in page order: one still loading holds back the ones below it (unless they're
     // already on screen), so nothing pops in above what you're looking at.

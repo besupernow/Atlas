@@ -1,6 +1,7 @@
 import 'dart:io' hide Platform;
 import 'package:plezy/utils/app_platform.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -162,7 +163,10 @@ class _InputModeTrackerState extends State<InputModeTracker> {
           _InputModeProvider(mode: _mode, child: widget.child),
           // Hide the desktop cursor in keyboard mode without excluding the
           // application subtree from the current pointer hit test.
-          if (_mode == InputMode.keyboard)
+          // Atlas: not on the web. Browsers send stray key events (focus coming back to the
+          // tab, modifier syncs), and each one hid the cursor until the mouse moved again, so
+          // the cursor flickered.
+          if (_mode == InputMode.keyboard && !kIsWeb)
             const Positioned.fill(
               child: MouseRegion(
                 cursor: SystemMouseCursors.none,
