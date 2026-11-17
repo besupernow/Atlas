@@ -185,6 +185,17 @@ abstract final class ReleaseButtons {
     textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
   );
 
+  /// The small round buttons (Love, More), frosted like [secondary].
+  static ButtonStyle round(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton.styleFrom(
+      fixedSize: const Size(46, 46),
+      backgroundColor: scheme.onSurface.withValues(alpha: 0.12),
+      foregroundColor: scheme.onSurface,
+      highlightColor: scheme.onSurface.withValues(alpha: 0.08),
+    );
+  }
+
   /// Frosted, not a second solid accent button: the accent stays on the main action.
   static ButtonStyle secondary(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;

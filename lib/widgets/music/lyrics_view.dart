@@ -258,7 +258,7 @@ class _LyricsViewState extends State<LyricsView> {
       onNotification: _handleScrollNotification,
       child: SingleChildScrollView(
         controller: _scroll,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 56),
         child: Column(
           crossAxisAlignment: .stretch,
           children: [
@@ -289,7 +289,8 @@ class _LyricsViewState extends State<LyricsView> {
     final line = lyrics.lines[index];
     final isActive = lyrics.synced && index == _activeIndex;
     final isFocusedLine = showFocus && lyrics.synced && index == _focusedLine;
-    final big = PlatformDetector.isTV() ? 40.0 : (MediaQuery.sizeOf(context).width >= 700 ? 34.0 : 28.0);
+    // Atlas: big, like Apple Music's (the lyrics are the screen when they're open).
+    final big = PlatformDetector.isTV() ? 54.0 : (MediaQuery.sizeOf(context).width >= 700 ? 46.0 : 36.0);
 
     // How far this line is from the one being sung (0 = sung now, or about to be).
     final distance = !lyrics.synced || _activeIndex < 0
@@ -306,8 +307,8 @@ class _LyricsViewState extends State<LyricsView> {
       curve: Curves.easeOutCubic,
       style: TextStyle(
         fontSize: big,
-        height: 1.22,
-        letterSpacing: -0.4,
+        height: 1.18,
+        letterSpacing: -0.8,
         fontWeight: FontWeight.w800,
         color: tk.text.withValues(alpha: opacity),
       ),

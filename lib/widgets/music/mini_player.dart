@@ -175,6 +175,11 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
   /// must leave the tree before that completes.
   bool _dismissed = false;
 
+  /// Atlas: a video played in video mode; the mini player stays away there until music mode is
+  /// opened again.
+  bool _hiddenForVideo = false;
+  int _seenTakeovers = 0;
+
   void _reportOverlayHeight(double height) {
     final controller = context.read<MiniPlayerInsetController?>();
     if (controller == null || controller.overlayHeight == height) return;
@@ -208,13 +213,20 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
     final modes = AppModeController.instance;
     if (_lastTrack == null && !hasMusicLibraries) return const SizedBox.shrink();
 
+    final takeovers = context.select<MusicPlaybackService, int>((s) => s.videoTakeovers);
+    if (takeovers != _seenTakeovers) {
+      _seenTakeovers = takeovers;
+      if (!modes.isMusic) _hiddenForVideo = true;
+    }
+
     final suppress = context.read<MusicUiRouteObserver?>()?.suppress ?? _noSuppression;
     final openSheets = OverlaySheetController.openSheetCount;
     return ListenableBuilder(
       listenable: Listenable.merge([suppress, openSheets, modes]),
       builder: (context, _) {
         final musicMode = modes.isMusic && hasMusicLibraries;
-        final hasSession = track != null && !suppress.value && !_dismissed;
+        if (modes.isMusic) _hiddenForVideo = false;
+        final hasSession = track != null && !suppress.value && !_dismissed && !(_hiddenForVideo && !modes.isMusic);
         final idle = musicMode && !hasSession && !suppress.value;
         // Sheets render inside the routes' subtrees, BELOW this overlay —
         // hide the card while any sheet is up so it never floats over one.

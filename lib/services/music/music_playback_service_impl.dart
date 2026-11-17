@@ -1744,6 +1744,11 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   @override
   Future<void> stop() => _stopSession(endStatus: MusicPlaybackStatus.idle);
 
+  int _videoTakeovers = 0;
+
+  @override
+  int get videoTakeovers => _videoTakeovers;
+
   /// The coordinator's video claim uses the exact same full-stop path, so
   /// the audio core is guaranteed disposed when it resolves.
   /// Atlas: a video starting parks the music session instead of ending it. The audio core goes
@@ -1751,6 +1756,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   /// session restored at launch: Now Playing and the mini player keep showing what was playing,
   /// and Play picks it up where it left off.
   Future<void> _stopForVideoClaim() async {
+    _videoTakeovers++;
     final track = _currentTrack;
     if (track == null || _status == MusicPlaybackStatus.idle || _status == MusicPlaybackStatus.error) {
       return _stopSession(endStatus: MusicPlaybackStatus.idle);

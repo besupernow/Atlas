@@ -198,7 +198,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
           ),
       ],
       iconActions: [
-        IconButton.filledTonal(
+        IconButton(
+          style: ReleaseButtons.round(context),
           onPressed: () => unawaited(_toggleLove()),
           tooltip: _loved ? MusicStrings.unlove : MusicStrings.love,
           icon: AppIcon(
@@ -207,7 +208,8 @@ class _MusicReleasePageState extends State<MusicReleasePage> {
             color: _loved ? theme.colorScheme.primary : null,
           ),
         ),
-        IconButton.filledTonal(
+        IconButton(
+          style: ReleaseButtons.round(context),
           onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_album))),
           icon: const AppIcon(Symbols.more_horiz_rounded),
         ),

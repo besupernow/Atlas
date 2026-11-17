@@ -430,7 +430,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           ),
         ),
         if (playing)
-          Padding(padding: const EdgeInsets.fromLTRB(28, 12, 28, 0), child: _buildTrackInfo(track, centered: false)),
+          Padding(padding: const EdgeInsets.fromLTRB(28, 12, 28, 0), child: _buildTrackInfo(track, centered: true)),
       ],
     );
     // Touch only — desktop keeps mouse drags for text selection and the
@@ -530,7 +530,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                         mainAxisSize: .min,
                         crossAxisAlignment: .stretch,
                         children: [
-                          _buildTrackInfo(track, centered: false, large: true),
+                          _buildTrackInfo(track, centered: true, large: true),
                           const SizedBox(height: 20),
                           _buildSeekBar(track),
                           const SizedBox(height: 8),
