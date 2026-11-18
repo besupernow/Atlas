@@ -12,6 +12,7 @@ import '../../i18n/strings.g.dart';
 import '../../media/ids.dart';
 import '../../media/media_item.dart';
 import '../../mixins/context_menu_tap_mixin.dart';
+import '../../navigation/popup_route_counter.dart';
 import '../../navigation/settings_shortcut.dart';
 import '../../providers/libraries_provider.dart';
 import '../../services/music/music_playback_service.dart';
@@ -179,7 +180,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
   /// Atlas: a video played in video mode; the mini player stays away there until music mode is
   /// opened again.
   bool _hiddenForVideo = false;
-  int _seenTakeovers = 0;
+  int? _seenTakeovers;
 
   void _reportOverlayHeight(double height) {
     final controller = context.read<MiniPlayerInsetController?>();
@@ -215,6 +216,9 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
     if (_lastTrack == null && !hasMusicLibraries) return const SizedBox.shrink();
 
     final takeovers = context.select<MusicPlaybackService, int>((s) => s.videoTakeovers);
+    // A fresh state (the app rebuilt, say for a theme change) starts from where the player is:
+    // only a video that plays from now on hides the mini player.
+    _seenTakeovers ??= takeovers;
     if (takeovers != _seenTakeovers) {
       _seenTakeovers = takeovers;
       if (!modes.isMusic) _hiddenForVideo = true;
@@ -223,7 +227,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
     final suppress = context.read<MusicUiRouteObserver?>()?.suppress ?? _noSuppression;
     final openSheets = OverlaySheetController.openSheetCount;
     return ListenableBuilder(
-      listenable: Listenable.merge([suppress, openSheets, modes, openSettingsScreens]),
+      listenable: Listenable.merge([suppress, openSheets, modes, openSettingsScreens, PopupRouteCounter.open]),
       builder: (context, _) {
         final musicMode = modes.isMusic && hasMusicLibraries;
         if (modes.isMusic) _hiddenForVideo = false;
@@ -232,7 +236,12 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         // Sheets render inside the routes' subtrees, BELOW this overlay —
         // hide the card while any sheet is up so it never floats over one.
         // Atlas: not over settings either.
-        final visible = (hasSession || idle) && openSheets.value == 0 && openSettingsScreens.value == 0;
+        // Atlas: not over settings, and out of the way of any sheet, dialog or menu (it sits
+        // above the navigators, so it would cover their buttons).
+        final visible = (hasSession || idle) &&
+            openSheets.value == 0 &&
+            openSettingsScreens.value == 0 &&
+            PopupRouteCounter.open.value == 0;
         final useSideNav = PlatformDetector.shouldUseSideNavigation(context);
         // Report off the session (not sheet) state so the underlying
         // screen's scroll padding doesn't jump while a sheet is open.

@@ -32,6 +32,7 @@ import '../pages/music_search_page.dart';
 import '../settings/music_settings.dart';
 import '../theme/music_theme.dart';
 import 'music_shell_focus.dart';
+import '../../../navigation/popup_route_counter.dart';
 
 enum _MusicTab {
   home(MusicStrings.home, Symbols.home_rounded, 'house.fill'),
@@ -63,6 +64,11 @@ class MusicShell extends StatefulWidget {
 }
 
 class _MusicShellState extends State<MusicShell> {
+  /// Sheets and menus opened on a tab count as popups, so the mini player steps aside.
+  final Map<_MusicTab, PopupRouteCounter> _popupCounters = {
+    for (final tab in _MusicTab.values) tab: PopupRouteCounter(),
+  };
+
   final Map<_MusicTab, GlobalKey<NavigatorState>> _navigators = {
     for (final tab in _MusicTab.values) tab: GlobalKey<NavigatorState>(debugLabel: 'music.${tab.name}'),
   };
@@ -215,6 +221,7 @@ class _MusicShellState extends State<MusicShell> {
                 child: HeroControllerScope.none(
                   child: Navigator(
                     key: _navigators[tab],
+                    observers: [_popupCounters[tab]!],
                     onGenerateRoute: (settings) =>
                         MaterialPageRoute<void>(settings: settings, builder: (_) => _page(tab)),
                   ),
@@ -333,7 +340,13 @@ class _MusicShellState extends State<MusicShell> {
       color: theme.colorScheme.surfaceContainerLow,
       child: SafeArea(
         right: false,
-        child: Column(
+        // Scrolls when the screen is too short for everything (TV overscan, big text); the
+        // Spacer still pushes Settings to the bottom when there's room.
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -342,9 +355,13 @@ class _MusicShellState extends State<MusicShell> {
                 children: [
                   AppIcon(Symbols.music_note_rounded, color: theme.colorScheme.primary, fill: 1.0),
                   const SizedBox(width: 8),
-                  Text(
-                    AppModeSwitch.label(AppMode.video),
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  Flexible(
+                    child: Text(
+                      AppModeSwitch.label(AppMode.video),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ],
               ),
@@ -386,6 +403,9 @@ class _MusicShellState extends State<MusicShell> {
                   onSelect: AppModeSwitch.toggle,
                 ),
               ),
+          ],
+              ),
+            ),
           ],
         ),
       ),

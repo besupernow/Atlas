@@ -167,3 +167,27 @@ class _Aurora extends StatelessWidget {
     );
   }
 }
+
+/// Atlas: sizes that grow with the screen and with the text size, so big screens (and big
+/// text) get bigger cards with room for their labels instead of overflowing.
+abstract final class MusicLayout {
+  /// How much bigger than normal the text is drawn.
+  static double textScale(BuildContext context) => MediaQuery.textScalerOf(context).scale(16) / 16;
+
+  /// Room under a card's art for its two lines of text (and the focus ring).
+  static double cardText(BuildContext context) => (40 * textScale(context)).ceilToDouble() + 24;
+
+  /// A shelf card's art: phones fixed, bigger screens a share of the width.
+  static double cardSize(BuildContext context, {bool large = false}) {
+    final width = MediaQuery.sizeOf(context).width;
+    final double base;
+    if (PlatformDetector.isTV()) {
+      base = (width / 6).clamp(190.0, 280.0);
+    } else if (width >= 900) {
+      base = (width / 7).clamp(170.0, 240.0);
+    } else {
+      base = 150;
+    }
+    return large ? base * 1.25 : base;
+  }
+}

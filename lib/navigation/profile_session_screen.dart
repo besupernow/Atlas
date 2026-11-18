@@ -44,6 +44,7 @@ import '../widgets/agent_control_scope.dart';
 import 'profile_navigation_scope.dart';
 import 'settings_shortcut.dart';
 import '../services/music/music_bans.dart';
+import 'popup_route_counter.dart';
 
 CatalogSourcesProvider _createCatalogSourcesProvider(BuildContext context) {
   return CatalogSourcesProvider(
@@ -343,6 +344,7 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
   // MainScreen report its bottom-bar height so the overlay floats above it.
   final _musicRouteObserver = MusicUiRouteObserver();
   final _miniPlayerInsets = MiniPlayerInsetController();
+  final _popupCounter = PopupRouteCounter();
   final _settingsRouteTracker = SettingsRouteTracker();
 
   @override
@@ -404,6 +406,7 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
                       _musicRouteObserver,
                       _settingsRouteTracker,
                       BackKeySuppressorObserver(),
+                      _popupCounter,
                     ],
                     onGenerateRoute: _onGenerateRoute,
                   ),

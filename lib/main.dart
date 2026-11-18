@@ -116,6 +116,7 @@ import 'services/startup_diagnostics.dart';
 import 'utils/dialogs.dart';
 import 'widgets/dialog_action_button.dart';
 import 'widgets/startup_failure_view.dart';
+import 'navigation/popup_route_counter.dart';
 
 const bool _enableSentry = bool.fromEnvironment('ENABLE_SENTRY', defaultValue: false);
 const String _sentryDsn = 'https://6a1a6ef8c72140099b2798973c1bfb2f@bugs.plezy.app/1';
@@ -2008,7 +2009,7 @@ class _AppShell extends StatelessWidget {
                     darkTheme: themeProvider.darkTheme,
                     themeMode: themeProvider.materialThemeMode,
                     navigatorKey: rootNavigatorKey,
-                    navigatorObservers: [BackKeySuppressorObserver()],
+                    navigatorObservers: [BackKeySuppressorObserver(), PopupRouteCounter.root],
                     home: SetupScreen(databaseRecoveryOutcome: databaseRecoveryOutcome),
                     // Siri Remote select + gamepad A report as
                     // LogicalKeyboardKey.{select,gameButtonA} which aren't

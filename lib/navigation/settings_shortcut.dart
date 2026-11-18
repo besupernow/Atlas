@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../screens/settings/settings_screen.dart';
@@ -31,6 +32,19 @@ MaterialPageRoute<void> buildSettingsRoute({
 /// since settings stays mounted under them). The mini player hides while this is above zero.
 final ValueNotifier<int> openSettingsScreens = ValueNotifier<int>(0);
 
+/// The settings screens mounted right now. The count is recomputed from this set (not counted
+/// up and down), so it can't drift, and it changes after the current frame: settings mounts
+/// mid-build, and listeners rebuilding then would throw.
+final Set<State> _openSettings = {};
+
+void _settingsChanged() {
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    _openSettings.removeWhere((state) => !state.mounted);
+    openSettingsScreens.value = _openSettings.length;
+  });
+  SchedulerBinding.instance.ensureVisualUpdate();
+}
+
 class _OpenSettingsMarker extends StatefulWidget {
   const _OpenSettingsMarker({required this.child});
 
@@ -44,12 +58,14 @@ class _OpenSettingsMarkerState extends State<_OpenSettingsMarker> {
   @override
   void initState() {
     super.initState();
-    openSettingsScreens.value++;
+    _openSettings.add(this);
+    _settingsChanged();
   }
 
   @override
   void dispose() {
-    openSettingsScreens.value--;
+    _openSettings.remove(this);
+    _settingsChanged();
     super.dispose();
   }
 

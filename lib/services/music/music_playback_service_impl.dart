@@ -39,6 +39,7 @@ import 'music_queue_controller.dart';
 import 'music_session_store.dart';
 import 'music_source_resolver.dart';
 import 'music_bans.dart';
+import 'audio_meter.dart';
 
 /// A gapless-armed next track: what [Player.setNext] was fed, so the
 /// trackTransition event can be mapped back to a queue entry and its
@@ -751,6 +752,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     if (isNew) {
       _player = player;
       _wirePlayerStreams(player);
+      _meter.attach(player, passthrough: _passthroughWanted());
     }
     if (Platform.isAndroid) {
       // Configure logging before volume/focus/open can create the native core,
@@ -773,6 +775,14 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   /// than reloading mid-track; like video, a changed setting takes effect on
   /// the next player. Elsewhere passthrough claims the output device (exclusive
   /// WASAPI, IEC 61937 AudioTrack), which music playback does not opt into.
+  /// Whether this player hands audio straight to the system decoder (no filters run then).
+  bool _passthroughWanted() {
+    if (!PlayerNative.usesAppleAudioOutput) return false;
+    final settings = SettingsService.instanceOrNull;
+    if (settings == null) return false;
+    return settings.read(SettingsService.audioPassthrough) && !settings.read(SettingsService.audioNormalization);
+  }
+
   Future<void> _applyAudioPassthrough(Player player) async {
     if (!PlayerNative.usesAppleAudioOutput) return;
     final settings = SettingsService.instanceOrNull;
@@ -1766,6 +1776,11 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
 
   int _videoTakeovers = 0;
 
+  final AudioMeter _meter = AudioMeter();
+
+  @override
+  AudioMeter get audioMeter => _meter;
+
   @override
   int get videoTakeovers => _videoTakeovers;
 
@@ -1871,6 +1886,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     unawaited(DiscordRPCService.instance.stopPlayback());
     final player = _player;
     _player = null;
+    _meter.attach(null);
     if (player != null && !player.disposed) {
       if (awaitStop) {
         try {
@@ -2038,6 +2054,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     if (_status == status && !forceNotify) return;
     final wasPlaying = _status == MusicPlaybackStatus.playing;
     _status = status;
+    _meter.playing = status == MusicPlaybackStatus.playing;
     // Pause is the moment the playhead stops moving — flush it so a quit
     // while paused restores exactly here.
     if (wasPlaying && status == MusicPlaybackStatus.paused) _persistSessionProgress();

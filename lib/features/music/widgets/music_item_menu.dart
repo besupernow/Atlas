@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
@@ -159,6 +161,8 @@ abstract final class MusicItemMenu {
           MusicStrings.goToArtist,
           (c) => _openById(c, item, (isTrack ? item.grandparentId : item.parentId)!, artist: true),
         ),
+      _Action(Symbols.ios_share_rounded, MusicStrings.share, (c) => _share(c, item)),
+      _Action(Symbols.content_copy_rounded, MusicStrings.copyName, (c) => _copyName(c, item)),
       ..._hideActions(_bansFor(item)),
     ];
   }
@@ -180,6 +184,35 @@ abstract final class MusicItemMenu {
       MediaKind.artist => [MusicBan(kind: MusicBanKind.artist, title: item.title ?? '', id: item.id)],
       _ => const [],
     };
+  }
+
+  /// "Song – Artist", "Album – Artist" or just the artist: what Share and Copy hand over.
+  static String _nameOf(MediaItem item) {
+    final title = item.title ?? '';
+    final artist = switch (item.kind) {
+      MediaKind.track => item.trackArtistTitle ?? item.albumArtistTitle,
+      MediaKind.album => item.albumArtistTitle,
+      _ => null,
+    };
+    return artist == null || artist.isEmpty ? title : '$title – $artist';
+  }
+
+  static Future<void> _share(BuildContext context, MediaItem item) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
+    try {
+      await SharePlus.instance.share(ShareParams(text: _nameOf(item), sharePositionOrigin: origin));
+    } catch (_) {
+      // No share sheet here (some desktops): copy it instead.
+      if (context.mounted) await _copyName(context, item);
+    }
+  }
+
+  static Future<void> _copyName(BuildContext context, MediaItem item) async {
+    await Clipboard.setData(ClipboardData(text: _nameOf(item)));
+    if (context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text(MusicStrings.copied)));
+    }
   }
 
   static MediaServerClient? _client(BuildContext context, MediaItem item) =>

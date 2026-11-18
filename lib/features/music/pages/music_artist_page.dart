@@ -27,6 +27,7 @@ import '../discover/music_search_index.dart';
 import '../music_strings.dart';
 import '../shell/music_shell_focus.dart';
 import '../widgets/art_backdrop.dart';
+import '../widgets/music_item_menu.dart';
 import '../widgets/music_page.dart';
 import '../widgets/release_hero.dart';
 import '../widgets/release_tracks.dart';
@@ -116,7 +117,13 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
   }
 
   void _bansChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // Hid this artist from their own page: nothing left to show here.
+    if (MusicBans.instance.blocks(_artist)) {
+      unawaited(Navigator.maybePop(context));
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _load() async {
@@ -332,6 +339,13 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
                 onInstantMix: (_client?.capabilities.instantMix ?? false)
                     ? () => unawaited(playInstantMix(context, _artist))
                     : null,
+                // Everything else (play next, queue, love, station, share, hide…).
+                trailing: FocusableAction(
+                  debugLabel: 'music_artist_more',
+                  icon: Symbols.more_horiz_rounded,
+                  tooltip: MusicStrings.more,
+                  onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_artist))),
+                ),
               ),
               onNavigateDown: _focusBelowActions,
               onNavigateLeft: focus?.focusRail,

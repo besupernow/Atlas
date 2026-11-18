@@ -81,6 +81,8 @@ abstract final class MusicStrings {
       "$title isn't on MusicBrainz yet, and Lidarr only gets what MusicBrainz lists. Try again once it's been added.";
   static const feat = 'feat.';
   static const share = 'Share';
+  static const copyName = 'Copy Name';
+  static const copied = 'Copied';
   static const hideSong = 'Hide Song';
   static const hideAlbum = 'Hide Album';
   static String hideArtist(String name) => 'Hide $name';

@@ -301,7 +301,7 @@ class _MusicFeedGridPageState extends State<MusicFeedGridPage> {
                 maxCrossAxisExtent: size + 16,
                 mainAxisSpacing: 16,
                 crossAxisSpacing: 14,
-                childAspectRatio: size / (size + 62),
+                childAspectRatio: size / (size + MusicLayout.cardText(context)),
               ),
               itemCount: items.length,
               itemBuilder: (context, index) => LayoutBuilder(

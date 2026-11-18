@@ -443,12 +443,7 @@ class MusicFeedShelf extends StatelessWidget {
   /// Makes the title tappable with a ">" (Apple's "see all").
   final VoidCallback? onSeeAll;
 
-  static double cardSize(BuildContext context, {bool large = false}) {
-    final isTV = PlatformDetector.isTV();
-    final width = MediaQuery.sizeOf(context).width;
-    final base = isTV ? 190.0 : (width >= 900 ? 176.0 : 150.0);
-    return large ? base * 1.25 : base;
-  }
+  static double cardSize(BuildContext context, {bool large = false}) => MusicLayout.cardSize(context, large: large);
 
   @override
   Widget build(BuildContext context) {
@@ -466,8 +461,8 @@ class MusicFeedShelf extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            // Art, two lines of text and the focus ring's room.
-            height: size + 62,
+            // Art, two lines of text (at whatever size text is drawn) and the focus ring's room.
+            height: size + MusicLayout.cardText(context),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: padding.add(const EdgeInsets.only(bottom: 4)),

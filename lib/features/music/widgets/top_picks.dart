@@ -179,9 +179,9 @@ class TopPicksShelf extends StatelessWidget {
   final VoidCallback? onNavigateToSidebar;
 
   static double cardWidth(BuildContext context) {
-    if (PlatformDetector.isTV()) return 280;
     final width = MediaQuery.sizeOf(context).width;
-    return width >= 900 ? 260 : (width * 0.62).clamp(200.0, 250.0);
+    if (PlatformDetector.isTV()) return (width * 0.26).clamp(260.0, 380.0);
+    return width >= 900 ? (width * 0.22).clamp(260.0, 340.0) : (width * 0.62).clamp(200.0, 250.0);
   }
 
   @override
@@ -200,7 +200,7 @@ class TopPicksShelf extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: width + 76 + 30,
+            height: width + _TopPickCard.bandHeight(context) + 30,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: padding,
@@ -247,10 +247,13 @@ class _TopPickCard extends StatelessWidget {
     }
   }
 
+  /// The colored band under the art: two or three lines of text at the drawn text size.
+  static double bandHeight(BuildContext context) => (58 * MusicLayout.textScale(context)).ceilToDouble() + 22;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const band = 76.0;
+    final band = bandHeight(context);
     final external = pick is ItemPick && (pick as ItemPick).item is ExternalAlbumItem
         ? ((pick as ItemPick).item as ExternalAlbumItem).album
         : null;
@@ -304,23 +307,23 @@ class _TopPickCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
+          Flexible(child: Text(
             line1,
-            maxLines: line2 == null ? 3 : 1,
+            maxLines: line2 == null ? 2 : 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white,
               fontWeight: line2 == null ? FontWeight.w500 : FontWeight.w700,
               height: 1.25,
             ),
-          ),
+          )),
           if (line2 != null && line2.isNotEmpty)
-            Text(
+            Flexible(child: Text(
               line2,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
-            ),
+            )),
         ],
       ),
     );
@@ -429,7 +432,7 @@ class MixShelf extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: size + 62,
+            height: size + MusicLayout.cardText(context),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: padding,

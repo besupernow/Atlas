@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../media/lyrics.dart';
 import '../../media/media_item.dart';
 import '../playback_launch_observer.dart';
+import 'audio_meter.dart';
 
 /// Repeat behavior of the music queue.
 enum MusicRepeatMode { off, all, one }
@@ -47,6 +48,10 @@ abstract class MusicPlaybackService extends ChangeNotifier {
   /// Atlas: how many times a video has taken over from music this session. The mini player
   /// hides for good in video mode after one does, until music mode is opened again.
   int get videoTakeovers => 0;
+
+  /// Atlas: how loud the music is right now, for equalizer bars that move with it. Null
+  /// where it can't be measured.
+  AudioMeter? get audioMeter => null;
 
   Duration? get duration;
   Duration get position;

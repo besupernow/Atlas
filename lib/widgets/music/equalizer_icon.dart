@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/device_performance.dart';
+import '../../services/music/music_playback_service.dart';
 
 /// Small 3-bar "now playing" indicator. Bars animate while [animate] is true;
 /// on the reduced visual-effects tier they render static regardless (each
@@ -56,14 +59,25 @@ class _EqualizerIconState extends State<EqualizerIcon> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    // Atlas: while music plays, the bars follow how loud it actually is (the player's meter);
+    // without readings (no meter on this platform, a gap between songs) they keep the loop.
+    final meter = _shouldAnimate ? context.read<MusicPlaybackService?>()?.audioMeter : null;
     return SizedBox(
       width: 16,
       height: 14,
       child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) => CustomPaint(
-          painter: _EqualizerPainter(t: _controller.value, color: widget.color, animate: _shouldAnimate),
-        ),
+        animation: meter == null ? _controller : Listenable.merge([_controller, meter]),
+        builder: (context, _) {
+          final levels = meter != null && meter.live ? meter.value : null;
+          return CustomPaint(
+            painter: _EqualizerPainter(
+              t: _controller.value,
+              color: widget.color,
+              animate: _shouldAnimate,
+              levels: levels,
+            ),
+          );
+        },
       ),
     );
   }
@@ -80,7 +94,10 @@ class _EqualizerPainter extends CustomPainter {
   /// Per-bar phase offsets so the animated bars move out of step.
   static const List<double> _phases = [0.0, 0.35, 0.7];
 
-  const _EqualizerPainter({required this.t, required this.color, required this.animate});
+  /// Real loudness per bar (0..1), when the player is measuring it.
+  final List<double>? levels;
+
+  const _EqualizerPainter({required this.t, required this.color, required this.animate, this.levels});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -90,7 +107,12 @@ class _EqualizerPainter extends CustomPainter {
     final paint = Paint()..color = color;
 
     for (var i = 0; i < barCount; i++) {
-      final fraction = animate ? 0.3 + 0.7 * (0.5 + 0.5 * math.sin(2 * math.pi * (t + _phases[i]))) : _staticHeights[i];
+      final level = levels;
+      final fraction = level != null && i < level.length
+          ? 0.18 + 0.82 * level[i]
+          : animate
+          ? 0.3 + 0.7 * (0.5 + 0.5 * math.sin(2 * math.pi * (t + _phases[i])))
+          : _staticHeights[i];
       final barHeight = size.height * fraction;
       final left = i * (barWidth + gap);
       canvas.drawRRect(
@@ -105,5 +127,8 @@ class _EqualizerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_EqualizerPainter oldDelegate) =>
-      oldDelegate.t != t || oldDelegate.color != color || oldDelegate.animate != animate;
+      oldDelegate.t != t ||
+      oldDelegate.color != color ||
+      oldDelegate.animate != animate ||
+      !listEquals(oldDelegate.levels, levels);
 }

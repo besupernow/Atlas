@@ -30,13 +30,18 @@ class TopSongsShelf extends StatelessWidget {
   final VoidCallback? onNavigateToSidebar;
 
   static const _rows = 4;
-  static const _rowHeight = 64.0;
+  /// A row's height: the art, or two lines of text at the drawn text size when that's taller.
+  static double _rowHeightFor(BuildContext context) =>
+      [64.0, (36 * MusicLayout.textScale(context)).ceilToDouble() + 22].reduce((a, b) => a > b ? a : b);
 
   @override
   Widget build(BuildContext context) {
     if (tracks.isEmpty) return const SizedBox.shrink();
     final width = MediaQuery.sizeOf(context).width;
-    final columnWidth = PlatformDetector.isTV() ? 420.0 : (width >= 900 ? 380.0 : width * 0.84);
+    final columnWidth = PlatformDetector.isTV()
+        ? (width * 0.3).clamp(420.0, 560.0)
+        : (width >= 900 ? (width * 0.3).clamp(380.0, 480.0) : width * 0.84);
+    final rowHeight = _rowHeightFor(context);
     final columns = (tracks.length / _rows).ceil();
     final padding = MusicPage.padding(context);
     return Padding(
@@ -53,7 +58,7 @@ class TopSongsShelf extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: _rows * _rowHeight,
+            height: _rows * rowHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: padding,
@@ -66,7 +71,7 @@ class TopSongsShelf extends StatelessWidget {
                     for (var row = 0; row < _rows; row++)
                       if (column * _rows + row < tracks.length)
                         SizedBox(
-                          height: _rowHeight,
+                          height: rowHeight,
                           child: _TopSongRow(
                             track: tracks[column * _rows + row],
                             onNavigateLeft: column == 0 ? onNavigateToSidebar : null,
