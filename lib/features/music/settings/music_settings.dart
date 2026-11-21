@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:provider/provider.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../models/audio_quality_preset.dart';
 import '../../../navigation/settings_shortcut.dart';
 import '../../../screens/settings/settings_screen.dart';
 import '../../../screens/settings/settings_utils.dart';
+import '../../../services/music/music_playback_service.dart';
 import '../../../services/settings_service.dart';
 import '../../../widgets/setting_tile.dart';
 import '../../../widgets/settings_page.dart';
@@ -78,6 +80,19 @@ class MusicPlaybackSettingsScreen extends StatelessWidget {
               title: t.settings.musicQualityTitle,
               subtitleBuilder: _qualityLabel,
               options: AudioQualityPreset.values.map((p) => DialogOption(value: p, title: _qualityLabel(p))).toList(),
+            ),
+            SettingSwitchTile(
+              pref: SettingsService.musicAutoplay,
+              icon: Symbols.all_inclusive_rounded,
+              title: MusicStrings.autoplay,
+              subtitle: MusicStrings.autoplaySubtitle,
+              onAfterWrite: (_) => context.read<MusicPlaybackService?>()?.autoplayChanged(),
+            ),
+            SettingSwitchTile(
+              pref: SettingsService.musicContinueShuffled,
+              icon: Symbols.shuffle_rounded,
+              title: MusicStrings.continueShuffled,
+              subtitle: MusicStrings.continueShuffledSubtitle,
             ),
             SettingSwitchTile(
               pref: SettingsService.resumeMusicOnLaunch,

@@ -25,6 +25,7 @@ import '../../mpv/mpv.dart';
 import '../../services/device_performance.dart';
 import '../../services/music/music_bans.dart';
 import '../../services/music/music_playback_service.dart';
+import '../../services/settings_service.dart';
 import '../../theme/mono_motion.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/formatters.dart';
@@ -426,8 +427,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     unawaited(
       ColorScheme.fromImageProvider(provider: NetworkImage(url), brightness: brightness)
           .then((scheme) {
-            if (mounted && _artSchemeKey == key) setState(() => _artScheme = scheme);
-          })
+        if (mounted && _artSchemeKey == key) setState(() => _artScheme = scheme);
+      })
           .catchError((Object _) {}),
     );
   }
@@ -522,6 +523,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          _LoveButton(track: track),
         ],
       ),
     );
@@ -901,42 +904,42 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   Widget _buildArtworkOrLyrics(
-    MusicPlaybackService service,
-    MediaItem track,
-    MediaServerClient? client, {
-    bool tvArt = false,
-  }) {
+      MusicPlaybackService service,
+      MediaItem track,
+      MediaServerClient? client, {
+        bool tvArt = false,
+      }) {
     return AnimatedSwitcher(
       duration: MonoMotion.fill(context),
       child: _tab == _NowPlayingTab.queue && !tvArt
           ? const KeyedSubtree(
-              key: ValueKey('now_playing_queue'),
-              child: Material(type: MaterialType.transparency, child: QueueList()),
-            )
+        key: ValueKey('now_playing_queue'),
+        child: Material(type: MaterialType.transparency, child: _UpNextPanel()),
+      )
           : _showLyrics
           ? KeyedSubtree(
-              key: const ValueKey('now_playing_lyrics'),
-              child: LyricsView(
-                lyricsFuture: _lyricsFutureFor(track),
-                focusNode: _lyricsPaneFocusNode,
-                onExit: _focusTransport,
-                // Atlas: long-press lines to share them as a card.
-                onShareLines: PlatformDetector.isTV()
-                    ? null
-                    : (lines) => unawaited(
-                        shareLyrics(
-                          context,
-                          track: track,
-                          client: context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId)),
-                          lines: lines,
-                        ),
-                      ),
-              ),
-            )
-          : KeyedSubtree(
-              key: const ValueKey('now_playing_art'),
-              child: _Artwork(track: track, client: client, tvSized: tvArt),
+        key: const ValueKey('now_playing_lyrics'),
+        child: LyricsView(
+          lyricsFuture: _lyricsFutureFor(track),
+          focusNode: _lyricsPaneFocusNode,
+          onExit: _focusTransport,
+          // Atlas: long-press lines to share them as a card.
+          onShareLines: PlatformDetector.isTV()
+              ? null
+              : (lines) => unawaited(
+            shareLyrics(
+              context,
+              track: track,
+              client: context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId)),
+              lines: lines,
             ),
+          ),
+        ),
+      )
+          : KeyedSubtree(
+        key: const ValueKey('now_playing_art'),
+        child: _Artwork(track: track, client: client, tvSized: tvArt),
+      ),
     );
   }
 
@@ -952,13 +955,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   /// One transport icon with the shared text-fill focus pill.
   Widget _transportIcon(
-    FocusableActionBuildState state, {
-    required IconData icon,
-    required VoidCallback onPressed,
-    bool active = true,
-    String? tooltip,
-    double size = 26,
-  }) {
+      FocusableActionBuildState state, {
+        required IconData icon,
+        required VoidCallback onPressed,
+        bool active = true,
+        String? tooltip,
+        double size = 26,
+      }) {
     final tk = tokens(context);
     return AnimatedContainer(
       duration: state.animationDuration,
@@ -982,12 +985,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   /// Lyrics / Up Next: a quiet glyph, in a frosted chip when that view is open.
   Widget _utilityIcon(
-    FocusableActionBuildState state, {
-    required IconData icon,
-    required bool active,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
+      FocusableActionBuildState state, {
+        required IconData icon,
+        required bool active,
+        required String tooltip,
+        required VoidCallback onPressed,
+      }) {
     final tk = tokens(context);
     return AnimatedContainer(
       duration: state.animationDuration,
@@ -1024,24 +1027,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   Widget _buildTransportRow(MusicPlaybackService service) {
+    // Atlas: shuffle and repeat live with the queue now (Up Next), Apple Music style.
     final transport = FocusableActionBar(
-      spacing: 14,
+      spacing: 28,
       onNavigateUp: _seekFocusNode.requestFocus,
       onNavigateDown: () => _utilityBarKey.currentState?.requestFocusOnFirst(),
       onBack: _pop,
       actions: [
-        FocusableAction(
-          debugLabel: 'np_shuffle',
-          onPressed: service.toggleShuffle,
-          builder: (context, state) => _transportIcon(
-            state,
-            icon: Symbols.shuffle_rounded,
-            active: service.shuffled,
-            tooltip: t.common.shuffle,
-            onPressed: service.toggleShuffle,
-            size: 22,
-          ),
-        ),
         FocusableAction(
           debugLabel: 'np_previous',
           onPressed: () => unawaited(service.previous()),
@@ -1070,18 +1062,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             tooltip: t.music.nextTrack,
             onPressed: () => unawaited(service.next()),
             size: 42,
-          ),
-        ),
-        FocusableAction(
-          debugLabel: 'np_repeat',
-          onPressed: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
-          builder: (context, state) => _transportIcon(
-            state,
-            icon: repeatModeIcon(service.repeatMode),
-            active: service.repeatMode != MusicRepeatMode.off,
-            tooltip: repeatModeLabel(service.repeatMode),
-            onPressed: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
-            size: 22,
           ),
         ),
       ],
@@ -1308,19 +1288,19 @@ class _PlayPauseButton extends StatelessWidget {
             child: isLoading
                 ? SizedBox(width: 34, height: 34, child: CircularProgressIndicator(strokeWidth: 3, color: tk.text))
                 : AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    transitionBuilder: (child, animation) => ScaleTransition(
-                      scale: Tween(begin: 0.6, end: 1.0).animate(animation),
-                      child: FadeTransition(opacity: animation, child: child),
-                    ),
-                    child: AppIcon(
-                      isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
-                      key: ValueKey(isPlaying),
-                      fill: 1,
-                      size: 64,
-                      color: tk.text,
-                    ),
-                  ),
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: Tween(begin: 0.6, end: 1.0).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: AppIcon(
+                isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+                key: ValueKey(isPlaying),
+                fill: 1,
+                size: 64,
+                color: tk.text,
+              ),
+            ),
           ),
         ),
       ),
@@ -1389,6 +1369,202 @@ class _Frosted extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.12),
           alignment: Alignment.center,
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
+// Atlas: Up Next (queue tab) and the love button
+// ---------------------------------------------------------------------
+
+/// The song's heart: loves it on the server (Jellyfin favorite), filled in the accent color
+/// when it is. Remembers the change itself, since the track it was handed is a snapshot.
+class _LoveButton extends StatefulWidget {
+  const _LoveButton({required this.track});
+
+  final MediaItem track;
+
+  @override
+  State<_LoveButton> createState() => _LoveButtonState();
+}
+
+class _LoveButtonState extends State<_LoveButton> {
+  static final Map<String, bool> _changed = {};
+  bool _busy = false;
+
+  bool get _loved => _changed[widget.track.globalKey] ?? widget.track.isFavorite ?? false;
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    final client = context.tryGetMediaClientWithFallback(serverIdOrNull(widget.track.serverId));
+    if (client == null) return;
+    final want = !_loved;
+    setState(() {
+      _busy = true;
+      _changed[widget.track.globalKey] = want;
+    });
+    try {
+      await client.setFavorite(widget.track, want);
+    } catch (_) {
+      _changed[widget.track.globalKey] = !want;
+      if (mounted) showErrorSnackBar(context, MusicStrings.loadFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    final loved = _loved;
+    return Tooltip(
+      message: loved ? MusicStrings.unlove : MusicStrings.love,
+      child: _Pressable(
+        onTap: () => unawaited(_toggle()),
+        child: _Frosted(
+          size: 40,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+            child: AppIcon(
+              Symbols.favorite_rounded,
+              key: ValueKey(loved),
+              fill: loved ? 1 : 0,
+              size: 22,
+              color: loved ? Theme.of(context).colorScheme.primary : tk.text,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The queue tab, Apple Music style: Shuffle / Repeat / AutoPlay / Mixing as a row of frosted
+/// toggles, then Up Next (with Clear) and the list, starting at the top.
+class _UpNextPanel extends StatelessWidget {
+  const _UpNextPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    final textTheme = Theme.of(context).textTheme;
+    final service = context.watch<MusicPlaybackService>();
+    final settings = SettingsService.instance;
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+          child: ListenableBuilder(
+            listenable: Listenable.merge([
+              settings.listenable(SettingsService.musicAutoplay),
+              settings.listenable(SettingsService.musicMixing),
+            ]),
+            builder: (context, _) {
+              final autoplay = settings.read(SettingsService.musicAutoplay);
+              final mixing = settings.read(SettingsService.musicMixing);
+              return Row(
+                children: [
+                  _QueueToggle(
+                    icon: Symbols.shuffle_rounded,
+                    tooltip: t.common.shuffle,
+                    active: service.shuffled,
+                    onTap: service.toggleShuffle,
+                  ),
+                  _QueueToggle(
+                    icon: repeatModeIcon(service.repeatMode),
+                    tooltip: repeatModeLabel(service.repeatMode),
+                    active: service.repeatMode != MusicRepeatMode.off,
+                    onTap: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
+                  ),
+                  _QueueToggle(
+                    icon: Symbols.all_inclusive_rounded,
+                    tooltip: MusicStrings.autoplay,
+                    active: autoplay,
+                    onTap: () async {
+                      await settings.write(SettingsService.musicAutoplay, !autoplay);
+                      service.autoplayChanged();
+                      if (context.mounted) {
+                        showAppSnackBar(context, !autoplay ? MusicStrings.autoplayOn : MusicStrings.autoplayOff);
+                      }
+                    },
+                  ),
+                  // Coming with AudioMuse's transitions; the switch is kept so it's ready.
+                  _QueueToggle(
+                    icon: Symbols.instant_mix_rounded,
+                    tooltip: MusicStrings.mixing,
+                    active: mixing,
+                    onTap: () async {
+                      await settings.write(SettingsService.musicMixing, !mixing);
+                      if (context.mounted) showAppSnackBar(context, MusicStrings.mixingSoon);
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 12, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  MusicStrings.upNext,
+                  style: textTheme.titleMedium?.copyWith(fontWeight: .w800, color: tk.text),
+                ),
+              ),
+              TextButton(
+                onPressed: service.clearUpcoming,
+                style: TextButton.styleFrom(foregroundColor: tk.text),
+                child: Text(t.music.clearQueue),
+              ),
+            ],
+          ),
+        ),
+        const Expanded(child: QueueList()),
+      ],
+    );
+  }
+}
+
+/// One of the Up Next toggles: a frosted pill, filled when on.
+class _QueueToggle extends StatelessWidget {
+  const _QueueToggle({required this.icon, required this.tooltip, required this.active, required this.onTap});
+
+  final IconData icon;
+  final String tooltip;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = tokens(context);
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Tooltip(
+          message: tooltip,
+          child: _Pressable(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  height: 40,
+                  alignment: Alignment.center,
+                  color: active ? tk.text.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.12),
+                  child: AppIcon(icon, fill: 1, size: 20, color: active ? tk.bg : tk.text),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1535,8 +1711,8 @@ class _NowPlayingSeekBarState extends State<_NowPlayingSeekBar> {
         final hasDuration = durationMs > 0;
         final rawPositionMs =
             _dragValueMs ??
-            _keySeek.pendingPosition?.inMilliseconds.toDouble() ??
-            (snapshot.data ?? service.position).inMilliseconds.toDouble();
+                _keySeek.pendingPosition?.inMilliseconds.toDouble() ??
+                (snapshot.data ?? service.position).inMilliseconds.toDouble();
         final positionMs = hasDuration ? rawPositionMs.clamp(0.0, durationMs) : 0.0;
         final dragging = _dragValueMs != null;
 
@@ -1561,18 +1737,18 @@ class _NowPlayingSeekBarState extends State<_NowPlayingSeekBar> {
                 value: positionMs,
                 onChangeStart: hasDuration
                     ? (value) {
-                        _keySeek.cancel();
-                        setState(() => _dragValueMs = value);
-                      }
+                  _keySeek.cancel();
+                  setState(() => _dragValueMs = value);
+                }
                     : null,
                 onChanged: hasDuration ? (value) => setState(() => _dragValueMs = value) : null,
                 onChangeEnd: hasDuration
                     ? (value) {
-                        if (service.currentTrack?.globalKey == widget.trackKey) {
-                          unawaited(service.seek(Duration(milliseconds: value.round())));
-                        }
-                        setState(() => _dragValueMs = null);
-                      }
+                  if (service.currentTrack?.globalKey == widget.trackKey) {
+                    unawaited(service.seek(Duration(milliseconds: value.round())));
+                  }
+                  setState(() => _dragValueMs = null);
+                }
                     : null,
               ),
             ),

@@ -53,6 +53,13 @@ abstract class MusicPlaybackService extends ChangeNotifier {
   /// where it can't be measured.
   AudioMeter? get audioMeter => null;
 
+  /// Atlas: whether [item] in the queue was added by AutoPlay (similar music after what you
+  /// picked ran out), so Up Next can show where AutoPlay starts.
+  bool isAutoplayItem(MediaItem item) => false;
+
+  /// Atlas: the AutoPlay setting changed: top the queue up now, or drop what AutoPlay added.
+  void autoplayChanged() {}
+
   Duration? get duration;
   Duration get position;
   Stream<Duration> get positionStream;

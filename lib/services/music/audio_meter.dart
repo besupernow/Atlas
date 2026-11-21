@@ -28,21 +28,46 @@ class AudioMeter extends ValueNotifier<List<double>> {
   /// Readings arrived recently: the bars can follow them.
   bool get live => DateTime.now().difference(_lastReading) < const Duration(milliseconds: 600);
 
-  /// The bundled Linux ffmpeg prunes lavfi filters; everywhere else mpv has astats.
-  static bool get supported => !kIsWeb && !Platform.isLinux;
+  /// Where mpv's ffmpeg is known to carry astats: the desktop builds. The Android and iOS
+  /// libmpv builds are trimmed (no astats), and so is the bundled Linux one.
+  static bool get _platformHasIt => !kIsWeb && (Platform.isWindows || Platform.isMacOS);
 
-  /// A new player (or none): tap it.
+  /// Set the first time adding the tap fails, so it's never tried again this run (a failed
+  /// filter can take the audio chain down with it).
+  static bool _unavailable = false;
+
+  static bool get supported => _platformHasIt && !_unavailable;
+
+  bool _passthrough = false;
+  bool _tapping = false;
+
+  /// A new player (or none). The tap goes on once music is actually playing, so if it fails it
+  /// fails right away and comes straight back off, instead of breaking the next track's start.
   void attach(Player? player, {bool passthrough = false}) {
     if (identical(player, _player)) return;
     _player = player;
+    _passthrough = passthrough;
     _tapped = false;
-    if (player == null || passthrough || !supported) return;
-    unawaited(
-      player.command(['af', 'add', _filter]).then((_) => _tapped = true).catchError((Object error) {
-        debugPrint('Audio meter: not available ($error)');
-      }),
-    );
     _sync();
+  }
+
+  Future<void> _tap(Player player) async {
+    _tapping = true;
+    try {
+      await player.command(['af', 'add', _filter]);
+      if (identical(player, _player)) _tapped = true;
+    } catch (error) {
+      _unavailable = true;
+      debugPrint('Audio meter: not available ($error)');
+      try {
+        await player.command(['af', 'remove', '@$_label']);
+      } catch (_) {
+        // Never got added: nothing to take off.
+      }
+      _sync();
+    } finally {
+      _tapping = false;
+    }
   }
 
   set playing(bool value) {
@@ -64,7 +89,9 @@ class AudioMeter extends ValueNotifier<List<double>> {
   }
 
   void _sync() {
-    final want = _playing && hasListeners && _player != null && supported;
+    final player = _player;
+    final want = _playing && hasListeners && player != null && !_passthrough && supported;
+    if (want && !_tapped && !_tapping && !player.disposed) unawaited(_tap(player));
     if (want && _timer == null) {
       _timer = Timer.periodic(const Duration(milliseconds: 70), (_) => unawaited(_read()));
     } else if (!want && _timer != null) {

@@ -11,6 +11,7 @@ import '../../i18n/strings.g.dart';
 import '../../media/ids.dart';
 import '../../media/lyrics.dart';
 import '../../media/media_item.dart';
+import '../../media/media_kind.dart';
 import '../../media/media_server_client.dart';
 import '../../models/companion_remote/remote_command.dart';
 import '../../mpv/models.dart';
@@ -97,11 +98,11 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     @visibleForTesting Future<void> Function(double)? volumePersistenceWriter,
     @visibleForTesting Random? queueRandom,
   }) : assert(resolver != null || database != null, 'database is required to build the default resolver'),
-       _serverManager = serverManager,
-       _resolver = resolver ?? ServerMusicSourceResolver(serverManager: serverManager, database: database!),
-       _coordinator = PlaybackCoordinator.instance,
-       _queue = MusicQueueController(random: queueRandom),
-       _volumePersistenceWriter = volumePersistenceWriter ?? _writePersistedVolume {
+        _serverManager = serverManager,
+        _resolver = resolver ?? ServerMusicSourceResolver(serverManager: serverManager, database: database!),
+        _coordinator = PlaybackCoordinator.instance,
+        _queue = MusicQueueController(random: queueRandom),
+        _volumePersistenceWriter = volumePersistenceWriter ?? _writePersistedVolume {
     _coordinator.registerMusicSession(stopAndDispose: _stopForVideoClaim);
     // Atlas: hiding something takes it out of the queue (and skips it if it's playing).
     MusicBans.instance.addListener(_onBansChanged);
@@ -384,6 +385,15 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     tracks = bans.filter(tracks);
     if (startTrack != null && bans.blocks(startTrack)) startTrack = null;
     if (tracks.isEmpty) return Future.value();
+    // Atlas: one song picked from an album or playlist carries on through the rest of it,
+    // shuffled when the person likes it that way (the picked song still plays first).
+    if (!shuffle &&
+        startTrack != null &&
+        initialPosition == null &&
+        tracks.length > 2 &&
+        SettingsService.instance.read(SettingsService.musicContinueShuffled)) {
+      shuffle = true;
+    }
     return _startQueue(
       tracks: tracks,
       startTrack: startTrack,
@@ -460,7 +470,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     launchObserver?.attach(
       _launchSnapshot,
       ownsPlayback: () =>
-          !_disposed && _launchObserver == launchObserver && _observedGeneration == generation && _currentTrack != null,
+      !_disposed && _launchObserver == launchObserver && _observedGeneration == generation && _currentTrack != null,
     );
     _invalidateArmRequests();
     _finalizeCurrentTrack();
@@ -475,6 +485,10 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     }
     _queue.load(tracks, startIndex: startIndex, shuffle: shuffle);
     _playContext = playContext;
+    // Atlas: AutoPlay starts over from what was picked.
+    _autoplayKeys.clear();
+    _autoplayTopUp = null;
+    _autoplaySeed = _queue.current;
     _consecutiveFailures = 0;
     _pendingRestoreResume = null;
     _persistSessionSnapshot(positionOverride: Duration.zero);
@@ -1005,7 +1019,128 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       unawaited(_advanceTo(nextCursor));
       return;
     }
+    // Atlas: AutoPlay keeps the music going instead of stopping at the end.
+    if (_autoplayWanted) {
+      final generation = _generation;
+      unawaited(() async {
+        final added = await _topUpAutoplay();
+        if (_disposed || generation != _generation) return;
+        final next = added ? _queue.nextIndex() : null;
+        if (next != null) {
+          await _advanceTo(next);
+        } else {
+          _parkAtEnd();
+        }
+      }());
+      return;
+    }
     _parkAtEnd();
+  }
+
+  // ---------------------------------------------------------------------
+  // Atlas: AutoPlay
+  // ---------------------------------------------------------------------
+
+  /// What was picked when this queue started: AutoPlay finds music like it (and its album).
+  MediaItem? _autoplaySeed;
+
+  /// Queue entries AutoPlay added.
+  final Set<String> _autoplayKeys = {};
+  Future<bool>? _autoplayTopUp;
+
+  /// How few songs may be left before AutoPlay adds more (fetched ahead, so the next song is
+  /// ready to go gaplessly).
+  static const _autoplayAhead = 2;
+
+  bool get _autoplayWanted =>
+      _queue.repeatMode == MusicRepeatMode.off && SettingsService.instance.read(SettingsService.musicAutoplay);
+
+  @override
+  bool isAutoplayItem(MediaItem item) => _autoplayKeys.contains(item.globalKey);
+
+  @override
+  void autoplayChanged() {
+    if (_disposed || _queue.isEmpty) return;
+    if (SettingsService.instance.read(SettingsService.musicAutoplay)) {
+      _maybeTopUpAutoplay();
+      return;
+    }
+    // Off: take back what AutoPlay queued that hasn't played yet.
+    var changed = false;
+    for (var index = _queue.length - 1; index > _queue.cursor; index--) {
+      final track = _queue.trackAt(index);
+      if (track != null && _autoplayKeys.contains(track.globalKey) && _queue.removeAt(index)) changed = true;
+    }
+    _autoplayTopUp = null;
+    if (changed) _afterQueueEdit();
+  }
+
+  void _maybeTopUpAutoplay() {
+    if (!_autoplayWanted || _autoplayTopUp != null || _queue.isEmpty) return;
+    if (_queue.length - 1 - _queue.cursor > _autoplayAhead) return;
+    unawaited(_topUpAutoplay());
+  }
+
+  /// Adds music like the picked song, its album and what's playing now to the end of the
+  /// queue. True when something was added. One fetch at a time; callers share it.
+  Future<bool> _topUpAutoplay() {
+    final running = _autoplayTopUp;
+    if (running != null) return running;
+    final future = _fetchAutoplay();
+    _autoplayTopUp = future;
+    unawaited(future.whenComplete(() {
+      if (identical(_autoplayTopUp, future)) _autoplayTopUp = null;
+    }));
+    return future;
+  }
+
+  Future<bool> _fetchAutoplay() async {
+    final session = _queueSessionRevision;
+    try {
+      final current = _queue.current;
+      final seed = _autoplaySeed ?? current;
+      if (seed == null) return false;
+      final client = _clientFor(seed);
+      if (client == null || !client.capabilities.instantMix) return false;
+      // The picked song, its album, and (once AutoPlay is underway) the song playing now,
+      // so it drifts along with the music instead of looping around the first pick.
+      final seedIds = <String>{
+        seed.id,
+        if (seed.kind == MediaKind.track && seed.parentId != null) seed.parentId!,
+        if (current != null && current.id != seed.id && _autoplayKeys.contains(current.globalKey)) current.id,
+      };
+      final batches = await Future.wait([
+        for (final id in seedIds)
+          client.fetchInstantMix(id).catchError((Object error) {
+            appLogger.d('AutoPlay: no mix for $id', error: error);
+            return <MediaItem>[];
+          }),
+      ]);
+      if (_disposed || session != _queueSessionRevision) return false;
+      final have = {for (final track in _queue.queue) track.globalKey};
+      final picked = <MediaItem>[];
+      // Take turns between the seeds so no one of them takes over.
+      for (var round = 0; picked.length < 25; round++) {
+        var any = false;
+        for (final batch in batches) {
+          if (round >= batch.length) continue;
+          any = true;
+          final track = batch[round];
+          if (track.kind != MediaKind.track || MusicBans.instance.blocks(track)) continue;
+          if (have.add(track.globalKey)) picked.add(track);
+        }
+        if (!any) break;
+      }
+      if (picked.isEmpty) return false;
+      _queue.addToEnd(picked);
+      _autoplayKeys.addAll(picked.map((track) => track.globalKey));
+      appLogger.d('AutoPlay: queued ${picked.length} similar songs');
+      _afterQueueEdit();
+      return true;
+    } catch (error, stack) {
+      appLogger.w('AutoPlay failed', error: error, stackTrace: stack);
+      return false;
+    }
   }
 
   /// Queue played out: report the final track stopped at its duration and
@@ -1063,6 +1198,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   /// `_wirePerItemPlaybackServices`. The previous track must already be
   /// finalized.
   void _bindTrackServices(MediaItem track, MusicSource source) {
+    _maybeTopUpAutoplay();
     _tracker?.dispose();
     _tracker = null;
     final player = _player;
@@ -2023,9 +2159,9 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     if (store == null || _currentTrack == null) return;
     unawaited(
       store.updateProgress(cursor: _queue.cursor, position: positionOverride ?? position).catchError((
-        Object e,
-        StackTrace st,
-      ) {
+          Object e,
+          StackTrace st,
+          ) {
         appLogger.w('Music session progress write failed', error: e, stackTrace: st);
       }),
     );

@@ -131,6 +131,16 @@ abstract final class MusicStrings {
   static const nothingPlayingBody = 'Pick an album, a song or a station and it shows up here.';
   static const browseMusic = 'Browse Music';
   static const upNext = 'Up Next';
+  static const autoplay = 'AutoPlay';
+  static const autoplayRow = 'Similar music will keep playing';
+  static const autoplayOn = 'AutoPlay on: similar music keeps playing';
+  static const autoplayOff = 'AutoPlay off';
+  static const autoplaySubtitle = 'When the queue runs out, keep playing music like what you picked';
+  static const continueShuffled = 'Shuffle the Rest';
+  static const continueShuffledSubtitle =
+      'Playing one song from an album or playlist plays the rest of it shuffled instead of in order';
+  static const mixing = 'Mixing';
+  static const mixingSoon = 'Smart mixing between songs is coming soon';
 
   // Home (Apple Music style).
   static const madeForYou = 'Made for You';

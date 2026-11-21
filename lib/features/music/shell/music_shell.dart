@@ -33,6 +33,7 @@ import '../settings/music_settings.dart';
 import '../theme/music_theme.dart';
 import 'music_shell_focus.dart';
 import '../../../navigation/popup_route_counter.dart';
+import '../../../navigation/settings_shortcut.dart';
 
 enum _MusicTab {
   home(MusicStrings.home, Symbols.home_rounded, 'house.fill'),
@@ -157,6 +158,10 @@ class _MusicShellState extends State<MusicShell> {
       }
       return;
     }
+    // Settings or a menu left open on the tab being left stays there; the mini player comes
+    // back for the new tab.
+    refreshOpenSettings();
+    PopupRouteCounter.refresh();
     setState(() {
       _tab = tab;
       _built.add(tab);
@@ -255,11 +260,11 @@ class _MusicShellState extends State<MusicShell> {
           child: Scaffold(
             body: useRail
                 ? Row(
-                    children: [
-                      KeyedSubtree(key: _barKey, child: _rail(context)),
-                      Expanded(child: content),
-                    ],
-                  )
+              children: [
+                KeyedSubtree(key: _barKey, child: _rail(context)),
+                Expanded(child: content),
+              ],
+            )
                 : content,
             bottomNavigationBar: useRail ? null : KeyedSubtree(key: _barKey, child: _bottomBar(context)),
           ),
@@ -347,63 +352,63 @@ class _MusicShellState extends State<MusicShell> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppIcon(Symbols.music_note_rounded, color: theme.colorScheme.primary, fill: 1.0),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      AppModeSwitch.label(AppMode.video),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                    child: Row(
+                      children: [
+                        AppIcon(Symbols.music_note_rounded, color: theme.colorScheme.primary, fill: 1.0),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            AppModeSwitch.label(AppMode.video),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  for (final tab in _MusicTab.values)
+                    item(
+                      id: tab.name,
+                      icon: tab.icon,
+                      label: tab.label,
+                      selected: tab == _tab,
+                      onSelect: () => _select(tab),
+                    ),
+                  if (playing) ...[
+                    const SizedBox(height: 12),
+                    item(
+                      id: 'nowPlaying',
+                      icon: Symbols.equalizer_rounded,
+                      label: MusicStrings.nowPlaying,
+                      selected: false,
+                      onSelect: () => unawaited(openNowPlaying(context)),
+                    ),
+                  ],
+                  const Spacer(),
+                  item(
+                    id: 'settings',
+                    icon: Symbols.settings_rounded,
+                    label: t.common.settings,
+                    selected: false,
+                    onSelect: () => unawaited(openMusicSettings(context)),
+                  ),
+                  if (canSwitch)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: item(
+                        id: 'appMode',
+                        icon: AppModeSwitch.icon(AppMode.music),
+                        label: AppModeSwitch.label(AppMode.music),
+                        selected: false,
+                        onSelect: AppModeSwitch.toggle,
+                      ),
+                    ),
                 ],
-              ),
-            ),
-            for (final tab in _MusicTab.values)
-              item(
-                id: tab.name,
-                icon: tab.icon,
-                label: tab.label,
-                selected: tab == _tab,
-                onSelect: () => _select(tab),
-              ),
-            if (playing) ...[
-              const SizedBox(height: 12),
-              item(
-                id: 'nowPlaying',
-                icon: Symbols.equalizer_rounded,
-                label: MusicStrings.nowPlaying,
-                selected: false,
-                onSelect: () => unawaited(openNowPlaying(context)),
-              ),
-            ],
-            const Spacer(),
-            item(
-              id: 'settings',
-              icon: Symbols.settings_rounded,
-              label: t.common.settings,
-              selected: false,
-              onSelect: () => unawaited(openMusicSettings(context)),
-            ),
-            if (canSwitch)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: item(
-                  id: 'appMode',
-                  icon: AppModeSwitch.icon(AppMode.music),
-                  label: AppModeSwitch.label(AppMode.music),
-                  selected: false,
-                  onSelect: AppModeSwitch.toggle,
-                ),
-              ),
-          ],
               ),
             ),
           ],

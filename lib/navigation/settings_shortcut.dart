@@ -32,15 +32,26 @@ MaterialPageRoute<void> buildSettingsRoute({
 /// since settings stays mounted under them). The mini player hides while this is above zero.
 final ValueNotifier<int> openSettingsScreens = ValueNotifier<int>(0);
 
-/// The settings screens mounted right now. The count is recomputed from this set (not counted
-/// up and down), so it can't drift, and it changes after the current frame: settings mounts
-/// mid-build, and listeners rebuilding then would throw.
+/// The settings screens mounted right now. The count is worked out again from this set (not
+/// counted up and down), so it can't drift, and it changes after the current frame: settings
+/// mounts mid-build, and listeners rebuilding then would throw.
 final Set<State> _openSettings = {};
 
-void _settingsChanged() {
+/// Whether the navigator [context] sits in is the one on screen. Music mode keeps each tab's
+/// navigator alive (tickers off) when you switch tabs, so settings opened from Home is still
+/// mounted while you're on New; it shouldn't keep the mini player away there.
+bool navigatorOnScreen(BuildContext context) {
+  final navigator = Navigator.maybeOf(context);
+  if (navigator == null || !navigator.mounted) return true;
+  return navigator.context.findAncestorWidgetOfExactType<TickerMode>()?.enabled ?? true;
+}
+
+/// Works [openSettingsScreens] out again after this frame. Music mode calls it when it
+/// switches tabs.
+void refreshOpenSettings() {
   SchedulerBinding.instance.addPostFrameCallback((_) {
     _openSettings.removeWhere((state) => !state.mounted);
-    openSettingsScreens.value = _openSettings.length;
+    openSettingsScreens.value = _openSettings.where((state) => navigatorOnScreen(state.context)).length;
   });
   SchedulerBinding.instance.ensureVisualUpdate();
 }
@@ -59,13 +70,13 @@ class _OpenSettingsMarkerState extends State<_OpenSettingsMarker> {
   void initState() {
     super.initState();
     _openSettings.add(this);
-    _settingsChanged();
+    refreshOpenSettings();
   }
 
   @override
   void dispose() {
     _openSettings.remove(this);
-    _settingsChanged();
+    refreshOpenSettings();
     super.dispose();
   }
 

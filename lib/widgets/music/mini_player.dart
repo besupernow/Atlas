@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -182,6 +183,9 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
   bool _hiddenForVideo = false;
   int? _seenTakeovers;
 
+  /// Last visibility logged (debug builds say why the mini player hid, to chase "it's gone").
+  String? _lastWhy;
+
   void _reportOverlayHeight(double height) {
     final controller = context.read<MiniPlayerInsetController?>();
     if (controller == null || controller.overlayHeight == height) return;
@@ -242,6 +246,22 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
             openSheets.value == 0 &&
             openSettingsScreens.value == 0 &&
             PopupRouteCounter.open.value == 0;
+        if (kDebugMode) {
+          final why = visible
+              ? 'shown'
+              : [
+            if (!(hasSession || idle))
+              'no session (track: ${track != null}, suppressed: ${suppress.value}, dismissed: $_dismissed, '
+                  'hidden for video: $_hiddenForVideo, music mode: ${modes.isMusic})',
+            if (openSheets.value > 0) 'sheets: ${openSheets.value}',
+            if (openSettingsScreens.value > 0) 'settings: ${openSettingsScreens.value}',
+            if (PopupRouteCounter.open.value > 0) 'popups: ${PopupRouteCounter.open.value}',
+          ].join(', ');
+          if (why != _lastWhy) {
+            _lastWhy = why;
+            debugPrint('Mini player: ${visible ? why : 'hidden ($why)'}');
+          }
+        }
         final useSideNav = PlatformDetector.shouldUseSideNavigation(context);
         // Report off the session (not sheet) state so the underlying
         // screen's scroll padding doesn't jump while a sheet is open.
@@ -252,12 +272,12 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
             ? const SizedBox.shrink(key: ValueKey('mini_player_hidden'))
             : current != null
             ? _MiniPlayerCard(
-                key: const ValueKey('mini_player_card'),
-                track: current,
-                desktop: useSideNav,
-                dismissible: !musicMode,
-                onDismissed: _handleDismissed,
-              )
+          key: const ValueKey('mini_player_card'),
+          track: current,
+          desktop: useSideNav,
+          dismissible: !musicMode,
+          onDismissed: _handleDismissed,
+        )
             : const _MiniPlayerIdleCard(key: ValueKey('mini_player_idle'));
 
         final switcher = AnimatedSwitcher(
@@ -279,7 +299,7 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         }
 
         final (bottomInset, startInset) = context.select<MiniPlayerInsetController?, (double, double)>(
-          (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
+              (c) => (c?.bottomInset ?? 0, c?.startInset ?? 0),
         );
         final padding = MediaQuery.paddingOf(context);
         final isLtr = Directionality.of(context) == TextDirection.ltr;

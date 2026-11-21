@@ -23,16 +23,16 @@ import 'device_performance.dart';
 import 'shortcut_action.dart';
 export 'base_shared_preferences_service.dart'
     show
-        Pref,
-        BoolPref,
-        IntPref,
-        DoublePref,
-        StringPref,
-        NullableStringPref,
-        StringListPref,
-        EnumPref,
-        NullableEnumPref,
-        JsonPref;
+    Pref,
+    BoolPref,
+    IntPref,
+    DoublePref,
+    StringPref,
+    NullableStringPref,
+    StringListPref,
+    EnumPref,
+    NullableEnumPref,
+    JsonPref;
 import '../models/audio_channel_limit.dart';
 import '../models/audio_quality_preset.dart';
 import '../models/transcode_quality_preset.dart';
@@ -321,7 +321,7 @@ class _AutomotiveUiScalePref extends Pref<double> {
 /// Migrates from the legacy `use_season_poster` boolean key.
 class _EpisodePosterModePref extends EnumPref<EpisodePosterMode> {
   const _EpisodePosterModePref()
-    : super('episode_poster_mode', values: EpisodePosterMode.values, defaultValue: EpisodePosterMode.episodeThumbnail);
+      : super('episode_poster_mode', values: EpisodePosterMode.values, defaultValue: EpisodePosterMode.episodeThumbnail);
 
   @override
   Future<void> removeFrom(BaseSharedPreferencesService svc, {void Function()? checkCurrent}) async {
@@ -355,7 +355,7 @@ class PlayerSettingScopePref extends EnumPref<PlayerSettingScope> {
   final List<Pref<Object?>> globals;
 
   const PlayerSettingScopePref(super.key, this.globals)
-    : super(values: PlayerSettingScope.values, defaultValue: PlayerSettingScope.global);
+      : super(values: PlayerSettingScope.values, defaultValue: PlayerSettingScope.global);
 
   @override
   Future<void> writeTo(BaseSharedPreferencesService svc, PlayerSettingScope value) async {
@@ -381,13 +381,13 @@ class LegacyBoolEnumPref<T extends Enum> extends EnumPref<T> {
   final T legacyFalse;
 
   const LegacyBoolEnumPref(
-    super.key, {
-    required this.legacyKey,
-    required super.values,
-    required T super.defaultValue,
-    required this.legacyTrue,
-    required this.legacyFalse,
-  });
+      super.key, {
+        required this.legacyKey,
+        required super.values,
+        required T super.defaultValue,
+        required this.legacyTrue,
+        required this.legacyFalse,
+      });
 
   T fromLegacy(bool value) => value ? legacyTrue : legacyFalse;
 
@@ -421,12 +421,12 @@ class LegacyBoolEnumPref<T extends Enum> extends EnumPref<T> {
 /// off → [SkipMarkerMode.button], which is what each used to mean.
 class _SkipMarkerModePref extends LegacyBoolEnumPref<SkipMarkerMode> {
   const _SkipMarkerModePref(super.key, {required super.legacyKey})
-    : super(
-        values: SkipMarkerMode.values,
-        defaultValue: SkipMarkerMode.button,
-        legacyTrue: SkipMarkerMode.auto,
-        legacyFalse: SkipMarkerMode.button,
-      );
+      : super(
+    values: SkipMarkerMode.values,
+    defaultValue: SkipMarkerMode.button,
+    legacyTrue: SkipMarkerMode.auto,
+    legacyFalse: SkipMarkerMode.button,
+  );
 }
 
 /// Stored as the locale enum name; null/empty falls back to the device locale.
@@ -820,6 +820,17 @@ class SettingsService extends BaseSharedPreferencesService {
 
   /// Restore the last music session parked-paused on launch (#2148).
   static const resumeMusicOnLaunch = BoolPref('resume_music_on_launch', defaultValue: true);
+
+  /// Atlas: when the queue runs out, keep going with music like what was playing.
+  static const musicAutoplay = BoolPref('atlas_music_autoplay', defaultValue: true);
+
+  /// Atlas: playing one song from an album or playlist carries on through the rest of it;
+  /// this plays the rest shuffled instead of in order.
+  static const musicContinueShuffled = BoolPref('atlas_music_continue_shuffled', defaultValue: false);
+
+  /// Atlas: smart mixing between songs (AudioMuse transitions). Stored now; the mixing itself
+  /// comes with the AudioMuse work.
+  static const musicMixing = BoolPref('atlas_music_mixing', defaultValue: false);
   static const autoPlayNextEpisode = BoolPref('auto_play_next_episode', defaultValue: true);
 
   /// Shuffled video queues start every episode at 0:00 instead of resuming
@@ -1252,10 +1263,10 @@ class SettingsService extends BaseSharedPreferencesService {
   }
 
   Future<void> replaceCustomExternalPlayers(
-    List<ExternalPlayer> players, {
-    void Function()? checkCurrent,
-    bool resetOverride = false,
-  }) async {
+      List<ExternalPlayer> players, {
+        void Function()? checkCurrent,
+        bool resetOverride = false,
+      }) async {
     validateCustomExternalPlayers(players);
     checkCurrent?.call();
     final selected = read(selectedExternalPlayer);
@@ -1276,10 +1287,10 @@ class SettingsService extends BaseSharedPreferencesService {
   }
 
   Future<void> selectExternalPlayer(
-    ExternalPlayer player, {
-    void Function()? checkCurrent,
-    bool resetOverride = false,
-  }) async {
+      ExternalPlayer player, {
+        void Function()? checkCurrent,
+        bool resetOverride = false,
+      }) async {
     if (player.isCustom && !read(customExternalPlayers).any((p) => p.id == player.id)) {
       throw const FormatException('Unknown custom player');
     }
@@ -1534,6 +1545,9 @@ class SettingsService extends BaseSharedPreferencesService {
     hdrSdrConversion,
     musicVolume,
     resumeMusicOnLaunch,
+    musicAutoplay,
+    musicContinueShuffled,
+    musicMixing,
     autoPlayNextEpisode,
     playNextCountdown,
     shuffleStartsFromBeginning,

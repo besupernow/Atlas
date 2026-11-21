@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/music/music_strings.dart';
 import '../../focus/focusable_action_bar.dart';
 import '../../focus/input_mode_tracker.dart';
 import '../../i18n/strings.g.dart';
 import '../../services/music/music_playback_service.dart';
+import '../../services/settings_service.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/platform_detector.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/bottom_sheet_page_scaffold.dart';
 import '../../widgets/music/repeat_mode.dart';
@@ -36,42 +39,77 @@ class QueueSheet extends StatelessWidget {
 
     return BottomSheetPageScaffold(
       title: t.music.queue,
-      action: Row(
-        mainAxisSize: .min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Text(
-              t.music.trackCount(n: service.queue.length),
-              style: TextStyle(fontSize: 13, color: tk.textMuted),
+      // Rebuilds when AutoPlay or Mixing flips (settings, not the player).
+      action: ListenableBuilder(
+        listenable: Listenable.merge([
+          SettingsService.instance.listenable(SettingsService.musicAutoplay),
+          SettingsService.instance.listenable(SettingsService.musicMixing),
+        ]),
+        builder: (context, _) => Row(
+          mainAxisSize: .min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                t.music.trackCount(n: service.queue.length),
+                style: TextStyle(fontSize: 13, color: tk.textMuted),
+              ),
             ),
-          ),
-          FocusableActionBar(
-            actions: [
-              FocusableAction(
-                icon: Symbols.shuffle_rounded,
-                iconColor: service.shuffled ? colorScheme.primary : tk.textMuted,
-                iconSize: 20,
-                tooltip: t.common.shuffle,
-                onPressed: service.toggleShuffle,
-              ),
-              FocusableAction(
-                icon: repeatModeIcon(service.repeatMode),
-                iconColor: service.repeatMode == MusicRepeatMode.off ? tk.textMuted : colorScheme.primary,
-                iconSize: 20,
-                tooltip: repeatModeLabel(service.repeatMode),
-                onPressed: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
-              ),
-              FocusableAction(
-                icon: Symbols.clear_all_rounded,
-                iconColor: tk.textMuted,
-                iconSize: 20,
-                tooltip: t.music.clearQueue,
-                onPressed: service.clearUpcoming,
-              ),
-            ],
-          ),
-        ],
+            FocusableActionBar(
+              actions: [
+                FocusableAction(
+                  icon: Symbols.shuffle_rounded,
+                  iconColor: service.shuffled ? colorScheme.primary : tk.textMuted,
+                  iconSize: 20,
+                  tooltip: t.common.shuffle,
+                  onPressed: service.toggleShuffle,
+                ),
+                FocusableAction(
+                  icon: repeatModeIcon(service.repeatMode),
+                  iconColor: service.repeatMode == MusicRepeatMode.off ? tk.textMuted : colorScheme.primary,
+                  iconSize: 20,
+                  tooltip: repeatModeLabel(service.repeatMode),
+                  onPressed: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
+                ),
+                // Atlas: AutoPlay (similar music when the queue runs out) and Mixing (coming with
+                // AudioMuse), as on the phone's Up Next.
+                FocusableAction(
+                  icon: Symbols.all_inclusive_rounded,
+                  iconColor: SettingsService.instance.read(SettingsService.musicAutoplay)
+                      ? colorScheme.primary
+                      : tk.textMuted,
+                  iconSize: 20,
+                  tooltip: MusicStrings.autoplay,
+                  onPressed: () async {
+                    final settings = SettingsService.instance;
+                    await settings.write(SettingsService.musicAutoplay, !settings.read(SettingsService.musicAutoplay));
+                    service.autoplayChanged();
+                  },
+                ),
+                FocusableAction(
+                  icon: Symbols.instant_mix_rounded,
+                  iconColor: SettingsService.instance.read(SettingsService.musicMixing)
+                      ? colorScheme.primary
+                      : tk.textMuted,
+                  iconSize: 20,
+                  tooltip: MusicStrings.mixing,
+                  onPressed: () async {
+                    final settings = SettingsService.instance;
+                    await settings.write(SettingsService.musicMixing, !settings.read(SettingsService.musicMixing));
+                    if (context.mounted) showAppSnackBar(context, MusicStrings.mixingSoon);
+                  },
+                ),
+                FocusableAction(
+                  icon: Symbols.clear_all_rounded,
+                  iconColor: tk.textMuted,
+                  iconSize: 20,
+                  tooltip: t.music.clearQueue,
+                  onPressed: service.clearUpcoming,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       child: const QueueList(autofocusCurrent: true),
     );
@@ -231,6 +269,39 @@ class _QueueListState extends State<QueueList> {
             ),
             onDismissed: (_) => service.removeAt(index),
             child: row,
+          );
+        }
+
+        // Atlas: where AutoPlay's similar music starts, Apple Music style.
+        final autoplayStarts = index > currentIndex &&
+            service.isAutoplayItem(item) &&
+            (index == 0 || !service.isAutoplayItem(queue[index - 1]));
+        if (autoplayStarts) {
+          row = Column(
+            crossAxisAlignment: .stretch,
+            mainAxisSize: .min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+                child: Row(
+                  children: [
+                    AppIcon(Symbols.all_inclusive_rounded, size: 18, color: tk.text),
+                    const SizedBox(width: 8),
+                    Text(MusicStrings.autoplay, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: tk.text)),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        MusicStrings.autoplayRow,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: tk.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              row,
+            ],
           );
         }
 
