@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -16,14 +19,15 @@ import '../../mixins/context_menu_tap_mixin.dart';
 import '../../navigation/popup_route_counter.dart';
 import '../../navigation/settings_shortcut.dart';
 import '../../providers/libraries_provider.dart';
+import '../../services/device_performance.dart';
 import '../../services/music/music_playback_service.dart';
-import '../../theme/mono_motion.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/media_image_helper.dart';
 import '../../utils/music_navigation.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/video_player_navigation.dart';
+import 'music_glass.dart';
 import '../app_icon.dart';
 import '../media_context_menu.dart';
 import '../optimized_media_image.dart';
@@ -280,15 +284,21 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         )
             : const _MiniPlayerIdleCard(key: ValueKey('mini_player_idle'));
 
+        // Atlas: rises in with a soft landing (a little bigger as it settles) and sinks away
+        // quicker, instead of popping in and out.
         final switcher = AnimatedSwitcher(
-          duration: MonoMotion.shape(context),
-          switchInCurve: MonoMotion.emphasized,
+          duration: DevicePerformance.reducedDuration(const Duration(milliseconds: 440)),
+          reverseDuration: DevicePerformance.reducedDuration(const Duration(milliseconds: 260)),
+          switchInCurve: const Cubic(0.05, 0.7, 0.1, 1.0),
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
+            opacity: CurvedAnimation(parent: animation, curve: const Interval(0, 0.6)),
             child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero).animate(animation),
-              child: child,
+              position: Tween<Offset>(begin: const Offset(0, 0.7), end: Offset.zero).animate(animation),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+                child: child,
+              ),
             ),
           ),
           child: child,
@@ -311,8 +321,8 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
         return Stack(
           children: [
             AnimatedPositionedDirectional(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
+              duration: const Duration(milliseconds: 320),
+              curve: const Cubic(0.2, 0.0, 0.0, 1.0),
               start: 12 + start,
               end: 12 + safeEnd,
               bottom: bottom,
@@ -366,10 +376,15 @@ class _MiniPlayerCardState extends State<_MiniPlayerCard> with ContextMenuTapMix
     final client = context.tryGetMediaClientWithFallback(serverIdOrNull(widget.track.serverId));
     final artist = widget.track.trackArtistTitle;
 
+    // Atlas: frosted like the rest of music mode (blurs what it floats over), a bit more
+    // solid so it stays readable over busy pages.
     Widget card = Material(
-      color: tk.surface,
+      color: MusicGlass.tint(context, strength: 2.6),
       clipBehavior: Clip.antiAlias,
-      borderRadius: BorderRadius.circular(tk.radiusLg),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tk.radiusLg),
+        side: BorderSide(color: MusicGlass.edge(context)),
+      ),
       child: InkWell(
         canRequestFocus: false,
         mouseCursor: SystemMouseCursors.click,
@@ -484,12 +499,26 @@ class _MiniPlayerCardState extends State<_MiniPlayerCard> with ContextMenuTapMix
     card = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(tk.radiusLg),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 20, offset: const Offset(0, 6))],
       ),
-      child: card,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(tk.radiusLg),
+        child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24), child: card),
+      ),
     );
 
     card = MediaContextMenu(key: contextMenuKey, item: widget.track, child: card);
+
+    // Atlas: like Apple Music, swipe the mini player sideways to skip and up to open Now
+    // Playing (music mode; in video mode a sideways swipe dismisses it instead).
+    if (!widget.dismissible && !PlatformDetector.isTV()) {
+      card = _MiniPlayerSwipe(
+        onNext: () => unawaited(service.next()),
+        onPrevious: () => unawaited(service.previous()),
+        onOpen: () => unawaited(openNowPlaying(context)),
+        child: card,
+      );
+    }
 
     if (!widget.dismissible) return card;
     card = Dismissible(
@@ -517,9 +546,12 @@ class _MiniPlayerIdleCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Material(
-        color: tk.surface,
+        color: MusicGlass.tint(context, strength: 2.6),
         clipBehavior: Clip.antiAlias,
-        borderRadius: BorderRadius.circular(tk.radiusLg),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tk.radiusLg),
+          side: BorderSide(color: MusicGlass.edge(context)),
+        ),
         child: InkWell(
           canRequestFocus: false,
           onTap: () => unawaited(openNowPlaying(context)),
@@ -592,6 +624,70 @@ class _MiniPlayerProgress extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Sideways swipes skip (the card follows the finger a little and eases back), an upward
+/// swipe opens Now Playing.
+class _MiniPlayerSwipe extends StatefulWidget {
+  const _MiniPlayerSwipe({required this.onNext, required this.onPrevious, required this.onOpen, required this.child});
+
+  final VoidCallback onNext;
+  final VoidCallback onPrevious;
+  final VoidCallback onOpen;
+  final Widget child;
+
+  @override
+  State<_MiniPlayerSwipe> createState() => _MiniPlayerSwipeState();
+}
+
+class _MiniPlayerSwipeState extends State<_MiniPlayerSwipe> {
+  double _dx = 0;
+  bool _dragging = false;
+
+  void _end(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final width = context.size?.width ?? 300;
+    if (_dx < -width * 0.22 || velocity < -600) {
+      unawaited(HapticFeedback.selectionClick());
+      widget.onNext();
+    } else if (_dx > width * 0.22 || velocity > 600) {
+      unawaited(HapticFeedback.selectionClick());
+      widget.onPrevious();
+    }
+    setState(() {
+      _dragging = false;
+      _dx = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = math.min(MediaQuery.sizeOf(context).width, 420.0);
+    // Resists as it goes, so it feels attached rather than loose.
+    final shown = _dx.sign * math.min(_dx.abs(), width) * 0.45;
+    return GestureDetector(
+      onHorizontalDragStart: (_) => setState(() => _dragging = true),
+      onHorizontalDragUpdate: (details) => setState(() => _dx += details.delta.dx),
+      onHorizontalDragEnd: _end,
+      onHorizontalDragCancel: () => setState(() {
+        _dragging = false;
+        _dx = 0;
+      }),
+      onVerticalDragEnd: (details) {
+        if ((details.primaryVelocity ?? 0) < -250) widget.onOpen();
+      },
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: shown),
+        duration: _dragging ? Duration.zero : const Duration(milliseconds: 360),
+        curve: Curves.easeOutBack,
+        builder: (context, offset, child) => Opacity(
+          opacity: (1 - offset.abs() / (width * 0.9)).clamp(0.4, 1.0).toDouble(),
+          child: Transform.translate(offset: Offset(offset, 0), child: child),
+        ),
+        child: widget.child,
+      ),
     );
   }
 }

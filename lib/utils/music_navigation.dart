@@ -8,13 +8,11 @@ import '../media/media_server_client.dart';
 import '../navigation/profile_navigation_scope.dart';
 import '../screens/music/album_detail_screen.dart';
 import '../screens/music/artist_detail_screen.dart';
-import '../screens/music/now_playing_screen.dart';
+import '../screens/music/now_playing_route.dart';
 import '../services/device_performance.dart';
 import '../services/music/music_playback_service.dart';
 import '../services/playlist_items_loader.dart';
 import '../services/playback_initialization_types.dart';
-import '../theme/mono_motion.dart';
-import '../theme/mono_tokens.dart';
 import '../i18n/strings.g.dart';
 import 'app_logger.dart';
 import 'platform_detector.dart';
@@ -74,35 +72,17 @@ Future<void> navigateToAlbum(BuildContext context, MediaItem album, {bool isOffl
   );
 }
 
-/// Push the now-playing screen (slide-up + fade) on the profile navigator.
-/// No-op when it is already on top (e.g. TV auto-push while open). Popping
-/// it never touches playback — audio continues under the mini-player.
+/// Push the now-playing screen on the profile navigator: it rises as a card and swipes
+/// away under the finger ([NowPlayingRoute]). No-op when it is already on top (e.g. TV
+/// auto-push while open). Popping it never touches playback — audio continues under the
+/// mini-player.
 Future<void> openNowPlaying(BuildContext context) async {
   final navigator = _contentNavigatorOf(context);
   if (_isRouteOnTop(navigator, kNowPlayingRouteName)) return;
-  final duration = DevicePerformance.reducedDuration(tokens(context).expressive);
   await navigator.push(
-    PageRouteBuilder<void>(
+    NowPlayingRoute(
       settings: const RouteSettings(name: kNowPlayingRouteName),
-      // See-through, so pulling the sheet down shows the page under it.
-      opaque: false,
-      transitionDuration: duration,
-      reverseTransitionDuration: duration,
-      pageBuilder: (context, animation, secondaryAnimation) => const NowPlayingScreen(),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: MonoMotion.emphasized,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(curved),
-            child: child,
-          ),
-        );
-      },
+      duration: DevicePerformance.reducedDuration(const Duration(milliseconds: 460)),
     ),
   );
 }

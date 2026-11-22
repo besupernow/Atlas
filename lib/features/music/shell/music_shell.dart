@@ -20,6 +20,8 @@ import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/atlas_native_tab_bar.dart';
 import '../../../widgets/music/mini_player.dart';
+import '../../../widgets/music/music_glass.dart';
+import '../discover/music_auto_add.dart';
 import '../discover/music_previews.dart';
 import '../music_strings.dart';
 import '../pages/music_artist_page.dart';
@@ -92,6 +94,16 @@ class _MusicShellState extends State<MusicShell> {
     super.initState();
     MusicModeLinks.open = _openFromOutside;
     AppModeController.instance.addListener(_onModeChanged);
+    // Atlas: now and then, add an album or two this person will likely play (it decides
+    // whether it's time; most opens do nothing).
+    // Checked again every hour while music mode stays open (it decides itself when it's
+    // actually time).
+    _autoAddTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      if (mounted) unawaited(MusicAutoAdd.maybeRun(context));
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(MusicAutoAdd.maybeRun(context));
+    });
   }
 
   @override
@@ -122,8 +134,11 @@ class _MusicShellState extends State<MusicShell> {
     );
   }
 
+  Timer? _autoAddTimer;
+
   @override
   void dispose() {
+    _autoAddTimer?.cancel();
     if (MusicModeLinks.open == _openFromOutside) MusicModeLinks.open = null;
     AppModeController.instance.removeListener(_onModeChanged);
     _clearInsets(_insets);
@@ -342,7 +357,11 @@ class _MusicShellState extends State<MusicShell> {
 
     return Container(
       width: isTV ? 240 : 220,
-      color: theme.colorScheme.surfaceContainerLow,
+      // Frosted like the rest of music mode, with a hairline edge against the pages.
+      decoration: BoxDecoration(
+        color: MusicGlass.tint(context, strength: 1.6),
+        border: Border(right: BorderSide(color: MusicGlass.edge(context))),
+      ),
       child: SafeArea(
         right: false,
         // Scrolls when the screen is too short for everything (TV overscan, big text); the

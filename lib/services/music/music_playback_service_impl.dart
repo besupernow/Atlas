@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:plezy/utils/app_platform.dart';
 import 'dart:math';
 
@@ -40,6 +41,7 @@ import 'music_queue_controller.dart';
 import 'music_session_store.dart';
 import 'music_source_resolver.dart';
 import 'music_bans.dart';
+import 'music_history.dart';
 import 'audio_meter.dart';
 
 /// A gapless-armed next track: what [Player.setNext] was fed, so the
@@ -483,10 +485,13 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       final index = tracks.indexWhere((t) => t.globalKey == startTrack.globalKey);
       if (index >= 0) startIndex = index;
     }
+    // Atlas: what was played (and the song playing now) moves into History instead of
+    // vanishing with the old queue.
+    _archivePlayed();
     _queue.load(tracks, startIndex: startIndex, shuffle: shuffle);
     _playContext = playContext;
     // Atlas: AutoPlay starts over from what was picked.
-    _autoplayKeys.clear();
+    _autoplayItems.clear();
     _autoplayTopUp = null;
     _autoplaySeed = _queue.current;
     _consecutiveFailures = 0;
@@ -1045,7 +1050,9 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   MediaItem? _autoplaySeed;
 
   /// Queue entries AutoPlay added.
-  final Set<String> _autoplayKeys = {};
+  /// By identity, not by song: the same song added by hand (Play Next, Add to Queue) is the
+  /// person's pick, even when AutoPlay also suggested it.
+  final Set<MediaItem> _autoplayItems = Set.identity();
   Future<bool>? _autoplayTopUp;
 
   /// How few songs may be left before AutoPlay adds more (fetched ahead, so the next song is
@@ -1055,8 +1062,17 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   bool get _autoplayWanted =>
       _queue.repeatMode == MusicRepeatMode.off && SettingsService.instance.read(SettingsService.musicAutoplay);
 
+  /// Puts the songs of the queue that's ending, up to and including the one playing, on
+  /// [MusicHistory]. AutoPlay songs that never played are left out.
+  void _archivePlayed() {
+    if (_queue.isEmpty || _queue.cursor < 0) return;
+    final queue = _queue.queue;
+    final played = queue.sublist(0, (_queue.cursor + 1).clamp(0, queue.length));
+    MusicHistory.instance.add(played);
+  }
+
   @override
-  bool isAutoplayItem(MediaItem item) => _autoplayKeys.contains(item.globalKey);
+  bool isAutoplayItem(MediaItem item) => _autoplayItems.contains(item);
 
   @override
   void autoplayChanged() {
@@ -1069,7 +1085,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     var changed = false;
     for (var index = _queue.length - 1; index > _queue.cursor; index--) {
       final track = _queue.trackAt(index);
-      if (track != null && _autoplayKeys.contains(track.globalKey) && _queue.removeAt(index)) changed = true;
+      if (track != null && _autoplayItems.contains(track) && _queue.removeAt(index)) changed = true;
     }
     _autoplayTopUp = null;
     if (changed) _afterQueueEdit();
@@ -1107,7 +1123,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       final seedIds = <String>{
         seed.id,
         if (seed.kind == MediaKind.track && seed.parentId != null) seed.parentId!,
-        if (current != null && current.id != seed.id && _autoplayKeys.contains(current.globalKey)) current.id,
+        if (current != null && current.id != seed.id && _autoplayItems.contains(current)) current.id,
       };
       final batches = await Future.wait([
         for (final id in seedIds)
@@ -1133,7 +1149,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       }
       if (picked.isEmpty) return false;
       _queue.addToEnd(picked);
-      _autoplayKeys.addAll(picked.map((track) => track.globalKey));
+      _autoplayItems.addAll(picked);
       appLogger.d('AutoPlay: queued ${picked.length} similar songs');
       _afterQueueEdit();
       return true;
@@ -1847,7 +1863,17 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     if (next) {
       _queue.addNext(tracks);
     } else {
-      _queue.addToEnd(tracks);
+      // Atlas: Add to Queue goes at the end of what you queued, ahead of AutoPlay's songs
+      // (Apple's Play Last), not after them.
+      final queue = _queue.queue;
+      var at = queue.length;
+      for (var i = _queue.cursor + 1; i < queue.length; i++) {
+        if (_autoplayItems.contains(queue[i])) {
+          at = i;
+          break;
+        }
+      }
+      _queue.insertAt(at, tracks);
     }
     _afterQueueEdit();
   }
@@ -1969,6 +1995,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     _observedGeneration = null;
     _invalidateArmRequests();
     _cancelTimersAndFinalizeTrack();
+    _archivePlayed();
     _queue.clear();
     _currentTrack = null;
     _currentSource = null;
@@ -2119,6 +2146,9 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     _queueSessionRevision++;
     _playContext = snapshot.playContext;
     _currentTrack = track;
+    // Atlas: which songs at the end were AutoPlay's (so they come back under AutoPlay, not
+    // as if you'd queued them).
+    _restoreAutoplayMarks();
     _pendingRestoreResume = _PendingResume(globalKey: track.globalKey, position: resumeAt);
     appLogger.i('Music: restored parked session "${track.title}" at ${resumeAt.inSeconds}s');
     _positionController.add(resumeAt);
@@ -2137,7 +2167,44 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
 
   /// Full snapshot rewrite — queue-shape/mode changes only; the playhead
   /// travels through [_persistSessionProgress] otherwise.
+  static StringPref? _autoplayMarksPref() {
+    final profile = MusicHistory.instance.profile;
+    return profile == null ? null : StringPref('atlas_music_autoplay_tail_$profile');
+  }
+
+  /// Remembers the run of AutoPlay songs at the end of the queue (their keys, in order).
+  void _saveAutoplayMarks() {
+    final pref = _autoplayMarksPref();
+    if (pref == null) return;
+    final queue = _queue.queue;
+    final tail = <String>[];
+    for (var i = queue.length - 1; i > _queue.cursor && _autoplayItems.contains(queue[i]); i--) {
+      tail.insert(0, queue[i].globalKey);
+    }
+    unawaited(SettingsService.instance.write(pref, jsonEncode(tail)).catchError((Object _) {}));
+  }
+
+  void _restoreAutoplayMarks() {
+    _autoplayItems.clear();
+    final pref = _autoplayMarksPref();
+    if (pref == null) return;
+    try {
+      final raw = SettingsService.instance.read(pref);
+      if (raw.isEmpty) return;
+      final keys = (jsonDecode(raw) as List).whereType<String>().toList();
+      final queue = _queue.queue;
+      var k = keys.length - 1;
+      for (var i = queue.length - 1; i > _queue.cursor && k >= 0; i--, k--) {
+        if (queue[i].globalKey != keys[k]) break;
+        _autoplayItems.add(queue[i]);
+      }
+    } catch (_) {
+      // Unreadable marks: everything just reads as queued.
+    }
+  }
+
   void _persistSessionSnapshot({Duration? positionOverride}) {
+    _saveAutoplayMarks();
     final store = _sessionStore;
     // Guard on the queue, not [_currentTrack]: at [_startQueue] time the
     // queue is already loaded but the track only commits inside [_openCurrent].

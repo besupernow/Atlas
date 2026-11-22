@@ -39,9 +39,12 @@ import '../../widgets/app_icon.dart';
 import '../../widgets/app_menu.dart';
 import '../../widgets/media_context_menu.dart';
 import '../../widgets/music/lyrics_view.dart';
+import '../../widgets/music/edge_fade.dart';
+import '../../widgets/music/music_glass.dart';
 import '../../widgets/music/repeat_mode.dart';
 import '../../widgets/optimized_media_image.dart';
 import '../../widgets/overlay_sheet.dart';
+import 'now_playing_route.dart';
 import 'queue_sheet.dart';
 import '../../app/app_mode.dart';
 import '../../app/music_detail_scope.dart';
@@ -198,13 +201,38 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     _dismissDrag.value = _dismissSettleFrom * (1 - Curves.easeOutCubic.transform(_dismissSettle.value));
   }
 
-  void _onDismissDragStart(DragStartDetails details) => _dismissSettle.stop();
+  /// Atlas: opened as a [NowPlayingRoute], the swipe drags the route's own card (with the
+  /// page underneath coming back into view) and a throw carries through; otherwise the
+  /// content follows the finger as before.
+  NowPlayingRoute? get _cardRoute {
+    final route = ModalRoute.of(context);
+    return route is NowPlayingRoute ? route : null;
+  }
+
+  void _onDismissDragStart(DragStartDetails details) {
+    final route = _cardRoute;
+    if (route != null) {
+      route.dragStart();
+      return;
+    }
+    _dismissSettle.stop();
+  }
 
   void _onDismissDragUpdate(DragUpdateDetails details) {
+    final route = _cardRoute;
+    if (route != null) {
+      route.dragUpdate(context, details.delta.dy);
+      return;
+    }
     _dismissDrag.value = math.max(0, _dismissDrag.value + details.delta.dy);
   }
 
   void _onDismissDragEnd(DragEndDetails details) {
+    final route = _cardRoute;
+    if (route != null) {
+      route.dragEnd(context, details.primaryVelocity ?? 0);
+      return;
+    }
     final offset = _dismissDrag.value;
     if (offset <= 0) return;
     // Same thresholds as the overlay sheet system's drag-to-dismiss.
@@ -216,6 +244,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   void _onDismissDragCancel() {
+    final route = _cardRoute;
+    if (route != null) {
+      route.dragCancel(context);
+      return;
+    }
     if (_dismissDrag.value <= 0) return;
     _dismissSettleFrom = _dismissDrag.value;
     _dismissSettle.forward(from: 0);
@@ -909,8 +942,28 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       MediaServerClient? client, {
         bool tvArt = false,
       }) {
+    // Atlas: art, lyrics and Up Next trade places with a soft cross-fade that drifts and
+    // settles (the old switch was a quick plain fade).
     return AnimatedSwitcher(
-      duration: MonoMotion.fill(context),
+      duration: const Duration(milliseconds: 380),
+      reverseDuration: const Duration(milliseconds: 240),
+      switchInCurve: const Cubic(0.05, 0.7, 0.1, 1.0),
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (current, previous) => Stack(
+        fit: StackFit.passthrough,
+        alignment: Alignment.center,
+        children: [...previous, ?current],
+      ),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.965, end: 1).animate(animation),
+          child: SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0, 0.025), end: Offset.zero).animate(animation),
+            child: child,
+          ),
+        ),
+      ),
       child: _tab == _NowPlayingTab.queue && !tvArt
           ? const KeyedSubtree(
         key: ValueKey('now_playing_queue'),
@@ -919,19 +972,24 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           : _showLyrics
           ? KeyedSubtree(
         key: const ValueKey('now_playing_lyrics'),
-        child: LyricsView(
-          lyricsFuture: _lyricsFutureFor(track),
-          focusNode: _lyricsPaneFocusNode,
-          onExit: _focusTransport,
-          // Atlas: long-press lines to share them as a card.
-          onShareLines: PlatformDetector.isTV()
-              ? null
-              : (lines) => unawaited(
-            shareLyrics(
-              context,
-              track: track,
-              client: context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId)),
-              lines: lines,
+        // Lines melt into the header and the controls instead of being sliced off.
+        child: EdgeFade(
+          top: 40,
+          bottom: 64,
+          child: LyricsView(
+            lyricsFuture: _lyricsFutureFor(track),
+            focusNode: _lyricsPaneFocusNode,
+            onExit: _focusTransport,
+            // Atlas: long-press lines to share them as a card.
+            onShareLines: PlatformDetector.isTV()
+                ? null
+                : (lines) => unawaited(
+              shareLyrics(
+                context,
+                track: track,
+                client: context.tryGetMediaClientWithFallback(serverIdOrNull(track.serverId)),
+                lines: lines,
+              ),
             ),
           ),
         ),
@@ -1366,7 +1424,7 @@ class _Frosted extends StatelessWidget {
         child: Container(
           width: size,
           height: size,
-          color: Colors.white.withValues(alpha: 0.12),
+          color: MusicGlass.tint(context, strength: 1.3),
           alignment: Alignment.center,
           child: child,
         ),
@@ -1401,6 +1459,7 @@ class _LoveButtonState extends State<_LoveButton> {
     final client = context.tryGetMediaClientWithFallback(serverIdOrNull(widget.track.serverId));
     if (client == null) return;
     final want = !_loved;
+    unawaited(want ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick());
     setState(() {
       _busy = true;
       _changed[widget.track.globalKey] = want;
@@ -1449,8 +1508,6 @@ class _UpNextPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tk = tokens(context);
-    final textTheme = Theme.of(context).textTheme;
     final service = context.watch<MusicPlaybackService>();
     final settings = SettingsService.instance;
     return Column(
@@ -1480,15 +1537,27 @@ class _UpNextPanel extends StatelessWidget {
                     active: service.repeatMode != MusicRepeatMode.off,
                     onTap: () => service.setRepeatMode(nextRepeatMode(service.repeatMode)),
                   ),
+                  // Like Apple: AutoPlay can't run under Repeat (the queue never ends), so it
+                  // reads as off then, and turning it on turns Repeat off.
                   _QueueToggle(
                     icon: Symbols.all_inclusive_rounded,
                     tooltip: MusicStrings.autoplay,
-                    active: autoplay,
+                    active: autoplay && service.repeatMode == MusicRepeatMode.off,
                     onTap: () async {
-                      await settings.write(SettingsService.musicAutoplay, !autoplay);
+                      final repeating = service.repeatMode != MusicRepeatMode.off;
+                      final turnOn = !autoplay || repeating;
+                      if (repeating && turnOn) service.setRepeatMode(MusicRepeatMode.off);
+                      await settings.write(SettingsService.musicAutoplay, turnOn);
                       service.autoplayChanged();
                       if (context.mounted) {
-                        showAppSnackBar(context, !autoplay ? MusicStrings.autoplayOn : MusicStrings.autoplayOff);
+                        showAppSnackBar(
+                          context,
+                          !turnOn
+                              ? MusicStrings.autoplayOff
+                              : repeating
+                              ? MusicStrings.autoplayNeedsRepeatOff
+                              : MusicStrings.autoplayOn,
+                        );
                       }
                     },
                   ),
@@ -1507,25 +1576,8 @@ class _UpNextPanel extends StatelessWidget {
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 12, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  MusicStrings.upNext,
-                  style: textTheme.titleMedium?.copyWith(fontWeight: .w800, color: tk.text),
-                ),
-              ),
-              TextButton(
-                onPressed: service.clearUpcoming,
-                style: TextButton.styleFrom(foregroundColor: tk.text),
-                child: Text(t.music.clearQueue),
-              ),
-            ],
-          ),
-        ),
-        const Expanded(child: QueueList()),
+        // History above (scroll up for it), then Up Next with Clear, then AutoPlay.
+        const Expanded(child: QueueList(showCurrent: false)),
       ],
     );
   }
@@ -1549,7 +1601,10 @@ class _QueueToggle extends StatelessWidget {
         child: Tooltip(
           message: tooltip,
           child: _Pressable(
-            onTap: onTap,
+            onTap: () {
+              unawaited(HapticFeedback.selectionClick());
+              onTap();
+            },
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: BackdropFilter(
@@ -1559,7 +1614,7 @@ class _QueueToggle extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   height: 40,
                   alignment: Alignment.center,
-                  color: active ? tk.text.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.12),
+                  color: active ? tk.text.withValues(alpha: 0.9) : MusicGlass.tint(context, strength: 1.3),
                   child: AppIcon(icon, fill: 1, size: 20, color: active ? tk.bg : tk.text),
                 ),
               ),

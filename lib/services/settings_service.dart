@@ -828,6 +828,11 @@ class SettingsService extends BaseSharedPreferencesService {
   /// this plays the rest shuffled instead of in order.
   static const musicContinueShuffled = BoolPref('atlas_music_continue_shuffled', defaultValue: false);
 
+  /// Atlas: grow the library with albums each person is likely to play (from their
+  /// ListenBrainz listening) through Allseerr, at a pace that eases off over time
+  /// (see MusicAutoAdd).
+  static const musicAutoAdd = BoolPref('atlas_music_auto_add', defaultValue: true);
+
   /// Atlas: smart mixing between songs (AudioMuse transitions). Stored now; the mixing itself
   /// comes with the AudioMuse work.
   static const musicMixing = BoolPref('atlas_music_mixing', defaultValue: false);
@@ -1547,6 +1552,7 @@ class SettingsService extends BaseSharedPreferencesService {
     resumeMusicOnLaunch,
     musicAutoplay,
     musicContinueShuffled,
+    musicAutoAdd,
     musicMixing,
     autoPlayNextEpisode,
     playNextCountdown,

@@ -161,6 +161,15 @@ class MusicQueueController {
     if (_cursor < 0) _cursor = 0;
   }
 
+  /// Atlas: insert [tracks] at playback-order [queueIndex] (after the current song; used to
+  /// add songs ahead of AutoPlay's).
+  void insertAt(int queueIndex, List<MediaItem> tracks) {
+    if (tracks.isEmpty) return;
+    final at = queueIndex.clamp(_cursor < 0 ? 0 : _cursor + 1, _order.length);
+    _order.insertAll(at, _append(tracks));
+    if (_cursor < 0) _cursor = 0;
+  }
+
   void addToEnd(List<MediaItem> tracks) {
     if (tracks.isEmpty) return;
     _order.addAll(_append(tracks));

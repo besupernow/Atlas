@@ -95,6 +95,12 @@ class MusicPlaybackSettingsScreen extends StatelessWidget {
               subtitle: MusicStrings.continueShuffledSubtitle,
             ),
             SettingSwitchTile(
+              pref: SettingsService.musicAutoAdd,
+              icon: Symbols.library_add_rounded,
+              title: MusicStrings.autoAdd,
+              subtitle: MusicStrings.autoAddSubtitle,
+            ),
+            SettingSwitchTile(
               pref: SettingsService.resumeMusicOnLaunch,
               icon: Symbols.music_history_rounded,
               title: t.settings.resumeMusicOnLaunch,

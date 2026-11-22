@@ -17,6 +17,7 @@ import '../../../utils/music_navigation.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../utils/provider_extensions.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/music/music_glass.dart';
 import '../data/music_catalog.dart';
 import '../discover/discover_models.dart';
 import '../discover/discover_widgets.dart';
@@ -92,7 +93,7 @@ abstract final class MusicItemMenu {
             _Action(
               Symbols.artist_rounded,
               MusicStrings.goToArtist,
-              (c) => showArtistDiscoverySheet(
+                  (c) => showArtistDiscoverySheet(
                 c,
                 DiscoverArtist(mbid: album.artistMbid ?? 'name:${album.artistName}', name: album.artistName),
               ),
@@ -121,7 +122,7 @@ abstract final class MusicItemMenu {
           MusicBanKind.album => MusicStrings.hideAlbum,
           MusicBanKind.artist => MusicStrings.hideArtist(ban.title),
         },
-        (c) => _hide(c, ban),
+            (c) => _hide(c, ban),
         destructive: true,
       ),
   ];
@@ -150,7 +151,7 @@ abstract final class MusicItemMenu {
       _Action(
         loved ? Symbols.heart_minus_rounded : Symbols.favorite_rounded,
         loved ? MusicStrings.unlove : MusicStrings.love,
-        (c) => _setLoved(c, item, !loved),
+            (c) => _setLoved(c, item, !loved),
       ),
       if (!isArtist) _Action(Symbols.playlist_add_rounded, MusicStrings.addToPlaylist, (c) => _addToPlaylist(c, item)),
       if (isTrack && item.parentId != null)
@@ -159,7 +160,7 @@ abstract final class MusicItemMenu {
         _Action(
           Symbols.artist_rounded,
           MusicStrings.goToArtist,
-          (c) => _openById(c, item, (isTrack ? item.grandparentId : item.parentId)!, artist: true),
+              (c) => _openById(c, item, (isTrack ? item.grandparentId : item.parentId)!, artist: true),
         ),
       _Action(Symbols.ios_share_rounded, MusicStrings.share, (c) => _share(c, item)),
       _Action(Symbols.content_copy_rounded, MusicStrings.copyName, (c) => _copyName(c, item)),
@@ -356,8 +357,8 @@ class _MenuSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final (String title, String? subtitle) = switch (item) {
       ServerFeedItem(:final item) => (
-        item.title ?? '',
-        item.kind == MediaKind.track ? item.trackArtistTitle : item.albumArtistTitle,
+      item.title ?? '',
+      item.kind == MediaKind.track ? item.trackArtistTitle : item.albumArtistTitle,
       ),
       ExternalAlbumItem(:final album) => (album.title, album.artistName),
       ExternalArtistItem(:final artist) => (artist.name, null),
@@ -396,8 +397,11 @@ class _MenuSheet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Material(
-            color: theme.colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(18),
+            color: MusicGlass.tint(context, strength: 1.8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: MusicGlass.edge(context)),
+            ),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [

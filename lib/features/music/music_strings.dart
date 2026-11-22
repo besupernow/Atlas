@@ -131,6 +131,15 @@ abstract final class MusicStrings {
   static const nothingPlayingBody = 'Pick an album, a song or a station and it shows up here.';
   static const browseMusic = 'Browse Music';
   static const upNext = 'Up Next';
+  static const history = 'History';
+  static const autoAdd = 'Grow the Library';
+  static const autoAddSubtitle =
+      'Requests albums each person is likely to play through Allseerr, from their ListenBrainz listening. '
+      'More at first to fill the library out, easing off over the next couple of months, and slower still when what it adds goes unplayed';
+  static const historyClear = 'Clear';
+  static const autoplayNeedsRepeatOff = 'AutoPlay on, Repeat off';
+  static const historyRow = 'Played before this song';
+  static const nothingUpNext = 'Nothing up next. Add songs from anywhere with Play Next or Add to Queue.';
   static const autoplay = 'AutoPlay';
   static const autoplayRow = 'Similar music will keep playing';
   static const autoplayOn = 'AutoPlay on: similar music keeps playing';

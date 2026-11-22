@@ -44,6 +44,7 @@ import '../widgets/agent_control_scope.dart';
 import 'profile_navigation_scope.dart';
 import 'settings_shortcut.dart';
 import '../services/music/music_bans.dart';
+import '../services/music/music_history.dart';
 import 'popup_route_counter.dart';
 
 CatalogSourcesProvider _createCatalogSourcesProvider(BuildContext context) {
@@ -71,8 +72,8 @@ CatalogSourcesProvider _createCatalogSourcesProvider(BuildContext context) {
 /// self-heals would otherwise pull the remote behind the covering route.
 class ProfileSessionScreen extends StatefulWidget {
   const ProfileSessionScreen({super.key, this.isOfflineMode = false, this.initialPromptHandled = false})
-    : profileShellBuilder = null,
-      trackerHttpClientFactory = null;
+      : profileShellBuilder = null,
+        trackerHttpClientFactory = null;
 
   @visibleForTesting
   const ProfileSessionScreen.forTesting({
@@ -120,7 +121,11 @@ class _ProfileSessionScreenState extends State<ProfileSessionScreen> {
   void _onSessionProfileChanged(String? activeId) {
     // Atlas: each person's hidden artists, albums and songs (after this build: switching
     // notifies pages that are listening).
-    WidgetsBinding.instance.addPostFrameCallback((_) => MusicBans.instance.useProfile(activeId));
+    // History too, so it follows the person, not the device.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MusicBans.instance.useProfile(activeId);
+      MusicHistory.instance.useProfile(activeId);
+    });
     final shelf = SystemShelfService();
     if (!_seenFirstActiveId) {
       _seenFirstActiveId = true;
@@ -193,10 +198,10 @@ class _ProfileSessionScreenState extends State<ProfileSessionScreen> {
                 },
               ),
               ChangeNotifierProxyProvider3<
-                TrackersProvider,
-                SeerrAccountProvider,
-                ActiveProfileProvider,
-                CatalogSourcesProvider
+                  TrackersProvider,
+                  SeerrAccountProvider,
+                  ActiveProfileProvider,
+                  CatalogSourcesProvider
               >(
                 create: (context) {
                   final provider = _createCatalogSourcesProvider(context);
@@ -432,7 +437,7 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
     return MaterialPageRoute<void>(
       settings: settings,
       builder: (context) =>
-          widget.profileShellBuilder?.call(context) ??
+      widget.profileShellBuilder?.call(context) ??
           // Atlas: the existing app is the video shell; music mode sits beside it (AppShell).
           AppShell(
             videoShell: MainScreen(

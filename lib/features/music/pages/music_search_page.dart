@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../focus/focusable_wrapper.dart';
 import '../../../utils/music_navigation.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/music/music_glass.dart';
 import '../../../widgets/search_input_field.dart';
 import '../discover/discover_feed.dart';
 import '../discover/discover_models.dart';
@@ -144,33 +145,33 @@ class MusicSearchPageState extends State<MusicSearchPage> {
         else if (results != null && results.isEmpty && !_searching)
           const MusicPagePlaceholder(message: MusicStrings.noResults)
         else if (results != null) ...[
-          if (top != null) _TopResult(item: top) else if (topSong != null) _TopSongResult(song: topSong),
-          MusicFeedShelf(
-            title: MusicStrings.artists,
-            items: results.artists.where((item) => item.key != top?.key).toList(),
-            onNavigateToSidebar: focus?.focusRail,
-          ),
-          if (results.songs.isNotEmpty) ...[
-            Padding(
-              padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 22, bottom: 6)),
-              child: const MusicSectionHeader(title: MusicStrings.songs),
+            if (top != null) _TopResult(item: top) else if (topSong != null) _TopSongResult(song: topSong),
+            MusicFeedShelf(
+              title: MusicStrings.artists,
+              items: results.artists.where((item) => item.key != top?.key).toList(),
+              onNavigateToSidebar: focus?.focusRail,
             ),
-            Padding(
-              padding: MusicPage.padding(context),
-              child: Column(
-                children: [
-                  for (final song in results.songs)
-                    if (song.key != topSong?.key) _SongResult(song: song),
-                ],
+            if (results.songs.isNotEmpty) ...[
+              Padding(
+                padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 22, bottom: 6)),
+                child: const MusicSectionHeader(title: MusicStrings.songs),
               ),
+              Padding(
+                padding: MusicPage.padding(context),
+                child: Column(
+                  children: [
+                    for (final song in results.songs)
+                      if (song.key != topSong?.key) _SongResult(song: song),
+                  ],
+                ),
+              ),
+            ],
+            MusicFeedShelf(
+              title: MusicStrings.albums,
+              items: results.albums.where((item) => item.key != top?.key).toList(),
+              onNavigateToSidebar: focus?.focusRail,
             ),
           ],
-          MusicFeedShelf(
-            title: MusicStrings.albums,
-            items: results.albums.where((item) => item.key != top?.key).toList(),
-            onNavigateToSidebar: focus?.focusRail,
-          ),
-        ],
       ],
     );
   }
@@ -198,8 +199,11 @@ class _TopResult extends StatelessWidget {
         onSelect: open,
         onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
         child: Material(
-          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(22),
+          color: MusicGlass.tint(context, strength: 1.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: MusicGlass.edge(context)),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             canRequestFocus: false,
@@ -398,8 +402,11 @@ class _TopSongResult extends StatelessWidget {
         onSelect: play,
         onLongPress: () => unawaited(MusicItemMenu.show(context, item)),
         child: Material(
-          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(22),
+          color: MusicGlass.tint(context, strength: 1.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: MusicGlass.edge(context)),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             canRequestFocus: false,
@@ -479,4 +486,3 @@ class _TopSongResult extends StatelessWidget {
     );
   }
 }
-

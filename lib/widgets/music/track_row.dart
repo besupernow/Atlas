@@ -16,6 +16,7 @@ import '../app_icon.dart';
 import '../download_status_icon.dart';
 import '../media_context_menu.dart';
 import 'equalizer_icon.dart';
+import 'music_glass.dart';
 
 /// List row for a music track:
 /// `[track # | equalizer] [title + optional artist] [duration] [⋮]`.
@@ -90,6 +91,10 @@ class TrackRow extends StatefulWidget {
   /// [DownloadProvider] is in scope.
   final bool showDownloadStatus;
 
+  /// Atlas: the frosted, faintly accent-washed surface music mode uses everywhere. Off for
+  /// rows that already sit inside a glass panel (they go clear so the panel shows through).
+  final bool frosted;
+
   const TrackRow({
     super.key,
     required this.item,
@@ -109,6 +114,7 @@ class TrackRow extends StatefulWidget {
     this.dimmed = false,
     this.showTrackNumber = true,
     this.showDownloadStatus = false,
+    this.frosted = true,
   });
 
   @override
@@ -180,7 +186,7 @@ class _TrackRowState extends State<TrackRow> with ContextMenuTapMixin<TrackRow>,
     // globalKey, not id: a bare ratingKey is server-scoped, so a track on
     // another server with the same id would falsely light up as current.
     final isCurrentById = context.select<MusicPlaybackService, bool>(
-      (s) => s.currentTrack?.globalKey == widget.item.globalKey,
+          (s) => s.currentTrack?.globalKey == widget.item.globalKey,
     );
     final serviceIsPlaying = context.select<MusicPlaybackService, bool>((s) => s.isPlaying);
     final isCurrent = widget.isCurrent ?? isCurrentById;
@@ -201,9 +207,16 @@ class _TrackRowState extends State<TrackRow> with ContextMenuTapMixin<TrackRow>,
       onKeyEvent: _handleKeyEvent,
       onFocusChange: _handleFocusChange,
       child: Material(
-        color: tk.surface,
+        color: !widget.frosted
+            ? Colors.transparent
+            : isCurrent
+            ? MusicGlass.currentTint(context)
+            : MusicGlass.tint(context),
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: radii),
+        shape: RoundedRectangleBorder(
+          borderRadius: radii,
+          side: widget.frosted ? BorderSide(color: MusicGlass.edge(context)) : BorderSide.none,
+        ),
         child: InkWell(
           mouseCursor: SystemMouseCursors.click,
           onTap: widget.onTap,

@@ -11,6 +11,7 @@ import '../../../services/music/music_playback_service.dart';
 import '../../../utils/formatters.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/music/equalizer_icon.dart';
+import '../../../widgets/music/music_glass.dart';
 import '../discover/discover_models.dart';
 import '../discover/deezer.dart';
 import '../discover/discover_widgets.dart';
@@ -27,8 +28,7 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final tint = Color.alphaBlend(scheme.primary.withValues(alpha: 0.07), scheme.surface.withValues(alpha: 0.32));
+    final tint = MusicGlass.tint(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
@@ -37,7 +37,7 @@ class GlassPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: tint,
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+            border: Border.all(color: MusicGlass.edge(context)),
           ),
           child: child,
         ),
@@ -137,12 +137,12 @@ class _ReleaseTrackRow extends StatelessWidget {
                   child: current
                       ? SizedBox(width: 18, height: 18, child: EqualizerIcon(animate: playing, color: scheme.primary))
                       : Text(
-                          number ?? '',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
+                    number ?? '',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ),
               ),
               Expanded(
@@ -262,7 +262,7 @@ class SongTile extends StatelessWidget {
                   builder: (context, _) {
                     final previewing = server == null && MusicPreviewPlayer.instance.isPlaying(track.previewKey);
                     final current = context.select<MusicPlaybackService, bool>(
-                      (s) => server != null && s.currentTrack?.globalKey == server.globalKey,
+                          (s) => server != null && s.currentTrack?.globalKey == server.globalKey,
                     );
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

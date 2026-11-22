@@ -312,7 +312,7 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           ? null
           : AppBar(
         leading: const FrostedBackButton(),
-              backgroundColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -325,116 +325,118 @@ class _MusicArtistPageState extends State<MusicArtistPage> {
           fit: BoxFit.cover,
         ),
         child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _ArtistHero(artist: _artist, client: _client),
-          Padding(
-            padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 4, bottom: 8)),
-            child: FocusableActionBar(
-              key: _actionsKey,
-              spacing: 4,
-              actions: buildMusicActions(
-                onPlay: _playAll,
-                onShuffle: () => _playAll(shuffle: true),
-                onInstantMix: (_client?.capabilities.instantMix ?? false)
-                    ? () => unawaited(playInstantMix(context, _artist))
-                    : null,
-                // Everything else (play next, queue, love, station, share, hide…).
-                trailing: FocusableAction(
-                  debugLabel: 'music_artist_more',
-                  icon: Symbols.more_horiz_rounded,
-                  tooltip: MusicStrings.more,
-                  onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_artist))),
+          padding: EdgeInsets.zero,
+          children: [
+            _ArtistHero(artist: _artist, client: _client),
+            Padding(
+              padding: MusicPage.padding(context).add(const EdgeInsets.only(top: 4, bottom: 8)),
+              child: FocusableActionBar(
+                key: _actionsKey,
+                spacing: 4,
+                actions: buildMusicActions(
+                  onPlay: _playAll,
+                  onShuffle: () => _playAll(shuffle: true),
+                  onInstantMix: (_client?.capabilities.instantMix ?? false)
+                      ? () => unawaited(playInstantMix(context, _artist))
+                      : null,
+                  // Everything else (play next, queue, love, station, share, hide…).
+                  trailing: FocusableAction(
+                    debugLabel: 'music_artist_more',
+                    icon: Symbols.more_horiz_rounded,
+                    tooltip: MusicStrings.more,
+                    onPressed: () => unawaited(MusicItemMenu.show(context, ServerFeedItem(_artist))),
+                  ),
                 ),
+                onNavigateDown: _focusBelowActions,
+                onNavigateLeft: focus?.focusRail,
+                onBack: () => Navigator.maybePop(context),
               ),
-              onNavigateDown: _focusBelowActions,
-              onNavigateLeft: focus?.focusRail,
-              onBack: () => Navigator.maybePop(context),
             ),
-          ),
-          if (loading)
-            const MusicPagePlaceholder()
-          else if (_failed)
-            const MusicPagePlaceholder(message: MusicStrings.loadFailed)
-          else ...[
-              // Top Songs: their real chart, ours where we have it (play), the rest previews
-              // with a request button. Before the outside chart loads, the server's own.
-              if (popular.isNotEmpty) ...[
-                const MusicSectionTitle(MusicStrings.topSongs),
-                Padding(
-                  padding: MusicPage.padding(context),
-                  child: GlassPanel(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Column(
-                        children: [
-                          for (final (index, song) in popular.indexed)
-                            SongTile(
-                              track: song.track,
-                              server: song.server,
-                              rank: index + 1,
-                              focusNode: index == 0 ? _firstSongFocus : null,
-                              onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
-                              onNavigateLeft: focus?.focusRail,
-                              onPlay: _playTopSong,
-                            ),
-                        ],
+            if (loading)
+              const MusicPagePlaceholder()
+            else if (_failed)
+              const MusicPagePlaceholder(message: MusicStrings.loadFailed)
+            else ...[
+                // Top Songs: their real chart, ours where we have it (play), the rest previews
+                // with a request button. Before the outside chart loads, the server's own.
+                if (popular.isNotEmpty) ...[
+                  const MusicSectionTitle(MusicStrings.topSongs),
+                  Padding(
+                    padding: MusicPage.padding(context),
+                    child: GlassPanel(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Column(
+                          children: [
+                            for (final (index, song) in popular.indexed)
+                              SongTile(
+                                track: song.track,
+                                server: song.server,
+                                rank: index + 1,
+                                focusNode: index == 0 ? _firstSongFocus : null,
+                                onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
+                                onNavigateLeft: focus?.focusRail,
+                                onPlay: _playTopSong,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ] else if (topSongs.isNotEmpty) ...[
-                const MusicSectionTitle(MusicStrings.topSongs),
-                Padding(
-                  padding: MusicPage.padding(context),
-                  child: Column(
-                    children: [
-                      for (final (index, track) in topSongs.indexed)
-                        TrackRow(
-                          item: track,
-                          focusNode: index == 0 ? _firstSongFocus : null,
-                          showTrackNumber: false,
-                          isFirst: index == 0,
-                          isLast: index == topSongs.length - 1,
-                          onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
-                          onTap: () => _playTopSong(track),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-              // Releases: the server's and the rest together, the rest with a request button.
-              for (final kind in DiscographyGroupKind.values)
-                if (_section(kind) case final items when items.isNotEmpty)
-                  MusicFeedShelf(
-                    title: _groupTitle(kind),
-                    items: items,
-                    onNavigateToSidebar: focus?.focusRail,
-                  ),
-              if ([..._similar.map(ServerFeedItem.new), ..._outsideSimilar].where((item) => !item.isHidden).toList() case final similar when similar.isNotEmpty)
-                MusicFeedShelf(
-                  title: MusicStrings.similarArtists,
-                  items: similar,
-                  onNavigateToSidebar: focus?.focusRail,
-                ),
-              if (summary != null && summary.isNotEmpty) ...[
-                const MusicSectionTitle(MusicStrings.about),
-                Padding(
-                  padding: MusicPage.padding(context),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 820),
-                    child: CollapsibleText(
-                      text: summary,
-                      maxLines: 4,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ] else if (topSongs.isNotEmpty) ...[
+                  const MusicSectionTitle(MusicStrings.topSongs),
+                  Padding(
+                    padding: MusicPage.padding(context),
+                    child: Column(
+                      children: [
+                        for (final (index, track) in topSongs.indexed)
+                          TrackRow(
+                            item: track,
+                            focusNode: index == 0 ? _firstSongFocus : null,
+                            showTrackNumber: false,
+                            // Inside the glass panel: clear, so the panel's frost shows through.
+                            frosted: false,
+                            isFirst: index == 0,
+                            isLast: index == topSongs.length - 1,
+                            onNavigateUp: index == 0 ? () => _actionsKey.currentState?.requestFocusOnFirst() : null,
+                            onTap: () => _playTopSong(track),
+                          ),
+                      ],
                     ),
                   ),
-                ),
+                ],
+                // Releases: the server's and the rest together, the rest with a request button.
+                for (final kind in DiscographyGroupKind.values)
+                  if (_section(kind) case final items when items.isNotEmpty)
+                    MusicFeedShelf(
+                      title: _groupTitle(kind),
+                      items: items,
+                      onNavigateToSidebar: focus?.focusRail,
+                    ),
+                if ([..._similar.map(ServerFeedItem.new), ..._outsideSimilar].where((item) => !item.isHidden).toList() case final similar when similar.isNotEmpty)
+                  MusicFeedShelf(
+                    title: MusicStrings.similarArtists,
+                    items: similar,
+                    onNavigateToSidebar: focus?.focusRail,
+                  ),
+                if (summary != null && summary.isNotEmpty) ...[
+                  const MusicSectionTitle(MusicStrings.about),
+                  Padding(
+                    padding: MusicPage.padding(context),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: CollapsibleText(
+                        text: summary,
+                        maxLines: 4,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          SizedBox(height: 24 + MusicPage.bottomRoom(context)),
-        ],
-      ),
+            SizedBox(height: 24 + MusicPage.bottomRoom(context)),
+          ],
+        ),
       ),
     );
   }

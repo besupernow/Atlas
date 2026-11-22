@@ -87,6 +87,8 @@ class ListenBrainzAlbum {
     this.coverUrl,
     this.year,
     this.score = 0,
+    this.hits = 1,
+    this.type,
   });
 
   final String releaseGroupMbid;
@@ -96,6 +98,12 @@ class ListenBrainzAlbum {
   final String? coverUrl;
   final String? year;
   final double score;
+
+  /// How many of the recommended songs are on this album (more = surer bet).
+  final int hits;
+
+  /// MusicBrainz primary type when known ("Album", "EP", "Single").
+  final String? type;
 
   DiscoverAlbum toDiscover({DiscoverStatus status = DiscoverStatus.notRequested, String? reason}) => DiscoverAlbum(
     mbid: releaseGroupMbid,
@@ -165,8 +173,12 @@ class ListenBrainz {
       final id = release['release_group_mbid'];
       if (id is! String || !seen.add(id)) continue;
       final mbids = release['artist_mbids'];
+      final secondary = release['release_group_secondary_type'];
       albums.add(
         ListenBrainzAlbum(
+          type: secondary is String && secondary.isNotEmpty
+              ? secondary
+              : release['release_group_primary_type'] as String?,
           releaseGroupMbid: id,
           title: release['release_name'] as String? ?? '',
           artistName: release['artist_credit_name'] as String? ?? '',
@@ -177,6 +189,16 @@ class ListenBrainz {
       );
     }
     return albums;
+  }
+
+  /// When this person last listened to anything (null: never, or not public).
+  Future<DateTime?> lastListenedAt() async {
+    final data = await _get('/user/$_user/listens', query: {'count': '1'});
+    final payload = data is Map ? data['payload'] : null;
+    final listens = payload is Map ? payload['listens'] : null;
+    final first = listens is List && listens.isNotEmpty ? listens.first : null;
+    final at = first is Map ? first['listened_at'] : null;
+    return at is num ? DateTime.fromMillisecondsSinceEpoch(at.toInt() * 1000) : null;
   }
 
   /// This person's most played artists this month: (mbid, name).
@@ -190,6 +212,56 @@ class ListenBrainz {
         if (artist is Map && artist['artist_mbid'] is String && artist['artist_name'] is String)
           (mbid: artist['artist_mbid'] as String, name: artist['artist_name'] as String),
     ];
+  }
+
+  /// The albums (release groups) this person actually played in [range] ("week", "month",
+  /// "quarter", "half_yearly", "year", "all_time"), most played first: (mbid, title, artist,
+  /// listens). Auto-add uses it to see which of its picks got listened to.
+  Future<List<({String mbid, String title, String artist, int listens})>> topReleaseGroups({
+    int count = 100,
+    String range = 'quarter',
+  }) async {
+    final data = await _get('/stats/user/$_user/release-groups', query: {'count': '$count', 'range': range});
+    final payload = data is Map ? data['payload'] : null;
+    final groups = payload is Map ? payload['release_groups'] : null;
+    if (groups is! List) return const [];
+    return [
+      for (final group in groups)
+        if (group is Map && group['release_group_mbid'] is String)
+          (
+          mbid: group['release_group_mbid'] as String,
+          title: group['release_group_name'] as String? ?? '',
+          artist: group['artist_name'] as String? ?? '',
+          listens: (group['listen_count'] as num?)?.toInt() ?? 0,
+          ),
+    ];
+  }
+
+  /// An artist's most-listened albums across everyone on ListenBrainz, most popular first
+  /// (the "start here" albums). Not tied to a person.
+  static Future<List<ListenBrainzAlbum>> popularAlbums(String artistMbid, {required String artistName}) async {
+    final data = await _get('/popularity/top-release-groups-for-artist/${Uri.encodeComponent(artistMbid)}');
+    if (data is! List) return const [];
+    final albums = <ListenBrainzAlbum>[];
+    for (final entry in data) {
+      if (entry is! Map || entry['release_group_mbid'] is! String) continue;
+      final group = entry['release_group'];
+      final name = group is Map ? group['name'] as String? : null;
+      if (name == null || name.isEmpty) continue;
+      albums.add(
+        ListenBrainzAlbum(
+          releaseGroupMbid: entry['release_group_mbid'] as String,
+          title: name,
+          artistName: artistName,
+          artistMbid: artistMbid,
+          coverUrl: group is Map ? _cover(group['caa_release_mbid'], group['caa_id']) : null,
+          year: group is Map ? (group['date'] as String?)?.split('-').first : null,
+          type: group is Map ? group['type'] as String? : null,
+          score: (entry['total_listen_count'] as num?)?.toDouble() ?? 0,
+        ),
+      );
+    }
+    return albums;
   }
 
   Future<List<ListenBrainzAlbum>> _createdForAlbums(String sourcePatch) async {
@@ -229,6 +301,7 @@ class ListenBrainz {
   /// Recordings to their albums (release groups), keeping the best score per album.
   Future<List<ListenBrainzAlbum>> _albumsForRecordings(Map<String, double> recordings) async {
     final byAlbum = <String, ListenBrainzAlbum>{};
+    final hits = <String, int>{};
     final ids = recordings.keys.toList();
     for (var start = 0; start < ids.length; start += 25) {
       final chunk = ids.sublist(start, start + 25 > ids.length ? ids.length : start + 25);
@@ -245,6 +318,7 @@ class ListenBrainz {
         if (group is! String) continue;
         final score = recordings[key] ?? 0;
         final existing = byAlbum[group];
+        hits[group] = (hits[group] ?? 0) + 1;
         if (existing != null && existing.score >= score) continue;
         final artist = value['artist'];
         final artists = artist is Map ? artist['artists'] : null;
@@ -262,8 +336,20 @@ class ListenBrainz {
         );
       }
     }
-    final albums = byAlbum.values.where((album) => album.title.isNotEmpty).toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+    final albums = [
+      for (final album in byAlbum.values)
+        if (album.title.isNotEmpty)
+          ListenBrainzAlbum(
+            releaseGroupMbid: album.releaseGroupMbid,
+            title: album.title,
+            artistName: album.artistName,
+            artistMbid: album.artistMbid,
+            coverUrl: album.coverUrl,
+            year: album.year,
+            score: album.score,
+            hits: hits[album.releaseGroupMbid] ?? 1,
+          ),
+    ]..sort((a, b) => b.score.compareTo(a.score));
     return albums;
   }
 
