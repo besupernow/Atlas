@@ -22,15 +22,17 @@ class MusicPage extends StatelessWidget {
   static EdgeInsets padding(BuildContext context) =>
       EdgeInsets.symmetric(horizontal: PlatformDetector.isTV() ? 48 : 16);
 
-  /// Room the mini player takes at the bottom (rebuilds when it changes).
+  /// Room to leave at the bottom of a scrolling page: the mini player, plus whatever floats
+  /// over the page's bottom edge (iPhone's glass tab bar, which pages run underneath; it
+  /// arrives as the bottom padding). Rebuilds when either changes.
   static double bottomRoom(BuildContext context) =>
-      context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+      (context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0) + MediaQuery.paddingOf(context).bottom;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isTV = PlatformDetector.isTV();
-    final miniPlayerRoom = context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+    final miniPlayerRoom = bottomRoom(context);
     final list = ListView(
       padding: EdgeInsets.only(bottom: 24 + miniPlayerRoom),
       children: [

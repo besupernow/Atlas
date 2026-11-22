@@ -116,6 +116,15 @@ abstract final class MusicBrainz {
     });
   }
 
+  /// Waits until MusicBrainz has had a breather since our last call. Allseerr looks the
+  /// album up on MusicBrainz too, from the same house (same IP, same allowance), so a request
+  /// sent right after we resolved it trips MusicBrainz's 503 on Allseerr's side.
+  static Future<void> settle({Duration gap = const Duration(milliseconds: 2500)}) async {
+    await _queue;
+    final wait = gap - DateTime.now().difference(_last);
+    if (wait > Duration.zero) await Future<void>.delayed(wait);
+  }
+
   static Future<T> _throttled<T>(Future<T> Function() call) {
     final completer = Completer<T>();
     _queue = _queue.then((_) async {

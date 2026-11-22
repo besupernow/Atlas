@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:provider/provider.dart';
 
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
@@ -14,7 +13,6 @@ import '../../../utils/platform_detector.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/focusable_list_tile.dart';
 import '../../../widgets/focusable_media_card.dart';
-import '../../../widgets/music/mini_player.dart';
 import '../../../widgets/music/track_row.dart';
 import '../data/music_catalog.dart';
 import '../music_strings.dart';
@@ -100,7 +98,7 @@ class _MusicItemGridPageState extends State<MusicItemGridPage> with _PagedMusicL
   @override
   Widget build(BuildContext context) {
     final isTV = PlatformDetector.isTV();
-    final miniPlayerRoom = context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+    final miniPlayerRoom = MusicPage.bottomRoom(context);
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: NotificationListener<ScrollNotification>(
@@ -117,7 +115,7 @@ class _MusicItemGridPageState extends State<MusicItemGridPage> with _PagedMusicL
                   childAspectRatio: 0.78,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => FocusableMediaCard(
+                      (context, index) => FocusableMediaCard(
                     item: items[index],
                     viewModeOverride: ViewMode.grid,
                     cardShapeOverride: CardShape.square,
@@ -175,7 +173,7 @@ class _MusicSongsPageState extends State<MusicSongsPage> with _PagedMusicList<Mu
 
   @override
   Widget build(BuildContext context) {
-    final miniPlayerRoom = context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+    final miniPlayerRoom = MusicPage.bottomRoom(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text(MusicStrings.songs),
@@ -240,7 +238,7 @@ class _MusicGenresPageState extends State<MusicGenresPage> {
   @override
   Widget build(BuildContext context) {
     final genres = _genres;
-    final miniPlayerRoom = context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+    final miniPlayerRoom = MusicPage.bottomRoom(context);
     return Scaffold(
       appBar: AppBar(title: const Text(MusicStrings.genres)),
       body: genres == null
@@ -248,25 +246,25 @@ class _MusicGenresPageState extends State<MusicGenresPage> {
           : genres.isEmpty
           ? const MusicPagePlaceholder(message: MusicStrings.nothingYet)
           : ListView.builder(
-              padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
-              itemCount: genres.length,
-              itemBuilder: (context, index) {
-                final genre = genres[index];
-                return FocusableListTile(
-                  autofocus: index == 0 && PlatformDetector.isTV(),
-                  leading: AppIcon(Symbols.graphic_eq_rounded, color: Theme.of(context).colorScheme.primary),
-                  title: Text(genre.title),
-                  trailing: const AppIcon(Symbols.chevron_right_rounded),
-                  onTap: () => unawaited(
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => MusicItemGridPage(kind: MediaKind.album, title: genre.title, genre: genre),
-                      ),
-                    ),
-                  ),
-                );
-              },
+        padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
+        itemCount: genres.length,
+        itemBuilder: (context, index) {
+          final genre = genres[index];
+          return FocusableListTile(
+            autofocus: index == 0 && PlatformDetector.isTV(),
+            leading: AppIcon(Symbols.graphic_eq_rounded, color: Theme.of(context).colorScheme.primary),
+            title: Text(genre.title),
+            trailing: const AppIcon(Symbols.chevron_right_rounded),
+            onTap: () => unawaited(
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MusicItemGridPage(kind: MediaKind.album, title: genre.title, genre: genre),
+                ),
+              ),
             ),
+          );
+        },
+      ),
     );
   }
 }
@@ -302,7 +300,7 @@ class _MusicPlaylistsPageState extends State<MusicPlaylistsPage> {
   Widget build(BuildContext context) {
     final playlists = _playlists;
     final isTV = PlatformDetector.isTV();
-    final miniPlayerRoom = context.watch<MiniPlayerInsetController?>()?.overlayHeight ?? 0;
+    final miniPlayerRoom = MusicPage.bottomRoom(context);
     return Scaffold(
       appBar: AppBar(title: const Text(MusicStrings.playlists)),
       body: playlists == null
@@ -310,20 +308,20 @@ class _MusicPlaylistsPageState extends State<MusicPlaylistsPage> {
           : playlists.isEmpty
           ? const MusicPagePlaceholder(message: MusicStrings.nothingYet)
           : GridView.builder(
-              padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
-              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: isTV ? 220 : 180,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 0.78,
-              ),
-              itemCount: playlists.length,
-              itemBuilder: (context, index) => FocusableMediaCard(
-                item: playlists[index],
-                viewModeOverride: ViewMode.grid,
-                cardShapeOverride: CardShape.square,
-              ),
-            ),
+        padding: MusicPage.padding(context).add(EdgeInsets.only(top: 8, bottom: 24 + miniPlayerRoom)),
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: isTV ? 220 : 180,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.78,
+        ),
+        itemCount: playlists.length,
+        itemBuilder: (context, index) => FocusableMediaCard(
+          item: playlists[index],
+          viewModeOverride: ViewMode.grid,
+          cardShapeOverride: CardShape.square,
+        ),
+      ),
     );
   }
 }

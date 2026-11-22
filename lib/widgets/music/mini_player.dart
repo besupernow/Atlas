@@ -27,11 +27,12 @@ import '../../utils/music_navigation.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/video_player_navigation.dart';
-import 'music_glass.dart';
 import '../app_icon.dart';
 import '../media_context_menu.dart';
 import '../optimized_media_image.dart';
 import '../overlay_sheet.dart';
+import 'music_art_cache.dart';
+import 'music_glass.dart';
 
 /// Suppresses the mini-player while the top PAGE route of the profile
 /// navigator is a full-screen playback surface (the video player or the
@@ -203,11 +204,33 @@ class _MusicMiniPlayerOverlayState extends State<MusicMiniPlayerOverlay> {
     unawaited(context.read<MusicPlaybackService>().stop());
   }
 
+  /// Atlas: the song art was last warmed for (see [_warmAhead]).
+  String? _warmedFor;
+
+  /// Atlas: when a song starts, gets its art (every size music shows it) and the next few
+  /// songs' art fetched and decoded in the background, so Now Playing, the mini player and
+  /// the next song come up ready instead of loading. (Lyrics are warmed by the player.)
+  void _warmAhead(MediaItem? track) {
+    if (track == null || track.globalKey == _warmedFor) return;
+    _warmedFor = track.globalKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final service = context.read<MusicPlaybackService>();
+      final queue = service.queue;
+      final start = service.currentIndex < 0 ? 0 : service.currentIndex;
+      for (var i = start; i < queue.length && i <= start + 3; i++) {
+        final item = queue[i];
+        MusicArtCache.warm(context, item, client: context.getMediaClientForItemOrNull(item));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final track = context.select<MusicPlaybackService, MediaItem?>((s) => s.currentTrack);
+    _warmAhead(track);
     if (PlatformDetector.isTV()) return const SizedBox.shrink();
 
-    final track = context.select<MusicPlaybackService, MediaItem?>((s) => s.currentTrack);
     if (track == null) {
       _dismissed = false;
     } else if (_lastTrack != null && track.globalKey != _lastTrack!.globalKey) {

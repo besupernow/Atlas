@@ -40,6 +40,7 @@ import '../../widgets/app_menu.dart';
 import '../../widgets/media_context_menu.dart';
 import '../../widgets/music/lyrics_view.dart';
 import '../../widgets/music/edge_fade.dart';
+import '../../widgets/music/music_art_cache.dart';
 import '../../widgets/music/music_glass.dart';
 import '../../widgets/music/repeat_mode.dart';
 import '../../widgets/optimized_media_image.dart';
@@ -371,7 +372,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     Widget content = Stack(
       fit: StackFit.expand,
       children: [
-        _Background(track: track, client: client, heavyScrim: isTV),
+        // Atlas: the next song's colors drift in over the last one's (slow cross-fade) instead
+        // of the backdrop snapping.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 900),
+          switchInCurve: Curves.easeInOut,
+          switchOutCurve: Curves.easeInOut,
+          layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
+          child: _Background(key: ValueKey(track.globalKey), track: track, client: client, heavyScrim: isTV),
+        ),
         SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -1220,13 +1229,26 @@ class _Artwork extends StatelessWidget {
                 ),
               ],
             ),
-            child: OptimizedMediaImage(
-              client: client,
-              imagePath: track.thumbPath,
-              imageType: ImageType.square,
-              width: side,
-              height: side,
-              fallbackIcon: Symbols.music_note_rounded,
+            // Atlas: the next cover fades in over the last (with a slight settle) instead of
+            // swapping.
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 450),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: Tween<double>(begin: 1.04, end: 1).animate(animation), child: child),
+              ),
+              layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
+              child: OptimizedMediaImage(
+                key: ValueKey(track.globalKey),
+                client: client,
+                imagePath: track.thumbPath,
+                imageType: ImageType.square,
+                width: side,
+                height: side,
+                fallbackIcon: Symbols.music_note_rounded,
+              ),
             ),
           ),
         );
@@ -1246,12 +1268,17 @@ class _Background extends StatelessWidget {
   final MediaServerClient? client;
   final bool heavyScrim;
 
-  const _Background({required this.track, required this.client, required this.heavyScrim});
+  const _Background({super.key, required this.track, required this.client, required this.heavyScrim});
 
   @override
   Widget build(BuildContext context) {
     final tk = tokens(context);
-    if (DevicePerformance.isReduced || track.thumbPath == null) {
+    // A small copy of the cover (warmed ahead of time): blurred this hard, more pixels add
+    // nothing, and it's ready the moment the song changes.
+    final art = DevicePerformance.isReduced
+        ? null
+        : MusicArtCache.provider(context, track, MusicArtCache.backdropSize, client: client);
+    if (art == null) {
       return ColoredBox(color: tk.bg);
     }
     return Stack(
@@ -1271,12 +1298,7 @@ class _Background extends StatelessWidget {
               children: [
                 Transform.scale(
                   scale: 1.6,
-                  child: OptimizedMediaImage(
-                    client: client,
-                    imagePath: track.thumbPath,
-                    imageType: ImageType.square,
-                    fit: BoxFit.cover,
-                  ),
+                  child: Image(image: art, fit: BoxFit.cover, gaplessPlayback: true, excludeFromSemantics: true),
                 ),
                 Opacity(
                   opacity: 0.55,
@@ -1285,12 +1307,7 @@ class _Background extends StatelessWidget {
                     child: Transform.scale(
                       scale: 2.2,
                       alignment: Alignment.bottomLeft,
-                      child: OptimizedMediaImage(
-                        client: client,
-                        imagePath: track.thumbPath,
-                        imageType: ImageType.square,
-                        fit: BoxFit.cover,
-                      ),
+                      child: Image(image: art, fit: BoxFit.cover, gaplessPlayback: true, excludeFromSemantics: true),
                     ),
                   ),
                 ),

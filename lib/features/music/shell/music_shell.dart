@@ -66,7 +66,16 @@ class MusicShell extends StatefulWidget {
   State<MusicShell> createState() => _MusicShellState();
 }
 
-class _MusicShellState extends State<MusicShell> {
+class _MusicShellState extends State<MusicShell> with SingleTickerProviderStateMixin {
+  /// Atlas: plays each time the tab changes: the new tab rises and fades in (a short fade
+  /// through) instead of appearing in a cut.
+  late final AnimationController _tabIn = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 340),
+    value: 1,
+  );
+  late final Animation<double> _tabInCurve = CurvedAnimation(parent: _tabIn, curve: const Cubic(0.05, 0.7, 0.1, 1.0));
+
   /// Sheets and menus opened on a tab count as popups, so the mini player steps aside.
   final Map<_MusicTab, PopupRouteCounter> _popupCounters = {
     for (final tab in _MusicTab.values) tab: PopupRouteCounter(),
@@ -139,6 +148,7 @@ class _MusicShellState extends State<MusicShell> {
   @override
   void dispose() {
     _autoAddTimer?.cancel();
+    _tabIn.dispose();
     if (MusicModeLinks.open == _openFromOutside) MusicModeLinks.open = null;
     AppModeController.instance.removeListener(_onModeChanged);
     _clearInsets(_insets);
@@ -177,6 +187,7 @@ class _MusicShellState extends State<MusicShell> {
     // back for the new tab.
     refreshOpenSettings();
     PopupRouteCounter.refresh();
+    if (tab != _tab) unawaited(_tabIn.forward(from: 0));
     setState(() {
       _tab = tab;
       _built.add(tab);
@@ -227,6 +238,24 @@ class _MusicShellState extends State<MusicShell> {
   };
 
   Widget _tabs() {
+    return AnimatedBuilder(
+      animation: _tabInCurve,
+      builder: (context, child) {
+        final t = _tabInCurve.value;
+        if (t >= 1) return child!;
+        return Opacity(
+          opacity: (t * 1.6).clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, 14 * (1 - t)),
+            child: Transform.scale(scale: 0.985 + 0.015 * t, child: child),
+          ),
+        );
+      },
+      child: _tabStack(),
+    );
+  }
+
+  Widget _tabStack() {
     return IndexedStack(
       index: _tab.index,
       children: [
@@ -273,6 +302,9 @@ class _MusicShellState extends State<MusicShell> {
             _onBack();
           },
           child: Scaffold(
+            // Atlas: iPhone's floating glass tab bar hovers over the pages (they get its height as
+            // bottom padding) instead of sitting on a solid box.
+            extendBody: !useRail && AtlasNativeTabBar.supported,
             body: useRail
                 ? Row(
               children: [

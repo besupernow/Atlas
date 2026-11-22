@@ -118,24 +118,46 @@ class AllseerrMusic {
     }
     if (target == null) throw MusicRequestException(MusicStrings.requestNoMatch(album.title));
     DiscoverStatus status;
-    try {
-      final data = await _client.postJson('/request', {'mediaType': 'music', 'mediaId': target.mbid});
-      final media = data is Map<String, dynamic> ? data['media'] : null;
-      status = DiscoverStatus.fromSeerr(media is Map ? media['status'] : null);
-      if (!status.onServer && !status.inProgress) status = DiscoverStatus.requested;
-    } on SeerrApiException catch (error) {
-      // Someone in the house already asked for it: that's a yes, not a failure.
-      if (error.statusCode != 409) {
+    // Atlas: Allseerr checks the album with MusicBrainz itself. Give MusicBrainz a moment
+    // after our own lookups (we share the house's allowance), and when it still answers
+    // Allseerr with 503 (busy), wait it out and try again instead of failing the request.
+    await MusicBrainz.settle();
+    for (var attempt = 1; ; attempt++) {
+      try {
+        final data = await _client.postJson('/request', {'mediaType': 'music', 'mediaId': target.mbid});
+        final media = data is Map<String, dynamic> ? data['media'] : null;
+        status = DiscoverStatus.fromSeerr(media is Map ? media['status'] : null);
+        if (!status.onServer && !status.inProgress) status = DiscoverStatus.requested;
+        break;
+      } on SeerrApiException catch (error) {
+        // Someone in the house already asked for it: that's a yes, not a failure.
+        if (error.statusCode == 409) {
+          status = DiscoverStatus.requested;
+          break;
+        }
+        if (_musicBrainzBusy(error) && attempt < 4) {
+          appLogger.d('Music request: MusicBrainz busy for Allseerr, retrying (${target.title})');
+          await Future<void>.delayed(Duration(seconds: 2 * attempt * attempt));
+          continue;
+        }
         appLogger.w('Music request: Allseerr refused ${target.title} (${target.mbid})', error: error);
+        if (_musicBrainzBusy(error)) throw MusicRequestException(MusicStrings.musicBrainzBusy, cause: error);
         throw MusicRequestException(error.message.trim().isEmpty ? MusicStrings.requestFailed : error.message, cause: error);
+      } on SeerrPermissionException catch (error) {
+        throw MusicRequestException(error.display, cause: error);
       }
-      status = DiscoverStatus.requested;
-    } on SeerrPermissionException catch (error) {
-      throw MusicRequestException(error.display, cause: error);
     }
     StatusOverrides.instance.set(target.mbid, status);
     StatusOverrides.instance.set(album.mbid, status);
     return status;
+  }
+
+  /// Allseerr passing on MusicBrainz's "busy" (503 / rate limited), which goes away on retry.
+  static bool _musicBrainzBusy(SeerrApiException error) {
+    final message = error.message.toLowerCase();
+    return error.statusCode == 503 ||
+        error.statusCode == 429 ||
+        (message.contains('musicbrainz') && (message.contains('503') || message.contains('rate') || message.contains('unavailable')));
   }
 
   /// Every album Allseerr knows the household has or asked for, by release group id. Used to

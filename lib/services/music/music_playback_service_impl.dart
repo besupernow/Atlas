@@ -493,6 +493,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     // Atlas: AutoPlay starts over from what was picked.
     _autoplayItems.clear();
     _autoplayTopUp = null;
+    _autoplayDryUntil = null;
     _autoplaySeed = _queue.current;
     _consecutiveFailures = 0;
     _pendingRestoreResume = null;
@@ -1055,9 +1056,22 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   final Set<MediaItem> _autoplayItems = Set.identity();
   Future<bool>? _autoplayTopUp;
 
-  /// How few songs may be left before AutoPlay adds more (fetched ahead, so the next song is
-  /// ready to go gaplessly).
-  static const _autoplayAhead = 2;
+  /// How many AutoPlay songs it keeps lined up after everything you queued: as one plays,
+  /// another is added at the end, so the list always looks (and is) ready.
+  static const _autoplayKeep = 25;
+
+  /// After a top-up that found nothing new, wait this long before asking again.
+  static const _autoplayDryWait = Duration(minutes: 5);
+  DateTime? _autoplayDryUntil;
+
+  int get _upcomingAutoplay {
+    final queue = _queue.queue;
+    var count = 0;
+    for (var i = _queue.cursor + 1; i < queue.length; i++) {
+      if (_autoplayItems.contains(queue[i])) count++;
+    }
+    return count;
+  }
 
   bool get _autoplayWanted =>
       _queue.repeatMode == MusicRepeatMode.off && SettingsService.instance.read(SettingsService.musicAutoplay);
@@ -1093,7 +1107,9 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
 
   void _maybeTopUpAutoplay() {
     if (!_autoplayWanted || _autoplayTopUp != null || _queue.isEmpty) return;
-    if (_queue.length - 1 - _queue.cursor > _autoplayAhead) return;
+    if (_upcomingAutoplay >= _autoplayKeep) return;
+    final dry = _autoplayDryUntil;
+    if (dry != null && DateTime.now().isBefore(dry)) return;
     unawaited(_topUpAutoplay());
   }
 
@@ -1136,7 +1152,8 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
       final have = {for (final track in _queue.queue) track.globalKey};
       final picked = <MediaItem>[];
       // Take turns between the seeds so no one of them takes over.
-      for (var round = 0; picked.length < 25; round++) {
+      final need = max(1, _autoplayKeep - _upcomingAutoplay);
+      for (var round = 0; picked.length < need; round++) {
         var any = false;
         for (final batch in batches) {
           if (round >= batch.length) continue;
@@ -1147,7 +1164,11 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
         }
         if (!any) break;
       }
-      if (picked.isEmpty) return false;
+      if (picked.isEmpty) {
+        _autoplayDryUntil = DateTime.now().add(_autoplayDryWait);
+        return false;
+      }
+      _autoplayDryUntil = null;
       _queue.addToEnd(picked);
       _autoplayItems.addAll(picked);
       appLogger.d('AutoPlay: queued ${picked.length} similar songs');
@@ -1215,6 +1236,7 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   /// finalized.
   void _bindTrackServices(MediaItem track, MusicSource source) {
     _maybeTopUpAutoplay();
+    _warmLyrics();
     _tracker?.dispose();
     _tracker = null;
     final player = _player;
@@ -1795,7 +1817,8 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
   @override
   void toggleShuffle() {
     if (_queue.isEmpty) return;
-    _queue.toggleShuffle();
+    // AutoPlay's songs stay at the end in their order; only what you picked gets mixed.
+    _queue.toggleShuffle(pinned: _autoplayItems.contains);
     _afterQueueEdit();
   }
 
@@ -2090,11 +2113,35 @@ class MusicPlaybackServiceImpl extends MusicPlaybackService with WidgetsBindingO
     }
   }
 
+  /// Atlas: lyrics fetched once per song and kept (the last few dozen), so Now Playing's
+  /// lyrics are there the moment you open them; the next songs' are fetched ahead.
+  final Map<String, Future<Lyrics?>> _lyrics = {};
+
   @override
-  Future<Lyrics?> fetchLyrics(MediaItem track) async {
+  Future<Lyrics?> fetchLyrics(MediaItem track) {
+    final key = track.globalKey;
+    final cached = _lyrics.remove(key);
+    if (cached != null) return _lyrics[key] = cached;
     final client = _clientFor(track);
-    if (client == null) return null;
-    return client.fetchLyrics(track);
+    if (client == null) return Future.value();
+    final future = client.fetchLyrics(track).catchError((Object error) {
+      _lyrics.remove(key); // Try again next time.
+      throw error;
+    });
+    _lyrics[key] = future;
+    while (_lyrics.length > 40) {
+      _lyrics.remove(_lyrics.keys.first);
+    }
+    return future;
+  }
+
+  /// Fetches the lyrics for the song playing and the next two in the background.
+  void _warmLyrics() {
+    final queue = _queue.queue;
+    final start = _queue.cursor < 0 ? 0 : _queue.cursor;
+    for (var i = start; i < queue.length && i <= start + 2; i++) {
+      unawaited(fetchLyrics(queue[i]).then<void>((_) {}, onError: (Object _) {}));
+    }
   }
 
   MediaServerClient? _clientFor(MediaItem item) {

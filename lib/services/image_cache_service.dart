@@ -38,22 +38,24 @@ class PlexImageCacheManager extends ce_cache.DefaultCacheManager {
   static final PlexImageCacheManager instance = PlexImageCacheManager._();
 
   PlexImageCacheManager._()
-    : this.forTesting(
-        httpClientFactory: () => _SharedHttpClient(_artworkHttpClient.inner, _artworkRequestLimiter),
-        cacheDirectoryProvider: getApplicationCacheDirectory,
-      );
+      : this.forTesting(
+    httpClientFactory: () => _SharedHttpClient(_artworkHttpClient.inner, _artworkRequestLimiter),
+    cacheDirectoryProvider: getApplicationCacheDirectory,
+  );
 
   @visibleForTesting
   PlexImageCacheManager.forTesting({
     required http.Client Function() httpClientFactory,
     required ce_cache.CacheDirectoryProvider cacheDirectoryProvider,
   }) : super(
-         stalePeriod: const Duration(days: 14),
-         maxNrOfCacheObjects: 3000,
-         httpClientFactory: httpClientFactory,
-         cacheDirectoryProvider: cacheDirectoryProvider,
-         httpInterceptors: const [_ArtworkCredentialInterceptor()],
-       );
+    // Atlas: music adds a lot of small covers (each at a few sizes) on top of posters,
+    // so keep more, longer, and pages open from disk instead of refetching.
+    stalePeriod: const Duration(days: 30),
+    maxNrOfCacheObjects: 8000,
+    httpClientFactory: httpClientFactory,
+    cacheDirectoryProvider: cacheDirectoryProvider,
+    httpInterceptors: const [_ArtworkCredentialInterceptor()],
+  );
 
   /// Artwork URLs carry the server token in their query (see
   /// [redactArtworkUrl]), and the cache persists each entry's URL — and, with
@@ -62,11 +64,11 @@ class PlexImageCacheManager extends ce_cache.DefaultCacheManager {
   /// [_ArtworkCredentialInterceptor] restore the real one for the download.
   @override
   Stream<FileResponse> getFileStream(
-    String url, {
-    String? key,
-    Map<String, String>? headers,
-    bool withProgress = false,
-  }) {
+      String url, {
+        String? key,
+        Map<String, String>? headers,
+        bool withProgress = false,
+      }) {
     final redacted = redactArtworkUrl(url);
     if (redacted == url) return super.getFileStream(url, key: key, headers: headers, withProgress: withProgress);
     return super.getFileStream(
@@ -79,13 +81,13 @@ class PlexImageCacheManager extends ce_cache.DefaultCacheManager {
 
   @override
   Stream<FileResponse> getImageFile(
-    String url, {
-    String? key,
-    Map<String, String>? headers,
-    bool withProgress = false,
-    int? maxHeight,
-    int? maxWidth,
-  }) {
+      String url, {
+        String? key,
+        Map<String, String>? headers,
+        bool withProgress = false,
+        int? maxHeight,
+        int? maxWidth,
+      }) {
     // Plezy already requests server-sized artwork URLs. Avoid CE's disk-resize
     // path, which decodes downloaded images before writing resized PNG copies.
     return getFileStream(url, key: key, headers: headers, withProgress: withProgress);
@@ -130,11 +132,11 @@ class _SharedHttpClient extends http.BaseClient {
   final Duration _stallTimeout;
 
   _SharedHttpClient(
-    this._inner,
-    this._limiter, {
-    this._unclaimedResponseTimeout = const Duration(seconds: 2),
-    this._stallTimeout = const Duration(seconds: 30),
-  });
+      this._inner,
+      this._limiter, {
+        this._unclaimedResponseTimeout = const Duration(seconds: 2),
+        this._stallTimeout = const Duration(seconds: 30),
+      });
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -233,11 +235,11 @@ http.BaseRequest _abortable(http.BaseRequest request, Future<void> abortTrigger)
 /// Test hook: builds the throttled artwork client with an isolated limiter.
 @visibleForTesting
 http.Client createArtworkHttpClientForTest(
-  http.Client inner, {
-  int maxConcurrent = 6,
-  Duration unclaimedResponseTimeout = const Duration(seconds: 2),
-  Duration stallTimeout = const Duration(seconds: 30),
-}) => _SharedHttpClient(
+    http.Client inner, {
+      int maxConcurrent = 6,
+      Duration unclaimedResponseTimeout = const Duration(seconds: 2),
+      Duration stallTimeout = const Duration(seconds: 30),
+    }) => _SharedHttpClient(
   inner,
   _RequestLimiter(maxConcurrent),
   unclaimedResponseTimeout: unclaimedResponseTimeout,
@@ -245,12 +247,12 @@ http.Client createArtworkHttpClientForTest(
 );
 
 Stream<List<int>> _releaseWhenDone(
-  Stream<List<int>> stream,
-  void Function() release, {
-  required Duration claimTimeout,
-  required Duration stallTimeout,
-  required void Function() onStall,
-}) {
+    Stream<List<int>> stream,
+    void Function() release, {
+      required Duration claimTimeout,
+      required Duration stallTimeout,
+      required void Function() onStall,
+    }) {
   var claimed = false;
   var abandoned = false;
 

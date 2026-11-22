@@ -53,6 +53,7 @@ import '../providers/playback_state_provider.dart';
 import '../services/jellyfin_client.dart';
 import '../providers/seerr_account_provider.dart';
 import '../widgets/settings_builder.dart';
+import '../widgets/tab_switch_fade.dart';
 import '../widgets/tv_virtual_keyboard.dart';
 import '../services/api_cache.dart';
 import '../services/multi_server_manager.dart';
@@ -1098,12 +1099,16 @@ class _MainScreenState extends State<MainScreen>
       children: [
         const AuthErrorBanner(),
         Expanded(
-          child: IndexedStack(
+          // Atlas: switching tabs fades the new one up instead of cutting.
+          child: TabSwitchFade(
             index: _currentIndex,
-            clipBehavior: Clip.none,
-            children: [
-              for (var i = 0; i < _screens.length; i++) TickerMode(enabled: i == _currentIndex, child: _screens[i]),
-            ],
+            child: IndexedStack(
+              index: _currentIndex,
+              clipBehavior: Clip.none,
+              children: [
+                for (var i = 0; i < _screens.length; i++) TickerMode(enabled: i == _currentIndex, child: _screens[i]),
+              ],
+            ),
           ),
         ),
       ],
@@ -2167,6 +2172,10 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildPortraitShell(BuildContext context) {
     return Scaffold(
+      // Atlas: on iPhone the bar is UIKit's floating glass tab bar: the pages run underneath it
+      // (their scroll views get its height as bottom padding, so nothing ends up hidden) and it
+      // hovers over them, instead of sitting on a solid box.
+      extendBody: AtlasNativeTabBar.supported,
       body: _buildTickerAwareStack(),
       bottomNavigationBar: Column(
         key: _navBarKey,

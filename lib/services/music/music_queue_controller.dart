@@ -223,16 +223,31 @@ class MusicQueueController {
   /// Toggle shuffle. Turning it on anchors the current track first and
   /// shuffles the rest after it; turning it off restores canonical order
   /// with the cursor following the current track.
-  void toggleShuffle() {
+  /// Atlas: shuffle (or un-shuffle) only what's still to come, like Apple Music: what
+  /// already played stays put as history, and entries [pinned] says to keep (AutoPlay's
+  /// songs) stay at the end in their order instead of being mixed in.
+  void toggleShuffle({bool Function(MediaItem item)? pinned}) {
     if (_items.isEmpty) return;
+    final head = _cursor < 0 ? 0 : _cursor + 1;
+    final played = _order.sublist(0, head.clamp(0, _order.length));
+    final upcoming = _order.sublist(head.clamp(0, _order.length));
+    final kept = [
+      for (final i in upcoming)
+        if (pinned != null && pinned(_items[i])) i,
+    ];
+    final mix = [
+      for (final i in upcoming)
+        if (!(pinned != null && pinned(_items[i]))) i,
+    ];
     if (_shuffled) {
-      final currentItem = _order[_cursor];
-      _order = List.generate(_items.length, (i) => i);
-      _cursor = currentItem;
+      mix.sort(); // Back to the order they were queued in.
       _shuffled = false;
     } else {
-      _shuffleAnchoringCurrent();
+      mix.shuffle(_random);
+      _shuffled = true;
     }
+    _order = [...played, ...mix, ...kept];
+    if (_cursor < 0 && _order.isNotEmpty) _cursor = 0;
   }
 
   void _shuffleAnchoringCurrent() {

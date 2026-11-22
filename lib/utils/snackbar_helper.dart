@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../navigation/profile_navigation_scope.dart';
+import '../widgets/music/mini_player.dart';
 import 'layout_constants.dart';
 import 'platform_detector.dart';
 
@@ -17,34 +19,47 @@ const EdgeInsets _kDismissibleSnackBarPadding = EdgeInsets.symmetric(horizontal:
 /// Utility functions for showing snackbars throughout the application
 
 SnackBar _buildSnackBar(
-  BuildContext context,
-  ScaffoldMessengerState messenger, {
-  required Widget content,
-  required Color? backgroundColor,
-  required Duration duration,
-  bool? dismissible,
-}) {
+    BuildContext context,
+    ScaffoldMessengerState messenger, {
+      required Widget content,
+      required Color? backgroundColor,
+      required Duration duration,
+      bool? dismissible,
+    }) {
   final isDesktop = PlatformDetector.hasPointerUI();
   final tapToDismiss = dismissible ?? isDesktop;
   final body = tapToDismiss
       ? MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss),
-            child: Padding(padding: _kDismissibleSnackBarPadding, child: content),
-          ),
-        )
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss),
+      child: Padding(padding: _kDismissibleSnackBarPadding, child: content),
+    ),
+  )
       : content;
 
+  // Atlas: notifications float as a rounded card above whatever sits at the bottom (the
+  // navigation bar, and the music mini player when it's showing) instead of covering it.
   return SnackBar(
     content: body,
     backgroundColor: backgroundColor,
     duration: duration,
-    behavior: isDesktop ? SnackBarBehavior.floating : null,
+    behavior: SnackBarBehavior.floating,
     width: isDesktop ? _desktopSnackBarWidth(context) : null,
+    margin: isDesktop ? null : EdgeInsets.fromLTRB(12, 0, 12, 8 + _miniPlayerRoom(context)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     padding: tapToDismiss ? EdgeInsets.zero : null,
   );
+}
+
+/// Height the music mini player takes above the bottom bar (0 when it's hidden).
+double _miniPlayerRoom(BuildContext context) {
+  try {
+    return Provider.of<MiniPlayerInsetController?>(context, listen: false)?.overlayHeight ?? 0;
+  } catch (_) {
+    return 0;
+  }
 }
 
 double _desktopSnackBarWidth(BuildContext context) {
@@ -67,16 +82,18 @@ double _desktopSnackBarWidth(BuildContext context) {
 };
 
 void showSnackBar(
-  BuildContext context,
-  String message, {
-  SnackBarType type = SnackBarType.info,
-  Duration? duration,
-  bool? dismissible,
-}) {
+    BuildContext context,
+    String message, {
+      SnackBarType type = SnackBarType.info,
+      Duration? duration,
+      bool? dismissible,
+    }) {
   if (!context.mounted) return;
 
   final (backgroundColor, defaultDuration) = _snackBarStyle(type);
   final messenger = ScaffoldMessenger.of(context);
+  // A new one replaces the last instead of queueing up behind it.
+  messenger.removeCurrentSnackBar();
   messenger.showSnackBar(
     _buildSnackBar(
       context,
